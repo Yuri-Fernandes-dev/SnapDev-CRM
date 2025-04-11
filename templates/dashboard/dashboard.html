@@ -1,0 +1,340 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block title %}Dashboard - SaaS CRM{% endblock %}
+
+{% block extra_css %}
+<!-- Chart.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">Dashboard</h1>
+    <div class="btn-group">
+        <a href="?period=7" class="btn btn-outline-primary {% if period == '7' %}active{% endif %}">7 dias</a>
+        <a href="?period=30" class="btn btn-outline-primary {% if period == '30' %}active{% endif %}">30 dias</a>
+        <a href="?period=90" class="btn btn-outline-primary {% if period == '90' %}active{% endif %}">90 dias</a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="flex-shrink-0 bg-primary bg-opacity-10 p-3 rounded">
+                        <i class="fas fa-shopping-cart text-primary fa-lg"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="fw-normal text-muted mb-0">Vendas</h6>
+                        <h3 class="fw-bold mb-0">{{ total_sales }}</h3>
+                    </div>
+                </div>
+                <div class="progress" style="height: 5px;">
+                    <div class="progress-bar bg-primary" style="width: 75%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="flex-shrink-0 bg-success bg-opacity-10 p-3 rounded">
+                        <i class="fas fa-dollar-sign text-success fa-lg"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="fw-normal text-muted mb-0">Faturamento</h6>
+                        <h3 class="fw-bold mb-0">R$ {{ total_revenue|floatformat:2 }}</h3>
+                    </div>
+                </div>
+                <div class="progress" style="height: 5px;">
+                    <div class="progress-bar bg-success" style="width: 65%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="flex-shrink-0 bg-info bg-opacity-10 p-3 rounded">
+                        <i class="fas fa-chart-pie text-info fa-lg"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="fw-normal text-muted mb-0">Lucro</h6>
+                        <h3 class="fw-bold mb-0">R$ {{ total_profit|floatformat:2 }}</h3>
+                    </div>
+                </div>
+                <div class="progress" style="height: 5px;">
+                    <div class="progress-bar bg-info" style="width: {{ profit_margin }}%"></div>
+                </div>
+                <div class="text-end mt-2">
+                    <small class="text-muted">Margem: {{ profit_margin|floatformat:1 }}%</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="flex-shrink-0 bg-warning bg-opacity-10 p-3 rounded">
+                        <i class="fas fa-users text-warning fa-lg"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="fw-normal text-muted mb-0">Clientes</h6>
+                        <h3 class="fw-bold mb-0">{{ total_customers }}</h3>
+                    </div>
+                </div>
+                <div class="progress" style="height: 5px;">
+                    <div class="progress-bar bg-warning" style="width: 50%"></div>
+                </div>
+                <div class="text-end mt-2">
+                    <small class="text-muted">Novos: +{{ new_customers }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Sales Chart -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 pt-4 pb-2">
+                <h5 class="mb-0">Vendas Diárias</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="salesChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Low Stock Products -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 pt-4 pb-2 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Produtos com Estoque Baixo</h5>
+                <a href="{% url 'inventory_dashboard' %}" class="btn btn-sm btn-outline-primary">Ver todos</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Produto</th>
+                                <th class="text-center">Estoque</th>
+                                <th class="text-center">Alerta</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in low_stock_products %}
+                            <tr>
+                                <td>{{ product.name }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-danger">{{ product.stock_quantity }}</span>
+                                </td>
+                                <td class="text-center">{{ product.stock_alert_level }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-3">Nenhum produto com estoque baixo</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Products -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 pt-4 pb-2">
+                <h5 class="mb-0">Produtos Mais Vendidos</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Produto</th>
+                                <th class="text-end">Qtd. Vendida</th>
+                                <th class="text-end">Total (R$)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in top_products %}
+                            <tr>
+                                <td>{{ product.product__name }}</td>
+                                <td class="text-end">{{ product.total_qty }}</td>
+                                <td class="text-end">{{ product.total_sales|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-3">Nenhuma venda registrada no período</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Links -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 pt-4 pb-2">
+                <h5 class="mb-0">Acesso Rápido</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <a href="{% url 'point_of_sale' %}" class="text-decoration-none">
+                            <div class="card bg-primary bg-opacity-10 border-0 h-100">
+                                <div class="card-body text-center py-4">
+                                    <i class="fas fa-cash-register fa-2x text-primary mb-3"></i>
+                                    <h6 class="mb-0 text-primary">PDV</h6>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-sm-6">
+                        <a href="{% url 'product_create' %}" class="text-decoration-none">
+                            <div class="card bg-success bg-opacity-10 border-0 h-100">
+                                <div class="card-body text-center py-4">
+                                    <i class="fas fa-box-open fa-2x text-success mb-3"></i>
+                                    <h6 class="mb-0 text-success">Novo Produto</h6>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-sm-6">
+                        <a href="{% url 'customer_create' %}" class="text-decoration-none">
+                            <div class="card bg-info bg-opacity-10 border-0 h-100">
+                                <div class="card-body text-center py-4">
+                                    <i class="fas fa-user-plus fa-2x text-info mb-3"></i>
+                                    <h6 class="mb-0 text-info">Novo Cliente</h6>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-sm-6">
+                        <a href="{% url 'sales_report' %}" class="text-decoration-none">
+                            <div class="card bg-warning bg-opacity-10 border-0 h-100">
+                                <div class="card-body text-center py-4">
+                                    <i class="fas fa-chart-line fa-2x text-warning mb-3"></i>
+                                    <h6 class="mb-0 text-warning">Relatórios</h6>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Dados para o gráfico de vendas
+        const salesData = {
+            labels: {{ sales_chart_data.labels|safe }},
+            values: {{ sales_chart_data.values|safe }},
+            counts: {{ sales_chart_data.counts|safe }}
+        };
+        
+        // Configuração do gráfico de vendas
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        const salesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: salesData.labels,
+                datasets: [
+                    {
+                        label: 'Valor Total (R$)',
+                        data: salesData.values,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Quantidade de Vendas',
+                        data: salesData.counts,
+                        borderColor: '#fd7e14',
+                        backgroundColor: 'rgba(253, 126, 20, 0.1)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.3,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Valor (R$)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Quantidade'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.datasetIndex === 0) {
+                                    label += 'R$ ' + context.raw.toFixed(2);
+                                } else {
+                                    label += context.raw;
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %} 

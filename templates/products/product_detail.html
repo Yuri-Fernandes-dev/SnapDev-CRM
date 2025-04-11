@@ -1,0 +1,148 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{{ product.name }} - SaaS CRM{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">Detalhes do Produto</h1>
+    <div class="d-flex gap-2">
+        <a href="{% url 'product_update' product.id %}" class="btn btn-primary">
+            <i class="fas fa-edit me-1"></i> Editar
+        </a>
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+            <i class="fas fa-trash me-1"></i> Excluir
+        </button>
+        <a href="{% url 'product_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-4 mb-md-0">
+                        {% if product.image %}
+                            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid rounded">
+                        {% else %}
+                            <div class="bg-light d-flex align-items-center justify-content-center rounded" style="height: 200px;">
+                                <i class="fas fa-image fa-3x text-muted"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-8">
+                        <h3 class="mb-3">{{ product.name }}</h3>
+                        <div class="mb-4">
+                            <span class="badge bg-primary me-2">{{ product.category.name }}</span>
+                            {% if product.is_active %}
+                                <span class="badge bg-success">Ativo</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inativo</span>
+                            {% endif %}
+                        </div>
+                        
+                        <table class="table table-sm">
+                            <tr>
+                                <td class="border-0 ps-0"><strong>Código:</strong></td>
+                                <td class="border-0">{{ product.code|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="border-0 ps-0"><strong>Preço:</strong></td>
+                                <td class="border-0">R$ {{ product.price }}</td>
+                            </tr>
+                            <tr>
+                                <td class="border-0 ps-0"><strong>Custo:</strong></td>
+                                <td class="border-0">R$ {{ product.cost }}</td>
+                            </tr>
+                            <tr>
+                                <td class="border-0 ps-0"><strong>Margem:</strong></td>
+                                <td class="border-0">{{ margin }}%</td>
+                            </tr>
+                            <tr>
+                                <td class="border-0 ps-0"><strong>Estoque:</strong></td>
+                                <td class="border-0">
+                                    {% if product.stock_quantity <= product.stock_alert_level %}
+                                        <span class="badge bg-danger">{{ product.stock_quantity }}</span>
+                                    {% else %}
+                                        {{ product.stock_quantity }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="border-0 ps-0"><strong>Alerta de Estoque:</strong></td>
+                                <td class="border-0">{{ product.stock_alert_level }}</td>
+                            </tr>
+                            <tr>
+                                <td class="border-0 ps-0"><strong>Código de Barras:</strong></td>
+                                <td class="border-0">{{ product.barcode|default:"-" }}</td>
+                            </tr>
+                        </table>
+                        
+                        {% if product.description %}
+                            <div class="mt-4">
+                                <h5>Descrição</h5>
+                                <p class="text-muted mb-0">{{ product.description }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0 pt-4 pb-2">
+                <h5 class="mb-0">Informações Adicionais</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <td class="border-0 ps-0"><strong>Criado em</strong></td>
+                        <td class="border-0 text-end pe-0">{{ product.created_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="border-0 ps-0"><strong>Última atualização</strong></td>
+                        <td class="border-0 text-end pe-0">{{ product.updated_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 pt-4 pb-2">
+                <h5 class="mb-0">Histórico de Vendas</h5>
+            </div>
+            <div class="card-body">
+                <!-- Aqui você pode adicionar um gráfico ou lista de vendas recentes -->
+                <p class="text-muted mb-0">Funcionalidade em desenvolvimento</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir o produto <strong>{{ product.name }}</strong>?</p>
+                <p class="text-danger mb-0"><small>Esta ação não pode ser desfeita.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="post" action="{% url 'product_delete' product.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

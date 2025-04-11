@@ -1,0 +1,153 @@
+{% extends 'core/base.html' %}
+
+{% block title %}SaaS CRM - Sistema de Gestão para Pequenos Negócios{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="py-5">
+    <div class="row align-items-center">
+        <div class="col-lg-6">
+            <h1 class="display-4 fw-bold mb-4">Sistema completo para gerenciar seu negócio</h1>
+            <p class="lead mb-4">Uma solução simples e acessível para padarias, salões, oficinas e pequenos comércios controlarem vendas, estoque e clientes em um só lugar.</p>
+            <div class="d-grid gap-2 d-md-flex">
+                <a href="{% url 'register' %}" class="btn btn-primary btn-lg px-4 me-md-2">Comece Grátis</a>
+                <a href="{% url 'pricing' %}" class="btn btn-outline-secondary btn-lg px-4">Ver Planos</a>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <img src="https://via.placeholder.com/600x400" alt="SaaS CRM Dashboard" class="img-fluid rounded shadow">
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="py-5">
+    <h2 class="text-center mb-5">Recursos Principais</h2>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-cash-register fa-2x"></i>
+                    </div>
+                    <h3 class="card-title h5 mb-3">Ponto de Venda (PDV)</h3>
+                    <p class="card-text">Registre vendas de forma rápida e prática. Controle pagamentos, emita recibos e organize seu caixa.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-boxes fa-2x"></i>
+                    </div>
+                    <h3 class="card-title h5 mb-3">Controle de Estoque</h3>
+                    <p class="card-text">Monitore seu estoque em tempo real. Receba alertas de produtos acabando e evite perdas de vendas.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-chart-line fa-2x"></i>
+                    </div>
+                    <h3 class="card-title h5 mb-3">Dashboard Financeiro</h3>
+                    <p class="card-text">Acompanhe suas finanças com gráficos simples e intuitivos. Veja lucro, faturamento e custos de um jeito fácil.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-5 bg-light rounded-3 p-4 mt-5">
+    <div class="text-center">
+        <h2 class="mb-3">Pronto para crescer seu negócio?</h2>
+        <p class="lead mb-4">Experimente o SaaS CRM gratuitamente por 30 dias. Sem compromisso e sem necessidade de cartão de crédito.</p>
+        <a href="{% url 'register' %}" class="btn btn-primary btn-lg px-5">Comece Agora</a>
+    </div>
+</section>
+
+<!-- Testimonials Section -->
+<section class="py-5">
+    <h2 class="text-center mb-5">O que nossos clientes dizem</h2>
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex mb-3">
+                        <div class="text-warning">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                    <p class="card-text">"Finalmente posso controlar meu estoque sem complicações. O sistema me avisa quando um produto está acabando e as vendas nunca foram tão organizadas."</p>
+                    <div class="d-flex align-items-center mt-3">
+                        <div class="flex-shrink-0">
+                            <img src="https://via.placeholder.com/50" alt="Cliente" class="rounded-circle">
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5 class="mb-0">Maria Silva</h5>
+                            <p class="text-muted mb-0">Padaria Delícia</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex mb-3">
+                        <div class="text-warning">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                    <p class="card-text">"Em apenas dois meses usando o sistema, consegui identificar quais produtos vendem mais e quais dão mais lucro. Minha loja está muito mais rentável!"</p>
+                    <div class="d-flex align-items-center mt-3">
+                        <div class="flex-shrink-0">
+                            <img src="https://via.placeholder.com/50" alt="Cliente" class="rounded-circle">
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5 class="mb-0">João Santos</h5>
+                            <p class="text-muted mb-0">Loja de Roupas Fashion</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex mb-3">
+                        <div class="text-warning">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                    <p class="card-text">"O cadastro de clientes me ajudou a fidelizar meus fregueses. Agora consigo enviar promoções para os melhores clientes e as vendas aumentaram muito."</p>
+                    <div class="d-flex align-items-center mt-3">
+                        <div class="flex-shrink-0">
+                            <img src="https://via.placeholder.com/50" alt="Cliente" class="rounded-circle">
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5 class="mb-0">Ana Oliveira</h5>
+                            <p class="text-muted mb-0">Salão de Beleza Glamour</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %} 

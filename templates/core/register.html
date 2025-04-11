@@ -1,0 +1,86 @@
+{% extends 'core/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Cadastre-se - SaaS CRM{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <h2 class="fw-bold">Crie sua conta</h2>
+                    <p class="text-muted">Preencha os campos abaixo para criar sua conta</p>
+                </div>
+                
+                <form method="post" action="{% url 'register' %}">
+                    {% csrf_token %}
+                    
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <p>Por favor, corrija os erros abaixo:</p>
+                        {{ form.errors }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label for="id_username" class="form-label">Nome de usuário</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                            {{ form.username }}
+                        </div>
+                        {% if form.username.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form.username.errors }}
+                        </div>
+                        {% endif %}
+                        <div class="form-text">
+                            Obrigatório. 150 caracteres ou menos. Letras, números e @/./+/-/_ apenas.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_password1" class="form-label">Senha</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            {{ form.password1 }}
+                        </div>
+                        {% if form.password1.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form.password1.errors }}
+                        </div>
+                        {% endif %}
+                        <div class="form-text">
+                            Sua senha deve conter pelo menos 8 caracteres e não pode ser comum.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="id_password2" class="form-label">Confirme a senha</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            {{ form.password2 }}
+                        </div>
+                        {% if form.password2.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form.password2.errors }}
+                        </div>
+                        {% endif %}
+                        <div class="form-text">
+                            Digite a mesma senha para verificação.
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid mb-4">
+                        <button type="submit" class="btn btn-primary btn-lg">Criar Conta</button>
+                    </div>
+                    
+                    <div class="text-center">
+                        <p class="mb-0">Já tem uma conta? <a href="{% url 'login' %}" class="text-decoration-none">Faça login</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

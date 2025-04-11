@@ -1,0 +1,15 @@
+Django==4.2.20
+django-crispy-forms==2.0
+crispy-bootstrap5==2025.4
+Pillow==10.0.0
+python-dateutil==2.8.2
+pytz==2023.3
+whitenoise==6.4.0
+django-environ==0.10.0
+
+# Para produção (PostgreSQL)
+# psycopg2-binary==2.9.6
+
+# Para deploy no Heroku
+# gunicorn==20.1.0
+# dj-database-url==1.2.0 

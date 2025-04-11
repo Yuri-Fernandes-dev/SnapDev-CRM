@@ -1,0 +1,52 @@
+{% extends 'core/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{% if object %}Editar Categoria{% else %}Nova Categoria{% endif %} - SaaS CRM{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">{% if object %}Editar Categoria{% else %}Nova Categoria{% endif %}</h1>
+    <a href="{% url 'category_list' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Voltar
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Salvar Categoria
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 pt-4 pb-2">
+                <h5 class="mb-0">Dicas</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item border-0 px-0">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        <strong>Nome:</strong> Um nome claro e descritivo para a categoria.
+                    </li>
+                    <li class="list-group-item border-0 px-0">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        <strong>Descrição:</strong> Detalhes adicionais sobre os tipos de produtos desta categoria.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
