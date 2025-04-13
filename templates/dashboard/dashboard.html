@@ -15,6 +15,7 @@
         font-size: 24px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         transition: transform 0.3s ease;
+        flex-shrink: 0;
     }
     
     .card {
@@ -39,6 +40,13 @@
 
     .card-body {
         padding: 1.5rem;
+        height: 120px;  /* Altura fixa para todos os cards */
+        display: flex;
+        align-items: center;
+    }
+
+    .card-body > .d-flex {
+        width: 100%;
     }
 
     /* Cores de fundo para os cards */
@@ -159,6 +167,8 @@
         font-size: 1.75rem;
         font-weight: 600;
         letter-spacing: -0.5px;
+        margin: 0.5rem 0;
+        white-space: nowrap;
     }
 
     h6.text-uppercase {
@@ -245,6 +255,38 @@
         border-bottom: none !important;
     }
 
+    .products-scroll {
+        height: 400px;  /* Altura fixa */
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+
+    .products-scroll::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .products-scroll::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .products-scroll::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 3px;
+    }
+
+    .products-scroll::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    /* Ajuste do card de produtos */
+    .card.h-100 .card-body.p-0 {
+        height: auto;
+        max-height: 400px;
+        padding: 0 !important;
+    }
+
     .progress {
         height: 6px;
         border-radius: 3px;
@@ -287,6 +329,19 @@
     .text-success {
         color: #2b8a3e !important;
     }
+
+    .btn-info {
+        background: linear-gradient(135deg, #1c7ed6 0%, #1864ab 100%);
+        border: none;
+        color: #ffffff;
+        box-shadow: 0 2px 6px rgba(28, 126, 214, 0.2);
+    }
+
+    .btn-info:hover {
+        background: linear-gradient(135deg, #1864ab 0%, #145591 100%);
+        box-shadow: 0 4px 12px rgba(28, 126, 214, 0.3);
+        color: #ffffff;
+    }
 </style>
 {% endblock %}
 
@@ -306,9 +361,12 @@
                             <option value="30" {% if period == '30' %}selected{% endif %}>Últimos 30 dias</option>
                             <option value="90" {% if period == '90' %}selected{% endif %}>Últimos 90 dias</option>
                         </select>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary me-2">
                             <i class="fas fa-sync-alt me-1"></i> Atualizar
                         </button>
+                        <a href="{% url 'sales:reports' %}" class="btn btn-info">
+                            <i class="fas fa-chart-bar me-1"></i> Relatórios
+                        </a>
                     </form>
                 </div>
             </div>
@@ -325,10 +383,7 @@
                             <h6 class="text-uppercase text-muted mb-2">Total de Vendas</h6>
                             <h4 class="mb-0 text-primary-dark">{{ total_sales|default:0 }}</h4>
                             <div class="small text-muted mt-2">
-                                <i class="fas fa-{% if sales_variation >= 0 %}arrow-up{% else %}arrow-down{% endif %} me-1"></i>
-                                <span class="{% if sales_variation >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                    {% if sales_variation >= 0 %}+{% endif %}{{ sales_variation|floatformat:1 }}% desde o mês passado
-                                </span>
+                                <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
                             </div>
                         </div>
                         <div class="stat-icon bg-gradient-primary text-white">
@@ -347,10 +402,7 @@
                             <h6 class="text-uppercase text-muted mb-2">Receita Total</h6>
                             <h4 class="mb-0 text-success">R$ {{ total_revenue|floatformat:2 }}</h4>
                             <div class="small text-muted mt-2">
-                                <i class="fas fa-chart-line me-1"></i> 
-                                <span class="{% if revenue_variation >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                    {% if revenue_variation >= 0 %}+{% endif %}{{ revenue_variation|floatformat:1 }}% desde o mês passado
-                                </span>
+                                <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
                             </div>
                         </div>
                         <div class="stat-icon bg-gradient-success text-white">
@@ -369,10 +421,7 @@
                             <h6 class="text-uppercase text-muted mb-2">Ticket Médio</h6>
                             <h4 class="mb-0 text-info">R$ {{ average_ticket|floatformat:2 }}</h4>
                             <div class="small text-muted mt-2">
-                                <i class="fas fa-{% if ticket_variation >= 0 %}arrow-up{% else %}arrow-down{% endif %} me-1"></i>
-                                <span class="{% if ticket_variation >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                    {% if ticket_variation >= 0 %}+{% endif %}{{ ticket_variation|floatformat:1 }}% desde ontem
-                                </span>
+                                <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
                             </div>
                         </div>
                         <div class="stat-icon bg-gradient-info text-white">
@@ -389,9 +438,14 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-uppercase text-muted mb-2">Margem de Lucro</h6>
-                            <h4 class="mb-0 text-warning">{{ profit_margin|floatformat:1 }}%</h4>
-                            <div class="small text-success mt-2">
-                                <i class="fas fa-dollar-sign me-1"></i> R$ {{ total_profit|floatformat:2 }}
+                            <h4 class="mb-0 text-warning d-flex align-items-center">
+                                {{ profit_margin|floatformat:1 }}%
+                                <span class="text-success ms-2" style="font-size: 1rem;">
+                                    <i class="fas fa-dollar-sign me-1"></i>R$ {{ total_profit|floatformat:2 }}
+                                </span>
+                            </h4>
+                            <div class="small text-muted mt-2">
+                                <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
                             </div>
                         </div>
                         <div class="stat-icon bg-gradient-warning text-white">
@@ -424,28 +478,36 @@
             <div class="card h-100">
                 <div class="card-header bg-white pb-0 d-flex justify-content-between align-items-center">
                     <h6 class="mb-0">Produtos Mais Vendidos</h6>
-                    <a href="{% url 'product_list' %}" class="btn btn-sm btn-outline-primary">
+                    <a href="{% url 'products:product_list' %}" class="btn btn-sm btn-outline-primary">
                         Ver Todos
                     </a>
                 </div>
                 <div class="card-body p-0">
-                    <div class="list-group list-group-flush">
+                    <div class="list-group list-group-flush products-scroll">
                         {% for product in top_products|slice:":5" %}
                         <div class="list-group-item border-0">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="mb-1">{{ product.product__name }}</h6>
-                                    <small class="text-muted">
-                                        <i class="fas fa-box me-1"></i> {{ product.total_qty }} unidades
-                                    </small>
+                            <div class="d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="flex-grow-1 me-3">
+                                        <h6 class="mb-1" style="word-wrap: break-word;">{{ product.product__name }}</h6>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="text-success">R$ {{ product.total_sales|floatformat:2 }}</div>
+                                    </div>
                                 </div>
-                                <div class="text-end">
-                                    <div class="text-success">R$ {{ product.total_sales|floatformat:2 }}</div>
-                                    <small class="text-muted">{{ product.percentage|floatformat:1 }}%</small>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <small class="text-muted me-3">
+                                            <i class="fas fa-box me-1"></i> {{ product.total_qty }} unidades
+                                        </small>
+                                        <small class="text-muted">
+                                            {{ product.percentage|floatformat:1 }}%
+                                        </small>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="progress mt-2" style="height: 4px;">
-                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ product.percentage|floatformat:1 }}%"></div>
+                                <div class="progress" style="height: 4px;">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ product.percentage|floatformat:1 }}%"></div>
+                                </div>
                             </div>
                         </div>
                         {% endfor %}
@@ -507,60 +569,65 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const salesChartEl = document.getElementById('salesChart');
-    if (!salesChartEl) {
-        console.error('Elemento do gráfico não encontrado');
-        return;
-    }
-
-    const salesData = JSON.parse('{{ sales_chart_data|escapejs }}');
-    if (!salesData || !salesData.labels || !salesData.values) {
-        console.error('Dados do gráfico inválidos:', salesData);
-        return;
-    }
-
-    new Chart(salesChartEl, {
-        type: 'line',
+    // Dados do gráfico
+    const chartData = {{ chart_data|safe }};
+    
+    // Configuração do gráfico
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
         data: {
-            labels: salesData.labels,
-            datasets: [{
-                label: 'Vendas (R$)',
-                data: salesData.values,
-                fill: true,
-                borderColor: '#4e73df',
-                backgroundColor: 'rgba(78, 115, 223, 0.1)',
-                tension: 0.4,
-                pointRadius: 3,
-                pointBackgroundColor: '#4e73df',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                pointHoverRadius: 5,
-                pointHoverBackgroundColor: '#4e73df',
-                pointHoverBorderColor: '#fff',
-                pointHoverBorderWidth: 2
-            }]
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: 'Receita (R$)',
+                    data: chartData.revenue,
+                    backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1,
+                    borderRadius: 5,
+                    yAxisID: 'y-revenue'
+                },
+                {
+                    label: 'Vendas',
+                    data: chartData.sales,
+                    backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                    borderRadius: 5,
+                    yAxisID: 'y-sales'
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
             plugins: {
                 legend: {
-                    display: false
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15
+                    }
                 },
                 tooltip: {
-                    mode: 'index',
-                    intersect: false,
                     callbacks: {
                         label: function(context) {
                             let label = context.dataset.label || '';
                             if (label) {
                                 label += ': ';
                             }
-                            if (context.parsed.y !== null) {
-                                label += new Intl.NumberFormat('pt-BR', {
-                                    style: 'currency',
-                                    currency: 'BRL'
-                                }).format(context.parsed.y);
+                            if (context.dataset.yAxisID === 'y-revenue') {
+                                label += 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                            } else {
+                                label += context.parsed.y;
                             }
                             return label;
                         }
@@ -568,24 +635,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
+                x: {
                     grid: {
-                        drawBorder: false,
+                        display: false
+                    }
+                },
+                'y-revenue': {
+                    type: 'linear',
+                    position: 'left',
+                    grid: {
                         color: 'rgba(0, 0, 0, 0.1)'
                     },
                     ticks: {
                         callback: function(value) {
-                            return new Intl.NumberFormat('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL'
-                            }).format(value);
+                            return 'R$ ' + value.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            });
                         }
                     }
                 },
-                x: {
+                'y-sales': {
+                    type: 'linear',
+                    position: 'right',
                     grid: {
-                        drawBorder: false,
                         display: false
                     }
                 }

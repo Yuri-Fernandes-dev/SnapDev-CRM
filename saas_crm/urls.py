@@ -20,22 +20,46 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.views.decorators.csrf import ensure_csrf_cookie
+from core import views as core_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('core.urls')),
+    path('', core_views.home, name='home'),
+    path('sobre/', core_views.about, name='about'),
+    path('precos/', core_views.pricing, name='pricing'),
+    path('dashboard/', include('dashboard.urls')),
     path('produtos/', include('products.urls')),
     path('vendas/', include('sales.urls')),
     path('clientes/', include('customers.urls')),
-    path('dashboard/', include('dashboard.urls')),
     
     # Autenticação
-    path('login/', ensure_csrf_cookie(auth_views.LoginView.as_view(template_name='core/login.html')), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(next_page='home'), name='logout'),
-    path('reset-senha/', auth_views.PasswordResetView.as_view(template_name='core/password_reset.html'), name='password_reset'),
-    path('reset-senha/enviado/', auth_views.PasswordResetDoneView.as_view(template_name='core/password_reset_done.html'), name='password_reset_done'),
-    path('reset-senha/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(template_name='core/password_reset_confirm.html'), name='password_reset_confirm'),
-    path('reset-senha/completo/', auth_views.PasswordResetCompleteView.as_view(template_name='core/password_reset_complete.html'), name='password_reset_complete'),
+    path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
+    path('register/', core_views.register, name='register'),
+    
+    # Password Reset URLs
+    path('password_reset/', auth_views.PasswordResetView.as_view(
+        template_name='core/password_reset.html',
+        email_template_name='core/password_reset_email.html',
+        subject_template_name='core/password_reset_subject.txt'
+    ), name='password_reset'),
+    path('password_reset/done/', auth_views.PasswordResetDoneView.as_view(
+        template_name='core/password_reset_done.html'
+    ), name='password_reset_done'),
+    path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
+        template_name='core/password_reset_confirm.html'
+    ), name='password_reset_confirm'),
+    path('reset/done/', auth_views.PasswordResetCompleteView.as_view(
+        template_name='core/password_reset_complete.html'
+    ), name='password_reset_complete'),
+    
+    # Perfil e Configurações
+    path('perfil/', core_views.profile, name='profile'),
+    path('configuracoes/', core_views.company_settings, name='company_settings'),
+    
+    # Assinaturas
+    path('planos/', core_views.subscription_plans, name='subscription_plans'),
+    path('planos/<str:plan>/assinar/', core_views.update_subscription, name='update_subscription'),
 ]
 
 # Adicionar URLs para arquivos de media em ambiente de desenvolvimento

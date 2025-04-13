@@ -6,10 +6,10 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">Produtos</h1>
     <div class="d-flex gap-2">
-        <a href="{% url 'category_list' %}" class="btn btn-outline-primary">
+        <a href="{% url 'products:category_list' %}" class="btn btn-outline-primary">
             <i class="fas fa-tags me-1"></i> Categorias
         </a>
-        <a href="{% url 'product_create' %}" class="btn btn-primary">
+        <a href="{% url 'products:product_create' %}" class="btn btn-primary">
             <i class="fas fa-plus me-1"></i> Novo Produto
         </a>
     </div>
@@ -63,6 +63,8 @@
                         <th scope="col">Código</th>
                         <th scope="col">Produto</th>
                         <th scope="col">Categoria</th>
+                        <th scope="col">Tamanhos</th>
+                        <th scope="col">Cores</th>
                         <th scope="col">Preço</th>
                         <th scope="col">Estoque</th>
                         <th scope="col">Status</th>
@@ -83,11 +85,39 @@
                         </td>
                         <td>{{ product.code }}</td>
                         <td>
-                            <a href="{% url 'product_detail' product.id %}" class="text-decoration-none">
+                            <a href="{% url 'products:product_detail' product.id %}" class="text-decoration-none">
                                 {{ product.name }}
                             </a>
                         </td>
                         <td>{{ product.category.name|default:"-" }}</td>
+                        <td>
+                            {% if product.has_variations %}
+                                {% for variation in product.variations.all %}
+                                    {% if forloop.first or previous_size != variation.size.name %}
+                                        <span class="badge bg-info">{{ variation.size.name }}</span>
+                                        {% with previous_size=variation.size.name %}{% endwith %}
+                                    {% endif %}
+                                {% empty %}
+                                    -
+                                {% endfor %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if product.has_variations %}
+                                {% for variation in product.variations.all %}
+                                    {% if forloop.first or previous_color != variation.color.name %}
+                                        <span class="badge" style="background-color: {{ variation.color.code|default:'#6c757d' }}">{{ variation.color.name }}</span>
+                                        {% with previous_color=variation.color.name %}{% endwith %}
+                                    {% endif %}
+                                {% empty %}
+                                    -
+                                {% endfor %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
                         <td>R$ {{ product.price }}</td>
                         <td>
                             {% if product.stock_quantity <= product.stock_alert_level %}
@@ -105,23 +135,23 @@
                         </td>
                         <td class="text-end">
                             <div class="btn-group">
-                                <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-outline-primary">
+                                <a href="{% url 'products:product_detail' product.id %}" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-eye"></i>
                                 </a>
-                                <a href="{% url 'product_update' product.id %}" class="btn btn-sm btn-outline-primary">
+                                <a href="{% url 'products:product_update' product.id %}" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <a href="{% url 'product_delete' product.id %}" class="btn btn-sm btn-outline-danger">
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ product.id }}">
                                     <i class="fas fa-trash"></i>
-                                </a>
+                                </button>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center py-4">
+                        <td colspan="10" class="text-center py-4">
                             <p class="mb-0 text-muted">Nenhum produto encontrado.</p>
-                            <a href="{% url 'product_create' %}" class="btn btn-sm btn-primary mt-2">
+                            <a href="{% url 'products:product_create' %}" class="btn btn-sm btn-primary mt-2">
                                 <i class="fas fa-plus me-1"></i> Novo Produto
                             </a>
                         </td>
@@ -179,4 +209,29 @@
     </ul>
 </nav>
 {% endif %}
+
+<!-- Modais de Exclusão -->
+{% for product in products %}
+<div class="modal fade" id="deleteModal{{ product.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir o produto "{{ product.name }}"?</p>
+                <p class="text-danger mb-0"><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <form method="post" action="{% url 'products:product_delete' product.id %}">
+                    {% csrf_token %}
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Excluir Produto</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
 {% endblock %} 

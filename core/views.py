@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, authenticate
 from django.contrib import messages
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
 from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import Company, Subscription
 from django.db.models import Sum, Count, Avg, F, DecimalField
@@ -12,46 +13,103 @@ from datetime import timedelta
 from sales.models import Sale, SaleItem
 from products.models import Product
 from customers.models import Customer
+from django import forms
 
-@login_required
+class CompanyRegistrationForm(forms.ModelForm):
+    class Meta:
+        model = Company
+        fields = ['name', 'email', 'phone']
+
+class ExtendedUserCreationForm(UserCreationForm):
+    email = forms.EmailField(required=True)
+    
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'password1', 'password2')
+
 def home(request):
     """
     View para a página inicial
     """
     return render(request, 'core/home.html')
 
-@login_required
 def about(request):
     """
     View para a página sobre
     """
     return render(request, 'core/about.html')
 
-@login_required
 def pricing(request):
     """
-    View para a página de preços
+    View para exibir os planos e preços
     """
     return render(request, 'core/pricing.html')
 
-@login_required
 def register(request):
     """
-    View para registro de usuário
+    View para registro de usuário e empresa
     """
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(request, 'Conta criada com sucesso!')
-            return redirect('dashboard')
+        user_form = ExtendedUserCreationForm(request.POST)
+        company_form = CompanyRegistrationForm(request.POST)
+        
+        # Verificar se o nome de usuário já existe
+        username = request.POST.get('username')
+        if User.objects.filter(username=username).exists():
+            messages.error(request, f'O nome de usuário "{username}" já está em uso. Por favor, escolha outro.')
+            return render(request, 'core/register.html', {
+                'user_form': user_form,
+                'company_form': company_form
+            })
+        
+        if user_form.is_valid() and company_form.is_valid():
+            try:
+                # Criar usuário
+                user = user_form.save()
+                user.email = user_form.cleaned_data['email']
+                user.save()
+                
+                # Verificar se o usuário já tem uma empresa
+                company_exists = Company.objects.filter(owner=user).exists()
+                
+                if not company_exists:
+                    # Criar empresa
+                    company = company_form.save(commit=False)
+                    company.owner = user
+                    company.save()
+                    
+                    # Criar assinatura básica
+                    subscription = Subscription.objects.create(
+                        company=company,
+                        plan='basic',
+                        status='active',
+                        start_date=timezone.now().date(),
+                        end_date=timezone.now().date() + timedelta(days=30),
+                        price=0  # Trial gratuito de 30 dias
+                    )
+                else:
+                    # O usuário já possui uma empresa, usar a existente
+                    company = Company.objects.get(owner=user)
+                
+                # Fazer login
+                login(request, user)
+                messages.success(request, 'Conta criada com sucesso! Você tem 30 dias gratuitos para testar o sistema.')
+                return redirect('dashboard:dashboard')
+            except Exception as e:
+                # Se ocorrer algum erro, desfazer a criação do usuário para evitar problemas
+                if 'user' in locals():
+                    User.objects.filter(id=user.id).delete()
+                messages.error(request, f'Erro ao criar conta: {str(e)}')
         else:
-            # Re-renderizar com erros de validação
-            return render(request, 'core/register.html', {'form': form})
+            messages.error(request, 'Por favor, corrija os erros abaixo.')
     else:
-        form = UserCreationForm()
-    return render(request, 'core/register.html', {'form': form})
+        user_form = ExtendedUserCreationForm()
+        company_form = CompanyRegistrationForm()
+    
+    return render(request, 'core/register.html', {
+        'user_form': user_form,
+        'company_form': company_form
+    })
 
 @login_required
 def profile(request):
@@ -97,113 +155,193 @@ def dashboard(request):
     """
     View para o dashboard principal
     """
+    # Obter o período selecionado do request
+    period = request.GET.get('period', '30')
+    period = int(period)
+    
     today = timezone.now().date()
-    yesterday = today - timedelta(days=1)
-    thirty_days_ago = today - timedelta(days=30)
-    last_month_start = (today - timedelta(days=60)).replace(day=1)
-    last_month_end = (today - timedelta(days=30)).replace(day=1) - timedelta(days=1)
-
-    # Dados do mês atual
-    current_month_sales = Sale.objects.filter(
-        created_at__date__gte=thirty_days_ago,
+    period_start = today - timedelta(days=period)
+    
+    # Vendas do período - garantir que todos os itens sejam da empresa
+    sales = Sale.objects.filter(
+        company=request.user.company,
+        created_at__date__gte=period_start,
         created_at__date__lte=today,
-        status='paid'
-    )
+        status='paid',
+        items__product__company=request.user.company  # Garantir que os itens sejam da empresa
+    ).distinct().select_related('customer', 'payment_method')
     
-    total_sales = current_month_sales.count()
+    # Cálculos gerais
+    total_sales = sales.count()
     
-    # Dados do mês anterior para comparação de vendas
-    last_month_total_sales = Sale.objects.filter(
-        created_at__date__gte=last_month_start,
-        created_at__date__lte=last_month_end,
-        status='paid'
-    ).count()
+    # Calcular receita total apenas dos itens da empresa
+    sale_items = SaleItem.objects.filter(
+        sale__in=sales,
+        product__company=request.user.company
+    ).select_related('product', 'sale')
     
-    # Calcular variação do número de vendas
-    sales_variation = ((total_sales - last_month_total_sales) / float(last_month_total_sales or 1) * 100)
-
-    current_revenue = current_month_sales.aggregate(
-        total=Coalesce(Sum('total_amount'), 0, output_field=DecimalField())
-    )['total']
+    total_revenue = sum(item.subtotal for item in sale_items)
+    total_cost = sum(item.quantity * item.product.cost for item in sale_items)
     
-    current_ticket = current_month_sales.aggregate(
-        avg=Coalesce(Avg('total_amount'), 0, output_field=DecimalField())
-    )['avg']
-
-    # Dados do mês anterior
-    last_month_sales = Sale.objects.filter(
-        created_at__date__gte=last_month_start,
-        created_at__date__lte=last_month_end,
-        status='paid'
-    )
+    total_profit = float(total_revenue) - float(total_cost)
+    profit_margin = (total_profit / float(total_revenue) * 100) if total_revenue > 0 else 0
+    average_ticket = float(total_revenue) / total_sales if total_sales > 0 else 0
     
-    last_month_revenue = last_month_sales.aggregate(
-        total=Coalesce(Sum('total_amount'), 0, output_field=DecimalField())
-    )['total']
-
-    # Dados de ontem
-    yesterday_sales = Sale.objects.filter(
-        created_at__date=yesterday,
-        status='paid'
-    )
+    # Dados para o gráfico de evolução
+    dates = []
+    sales_data = []
+    revenue_data = []
     
-    yesterday_ticket = yesterday_sales.aggregate(
-        avg=Coalesce(Avg('total_amount'), 0, output_field=DecimalField())
-    )['avg']
-
-    # Calcular variações evitando divisão por zero
-    revenue_variation = ((current_revenue - last_month_revenue) / float(last_month_revenue or 1) * 100)
-    ticket_variation = ((current_ticket - yesterday_ticket) / float(yesterday_ticket or 1) * 100)
-
-    # Calcular lucro e margem
-    total_profit = current_month_sales.aggregate(
-        total=Coalesce(Sum('profit'), 0, output_field=DecimalField())
-    )['total']
+    # Gerar datas em ordem crescente
+    for i in range(period - 1, -1, -1):
+        date = today - timedelta(days=i)
+        dates.append(date.strftime('%d/%m'))
+        
+        # Buscar vendas e itens do dia
+        daily_items = SaleItem.objects.filter(
+            sale__company=request.user.company,
+            sale__created_at__date=date,
+            sale__status='paid',
+            product__company=request.user.company
+        )
+        
+        # Contar vendas únicas e somar receita
+        daily_sales = daily_items.values('sale').distinct().count()
+        daily_revenue = sum(item.subtotal for item in daily_items)
+        
+        sales_data.append(daily_sales)
+        revenue_data.append(float(daily_revenue))
     
-    profit_margin = (total_profit / float(current_revenue or 1) * 100)
-
-    # Produtos mais vendidos
-    top_products = SaleItem.objects.filter(
-        sale__created_at__date__gte=thirty_days_ago,
-        sale__status='paid'
-    ).values('product__name').annotate(
-        total_qty=Sum('quantity'),
-        total_sales=Sum(F('quantity') * F('unit_price')),
-        percentage=F('total_sales') * 100.0 / current_revenue if current_revenue > 0 else 0
-    ).order_by('-total_sales')[:5]
-
-    # Produtos com estoque baixo
-    low_stock_products = Product.objects.filter(
-        stock_quantity__lte=F('stock_alert_level')
-    ).annotate(
-        stock_value=F('stock_quantity') * F('price')
-    ).order_by('stock_quantity')
-
-    # Dados para o gráfico de vendas
-    sales_data = Sale.objects.filter(
-        created_at__date__gte=thirty_days_ago,
-        status='paid'
-    ).values('created_at__date').annotate(
-        total=Sum('total_amount')
-    ).order_by('created_at__date')
-
-    sales_chart_data = {
-        'labels': [sale['created_at__date'].strftime('%d/%m') for sale in sales_data],
-        'values': [float(sale['total']) for sale in sales_data]
+    # Preparar dados do gráfico
+    chart_data = {
+        'labels': dates,
+        'revenue': revenue_data,
+        'sales': sales_data
     }
-
+    
+    # Top produtos - usando os itens já filtrados
+    product_sales = {}
+    for item in sale_items:
+        if item.product_id not in product_sales:
+            product_sales[item.product_id] = {
+                'product__name': item.product.name,
+                'product__id': item.product_id,
+                'product__price': float(item.product.price),
+                'total_qty': 0,
+                'total_sales': 0
+            }
+        product_sales[item.product_id]['total_qty'] += item.quantity
+        product_sales[item.product_id]['total_sales'] += float(item.subtotal)
+    
+    # Converter para lista e ordenar
+    top_products = sorted(
+        product_sales.values(),
+        key=lambda x: x['total_sales'],
+        reverse=True
+    )[:5]
+    
+    # Calcular percentuais
+    total_product_sales = sum(p['total_sales'] for p in top_products)
+    for product in top_products:
+        product['percentage'] = (product['total_sales'] / total_product_sales * 100) if total_product_sales > 0 else 0
+    
+    # Produtos com baixo estoque
+    low_stock_products = Product.objects.filter(
+        company=request.user.company,
+        is_active=True,
+        stock_quantity__lte=F('stock_alert_level')
+    ).order_by('stock_quantity')[:5]
+    
+    # Clientes recentes
+    recent_customers = Customer.objects.filter(
+        company=request.user.company
+    ).order_by('-created_at')[:5]
+    
     context = {
+        'period': period,
         'total_sales': total_sales,
-        'sales_variation': sales_variation,
-        'total_revenue': current_revenue,
-        'revenue_variation': revenue_variation,
-        'average_ticket': current_ticket,
-        'ticket_variation': ticket_variation,
-        'profit_margin': profit_margin,
+        'total_revenue': total_revenue,
+        'average_ticket': average_ticket,
         'total_profit': total_profit,
+        'profit_margin': profit_margin,
+        'chart_data': chart_data,
         'top_products': top_products,
         'low_stock_products': low_stock_products,
-        'sales_chart_data': sales_chart_data,
+        'recent_customers': recent_customers,
     }
-
+    
     return render(request, 'dashboard/dashboard.html', context)
+
+@login_required
+def subscription_plans(request):
+    """
+    View para exibir os planos de assinatura
+    """
+    plans = [
+        {
+            'name': 'Básico',
+            'price': 49.90,
+            'features': [
+                'Até 100 produtos',
+                'Até 500 vendas por mês',
+                'Relatórios básicos',
+                'Suporte por email'
+            ]
+        },
+        {
+            'name': 'Padrão',
+            'price': 99.90,
+            'features': [
+                'Até 500 produtos',
+                'Vendas ilimitadas',
+                'Relatórios avançados',
+                'Suporte prioritário',
+                'Sistema de fidelidade'
+            ]
+        },
+        {
+            'name': 'Premium',
+            'price': 199.90,
+            'features': [
+                'Produtos ilimitados',
+                'Vendas ilimitadas',
+                'Relatórios personalizados',
+                'Suporte 24/7',
+                'Sistema de fidelidade',
+                'API de integração',
+                'Multi-usuários'
+            ]
+        }
+    ]
+    
+    return render(request, 'core/subscription_plans.html', {'plans': plans})
+
+@login_required
+def update_subscription(request, plan):
+    """
+    View para atualizar a assinatura
+    """
+    if plan not in ['basic', 'standard', 'premium']:
+        messages.error(request, 'Plano inválido.')
+        return redirect('subscription_plans')
+    
+    company = request.company
+    subscription = company.subscription
+    
+    # Aqui você implementaria a integração com o gateway de pagamento
+    # Por enquanto, vamos apenas atualizar o plano
+    subscription.plan = plan
+    subscription.status = 'active'
+    subscription.start_date = timezone.now().date()
+    subscription.end_date = timezone.now().date() + timedelta(days=30)
+    
+    if plan == 'basic':
+        subscription.price = 49.90
+    elif plan == 'standard':
+        subscription.price = 99.90
+    else:
+        subscription.price = 199.90
+    
+    subscription.save()
+    messages.success(request, f'Assinatura atualizada para o plano {subscription.get_plan_display()}!')
+    return redirect('dashboard')

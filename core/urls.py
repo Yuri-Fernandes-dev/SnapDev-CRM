@@ -3,8 +3,7 @@ from . import views
 from sales.views import sales_report
 
 urlpatterns = [
-    path('', views.dashboard, name='dashboard'),
-    path('home/', views.home, name='home'),
+    path('', views.home, name='home'),
     path('sobre/', views.about, name='about'),
     path('precos/', views.pricing, name='pricing'),
     path('cadastro/', views.register, name='register'),

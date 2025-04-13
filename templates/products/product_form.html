@@ -8,11 +8,11 @@
     <h1 class="h2 mb-0">{% if object %}Editar Produto{% else %}Novo Produto{% endif %}</h1>
     <div class="d-flex gap-2">
         {% if object %}
-        <a href="{% url 'product_detail' object.id %}" class="btn btn-outline-primary">
+        <a href="{% url 'products:product_detail' object.id %}" class="btn btn-outline-primary">
             <i class="fas fa-eye me-1"></i> Ver Produto
         </a>
         {% endif %}
-        <a href="{% url 'product_list' %}" class="btn btn-outline-secondary">
+        <a href="{% url 'products:product_list' %}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i> Voltar
         </a>
     </div>
@@ -42,11 +42,46 @@
                             {{ form.cost|as_crispy_field }}
                         </div>
                         <div class="col-md-4">
-                            {{ form.category|as_crispy_field }}
+                            <div class="d-flex gap-2 align-items-end">
+                                <div class="flex-grow-1">
+                                    {{ form.category|as_crispy_field }}
+                                </div>
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#categoryModal">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="hasVariations" name="has_variations" {% if object and object.has_variations %}checked{% endif %}>
+                                <label class="form-check-label" for="hasVariations">
+                                    Este produto possui variações de tamanho e cor
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="variationsSection" class="{% if not object or not object.has_variations %}d-none{% endif %}">
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="productSize" class="form-label">Tamanho</label>
+                                <input type="text" class="form-control" id="productSize" name="size" placeholder="Ex: P, M, G, 38, 40" value="{{ size_value|default:'' }}">
+                                <div class="form-text">Digite os tamanhos separados por vírgula (P, M, G)</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="productColor" class="form-label">Cor</label>
+                                <input type="text" class="form-control" id="productColor" name="color" placeholder="Ex: Azul, Vermelho, Preto" value="{{ color_value|default:'' }}">
+                                <div class="form-text">Digite as cores separadas por vírgula (Azul, Vermelho)</div>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="row mb-3">
+                    <div class="row mb-3" id="generalStockSection">
                         <div class="col-md-4">
                             {{ form.stock_quantity|as_crispy_field }}
                         </div>
@@ -143,4 +178,88 @@
         {% endif %}
     </div>
 </div>
-{% endblock %} 
+
+<!-- Modal de Nova Categoria -->
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nova Categoria</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="categoryForm">
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Nome da Categoria</label>
+                        <input type="text" class="form-control" id="categoryName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="categoryDescription" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="categoryDescription" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveCategoryBtn">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle variações
+    const hasVariationsCheckbox = document.getElementById('hasVariations');
+    const variationsSection = document.getElementById('variationsSection');
+    const generalStockSection = document.getElementById('generalStockSection');
+    
+    if (hasVariationsCheckbox && variationsSection) {
+        hasVariationsCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                variationsSection.classList.remove('d-none');
+            } else {
+                variationsSection.classList.add('d-none');
+            }
+        });
+    }
+
+    // Salvar categoria via AJAX
+    const saveCategoryBtn = document.getElementById('saveCategoryBtn');
+    if (saveCategoryBtn) {
+        saveCategoryBtn.addEventListener('click', function() {
+            const name = document.getElementById('categoryName').value;
+            const description = document.getElementById('categoryDescription').value;
+            
+            fetch('{% url "products:category_create_ajax" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    name: name,
+                    description: description
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const categorySelect = document.getElementById('id_category');
+                    const option = new Option(data.category.name, data.category.id, true, true);
+                    categorySelect.add(option);
+                    
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('categoryModal'));
+                    modal.hide();
+                    
+                    document.getElementById('categoryForm').reset();
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock extra_js %} 

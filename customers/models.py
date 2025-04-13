@@ -2,22 +2,26 @@ from django.db import models
 from django.utils import timezone
 from decimal import Decimal
 from django.db.models import Sum
+from core.models import Company
 
 class LoyaltyTier(models.Model):
-    name = models.CharField('Nome', max_length=50)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, verbose_name='Empresa', related_name='loyalty_tiers')
+    name = models.CharField('Nome', max_length=100)
     min_points = models.IntegerField('Pontos Mínimos')
     discount_percentage = models.DecimalField('Desconto (%)', max_digits=5, decimal_places=2)
-    points_multiplier = models.DecimalField('Multiplicador de Pontos', max_digits=3, decimal_places=2, default=1.0)
+    description = models.TextField('Descrição', blank=True, null=True)
     
     class Meta:
         verbose_name = 'Nível de Fidelidade'
         verbose_name_plural = 'Níveis de Fidelidade'
         ordering = ['min_points']
+        unique_together = ['company', 'name']
     
     def __str__(self):
         return self.name
 
 class Customer(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, verbose_name='Empresa', related_name='customers')
     name = models.CharField('Nome', max_length=100)
     email = models.EmailField('E-mail', max_length=100, blank=True, null=True)
     phone = models.CharField('Telefone', max_length=20, blank=True, null=True)
@@ -40,6 +44,7 @@ class Customer(models.Model):
         verbose_name = 'Cliente'
         verbose_name_plural = 'Clientes'
         ordering = ['name']
+        unique_together = [['company', 'email'], ['company', 'phone']]  # Prevent duplicate contacts within same company
     
     def __str__(self):
         return self.name

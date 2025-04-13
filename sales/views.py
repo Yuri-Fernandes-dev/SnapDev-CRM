@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
-from django.db.models import Q, Sum, Count, Avg, F, DecimalField, CharField, Value
+from django.http import JsonResponse, HttpResponse
+from django.db.models import Q, Sum, Count, Avg, F, DecimalField, CharField, Value, ExpressionWrapper
 from django.db.models.functions import Concat
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -13,6 +13,30 @@ from django.core.serializers.json import DjangoJSONEncoder
 from .models import Sale, SaleItem, PaymentMethod
 from products.models import Product
 from customers.models import Customer
+from django.urls import reverse
+
+# Adicionar imports para PDF
+import io
+from django.template.loader import get_template
+from django.template import Context
+from urllib.parse import quote
+
+# Try to import WeasyPrint, but don't fail if it's not available
+WEASYPRINT_AVAILABLE = False
+try:
+    from weasyprint import HTML
+    WEASYPRINT_AVAILABLE = True
+except (ImportError, OSError):
+    # OSError can happen if the required system libraries are missing
+    print("WeasyPrint is not available. PDF generation will be disabled.")
+    # Create a dummy HTML class as a placeholder
+    class HTML:
+        def __init__(self, *args, **kwargs):
+            pass
+        def render(self, *args, **kwargs):
+            return None
+        def write_pdf(self, *args, **kwargs):
+            return None
 
 @login_required
 def sale_list(request):
@@ -26,7 +50,7 @@ def sale_list(request):
     date_to = request.GET.get('date_to', '')
     
     # Query base
-    sales = Sale.objects.all().select_related('customer', 'payment_method')
+    sales = Sale.objects.filter(company=request.user.company).select_related('customer', 'payment_method')
     
     # Filtro por busca
     if query:
@@ -74,7 +98,7 @@ def sale_list(request):
     sales_page = paginator.get_page(page_number)
     
     # Contexto
-    payment_methods = PaymentMethod.objects.all()
+    payment_methods = PaymentMethod.objects.filter(company=request.user.company)
     
     context = {
         'sales': sales_page,
@@ -95,24 +119,41 @@ def sale_list(request):
 @login_required
 def sale_detail(request, pk):
     """
-    View para detalhes de uma venda
+    View para exibir detalhes de uma venda
     """
-    sale = get_object_or_404(Sale, pk=pk)
-    items = sale.items.all()
-    return render(request, 'sales/sale_detail.html', {'sale': sale, 'items': items})
+    sale = get_object_or_404(
+        Sale.objects.select_related('customer', 'payment_method')
+        .prefetch_related('items__product'),
+        id=pk,
+        company=request.user.company
+    )
+    
+    context = {
+        'sale': sale,
+        'weasyprint_available': WEASYPRINT_AVAILABLE,
+    }
+    
+    return render(request, 'sales/sale_detail.html', context)
 
 @login_required
 def point_of_sale(request):
     """
     View principal do PDV (Ponto de Venda)
     """
-    products = Product.objects.filter(is_active=True)
-    categories = Product.objects.values_list('category__name', flat=True).distinct()
-    payment_methods = PaymentMethod.objects.all()
-    customers = Customer.objects.all()
+    products = Product.objects.filter(company=request.user.company, is_active=True)
+    categories = Product.objects.filter(company=request.user.company).values_list('category__name', flat=True).distinct()
+    payment_methods = PaymentMethod.objects.filter(company=request.user.company)
+    customers = Customer.objects.filter(company=request.user.company)
     
     # Preparar dados dos clientes para JSON
-    customers_data = [{'id': c.id, 'name': c.name} for c in customers]
+    customers_data = [
+        {
+            'id': c.id, 
+            'name': c.name,
+            'phone': c.phone if c.phone else None
+        } 
+        for c in customers
+    ]
     
     context = {
         'products': products,
@@ -120,6 +161,7 @@ def point_of_sale(request):
         'payment_methods': payment_methods,
         'customers': customers,
         'customers_json': json.dumps(customers_data, cls=DjangoJSONEncoder),
+        'weasyprint_available': WEASYPRINT_AVAILABLE,
     }
     
     return render(request, 'sales/point_of_sale.html', context)
@@ -132,7 +174,7 @@ def product_search(request):
     query = request.GET.get('query', '')
     category = request.GET.get('category', '')
     
-    products = Product.objects.filter(is_active=True)
+    products = Product.objects.filter(company=request.user.company, is_active=True)
     
     if query:
         products = products.filter(
@@ -168,7 +210,7 @@ def create_sale(request):
             data = json.loads(request.body)
             
             customer_id = data.get('customer_id')
-            payment_method_id = data.get('payment_method_id')
+            payment_method_id = data.get('payment_method')
             items_data = data.get('items', [])
             discount = data.get('discount', 0)
             notes = data.get('notes', '')
@@ -190,11 +232,17 @@ def create_sale(request):
                 product_id = item_data.get('product_id')
                 quantity = int(item_data.get('quantity'))
                 
-                product = Product.objects.get(pk=product_id)
-                if product.stock_quantity < quantity:
+                try:
+                    product = Product.objects.get(pk=product_id)
+                    if product.stock_quantity < quantity:
+                        return JsonResponse({
+                            'success': False,
+                            'error': f'Estoque insuficiente para o produto {product.name}'
+                        }, status=400)
+                except Product.DoesNotExist:
                     return JsonResponse({
                         'success': False,
-                        'error': f'Estoque insuficiente para o produto {product.name}'
+                        'error': f'Produto não encontrado (ID: {product_id})'
                     }, status=400)
             
             # Calcular o total antes de criar a venda
@@ -213,6 +261,7 @@ def create_sale(request):
                 customer_id=customer_id if customer_id else None,
                 payment_method_id=payment_method_id,
                 created_by=request.user,
+                company=request.user.company,
                 discount=discount,
                 notes=notes,
                 total=total,
@@ -244,10 +293,33 @@ def create_sale(request):
             sale.status = 'paid'
             sale.save()
             
+            # Construir a URL do recibo
+            try:
+                receipt_url = request.build_absolute_uri(
+                    reverse('sales:sale_receipt', args=[sale.id])
+                )
+                
+                # Verificar se o cliente tem telefone
+                has_phone = False
+                phone = None
+                if sale.customer and sale.customer.phone:
+                    has_phone = True
+                    phone = ''.join(filter(str.isdigit, sale.customer.phone))
+                    if not phone.startswith('55'):
+                        phone = '55' + phone
+            except Exception as e:
+                print(f"Erro ao gerar URL de recibo: {str(e)}")
+                receipt_url = None
+                has_phone = False
+                phone = None
+            
             return JsonResponse({
                 'success': True,
                 'sale_id': sale.id,
-                'total': float(sale.total)
+                'total': float(sale.total),
+                'receipt_url': receipt_url,
+                'has_phone': has_phone,
+                'customer_phone': phone
             })
             
         except Exception as e:
@@ -279,12 +351,14 @@ def sales_report(request):
     
     # Vendas no período atual
     sales = Sale.objects.filter(
+        company=request.user.company,
         created_at__gte=start_date,
         status='paid'
     )
     
     # Vendas no período anterior
     sales_previous = Sale.objects.filter(
+        company=request.user.company,
         created_at__gte=start_date_previous,
         created_at__lt=start_date,
         status='paid'
@@ -330,14 +404,20 @@ def sales_report(request):
         total_revenue=Sum('total', output_field=DecimalField(max_digits=10, decimal_places=2)),
         avg_ticket=Avg('total', output_field=DecimalField(max_digits=10, decimal_places=2))
     ).order_by('created_at__date')
-    
-    # Adicionar taxa de conversão por dia
+
+    # Preparar dados para o gráfico
+    chart_data = {
+        'labels': [],
+        'values': []
+    }
+
     for sale in sales_by_date:
-        daily_attempts = Sale.objects.filter(
-            created_at__date=sale['date']
-        ).count()
-        sale['conversion_rate'] = (sale['total_sales'] / daily_attempts * 100) if daily_attempts > 0 else 0
-    
+        chart_data['labels'].append(sale['date'].strftime('%d/%m'))
+        chart_data['values'].append(float(sale['total_revenue']))
+
+    # Converter para JSON
+    sales_chart_data = json.dumps(chart_data)
+
     # Produtos mais vendidos
     top_products = SaleItem.objects.filter(
         sale__in=sales
@@ -374,6 +454,21 @@ def sales_report(request):
         if not seller['name'] or seller['name'].strip() == ' ':
             seller['name'] = seller['username']
     
+    # Calcular lucro total e margem de lucro
+    total_profit = SaleItem.objects.filter(
+        sale__in=sales
+    ).annotate(
+        profit=ExpressionWrapper(
+            (F('price') - F('product__cost')) * F('quantity'),
+            output_field=DecimalField(max_digits=10, decimal_places=2)
+        )
+    ).aggregate(
+        total=Sum('profit')
+    )['total'] or Decimal('0')
+
+    # Calcular margem de lucro
+    profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+    
     context = {
         'period': period,
         'total_sales': total_sales,
@@ -387,6 +482,141 @@ def sales_report(request):
         'sales_by_date': sales_by_date,
         'top_products': top_products,
         'sellers': sellers,
+        'total_profit': total_profit,
+        'profit_margin': profit_margin,
+        'sales_chart_data': sales_chart_data,
     }
     
     return render(request, 'sales/sales_report.html', context)
+
+@login_required
+def reports(request):
+    """
+    View para exibir relatórios de vendas
+    """
+    # Obtém o período selecionado (padrão: 30 dias)
+    period = request.GET.get('period', '30')
+    start_date = timezone.now().date() - timedelta(days=int(period))
+    
+    # Obtém as vendas do período
+    sales = Sale.objects.filter(
+        company=request.user.company,
+        created_at__date__gte=start_date,
+        status='paid'
+    )
+    
+    # Calcula as métricas
+    total_sales = sales.count()
+    total_revenue = sales.aggregate(total=Sum('total'))['total'] or 0
+    average_ticket = total_revenue / total_sales if total_sales > 0 else 0
+    
+    # Calcula o lucro total e margem
+    total_cost = sales.aggregate(
+        total=Sum(F('items__quantity') * F('items__cost_price'))
+    )['total'] or 0
+    total_profit = total_revenue - total_cost
+    profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # Dados para o gráfico
+    sales_by_date = sales.values('created_at__date').annotate(
+        total_sales=Count('id'),
+        total_revenue=Sum('total')
+    ).order_by('created_at__date')
+    
+    chart_data = {
+        'labels': [sale['created_at__date'].strftime('%d/%m/%Y') for sale in sales_by_date],
+        'revenue': [float(sale['total_revenue']) for sale in sales_by_date],
+        'sales': [sale['total_sales'] for sale in sales_by_date]
+    }
+    
+    context = {
+        'period': period,
+        'total_sales': total_sales,
+        'total_revenue': total_revenue,
+        'average_ticket': average_ticket,
+        'total_profit': total_profit,
+        'profit_margin': profit_margin,
+        'chart_data': chart_data
+    }
+    
+    return render(request, 'sales/reports.html', context)
+
+@login_required
+def cancel_sale(request, sale_id):
+    """
+    View para cancelar uma venda
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+        
+    sale = get_object_or_404(
+        Sale,
+        id=sale_id,
+        company=request.user.company
+    )
+    
+    if sale.status == 'cancelled':
+        return JsonResponse({'error': 'Venda já está cancelada'}, status=400)
+        
+    # Retorna os produtos para o estoque
+    for item in sale.items.all():
+        item.product.quantity += item.quantity
+        item.product.save()
+        
+    sale.status = 'cancelled'
+    sale.save()
+    
+    return JsonResponse({'success': True})
+
+@login_required
+def sale_receipt(request, pk):
+    """
+    View para gerar recibo de venda
+    """
+    sale = get_object_or_404(Sale, pk=pk, company=request.user.company)
+    items = sale.items.all().select_related('product')
+    
+    context = {
+        'sale': sale,
+        'items': items,
+        'weasyprint_available': WEASYPRINT_AVAILABLE,
+    }
+    
+    return render(request, 'sales/sale_receipt.html', context)
+
+@login_required
+def sale_pdf(request, pk):
+    """
+    Trata solicitações de PDF/WhatsApp mesmo sem o WeasyPrint
+    """
+    try:
+        sale = get_object_or_404(Sale, pk=pk, company=request.user.company)
+        
+        # Check if PDF generation is available
+        if not WEASYPRINT_AVAILABLE and not request.GET.get('whatsapp') == 'true':
+            messages.warning(request, "A geração de PDF está desativada. Faltam bibliotecas necessárias (WeasyPrint/GTK).")
+            return redirect('sales:sale_receipt', pk=pk)
+        
+        # Verificar se deve enviar para WhatsApp
+        if request.GET.get('whatsapp') == 'true' and sale.customer and sale.customer.phone:
+            # Criar telefone para WhatsApp
+            phone = ''.join(filter(str.isdigit, sale.customer.phone))
+            if not phone.startswith('55'):
+                phone = '55' + phone
+                
+            # Criar uma mensagem para o WhatsApp
+            receipt_url = request.build_absolute_uri(
+                reverse('sales:sale_receipt', args=[sale.id])
+            )
+            message = f"Olá {sale.customer.name}, segue o recibo da sua compra #{sale.id} no valor de R$ {sale.total:.2f}. Obrigado pela preferência! {receipt_url}"
+            whatsapp_url = f"https://wa.me/{phone}?text={quote(message)}"
+            
+            return redirect(whatsapp_url)
+        
+        # Caso não seja WhatsApp, redireciona para a página de recibo
+        return redirect('sales:sale_receipt', pk=pk)
+        
+    except Exception as e:
+        print(f"Erro ao gerar PDF/WhatsApp: {str(e)}")
+        messages.error(request, "Não foi possível gerar o PDF ou enviar por WhatsApp.")
+        return redirect('sales:sale_receipt', pk=pk)

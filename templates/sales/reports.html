@@ -1,0 +1,200 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Relatórios - SaaS CRM{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header bg-white pb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Relatório de Vendas</h5>
+                        <form method="get" class="d-flex align-items-center">
+                            <select name="period" id="period" class="form-select me-2" style="width: auto;">
+                                <option value="1" {% if period == '1' %}selected{% endif %}>Hoje</option>
+                                <option value="7" {% if period == '7' %}selected{% endif %}>Últimos 7 dias</option>
+                                <option value="15" {% if period == '15' %}selected{% endif %}>Últimos 15 dias</option>
+                                <option value="30" {% if period == '30' %}selected{% endif %}>Últimos 30 dias</option>
+                                <option value="90" {% if period == '90' %}selected{% endif %}>Últimos 90 dias</option>
+                            </select>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sync-alt me-1"></i> Atualizar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Cards de Métricas -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-xl-3 col-md-6">
+                            <div class="card card-sales">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="text-uppercase text-muted mb-2">Total de Vendas</h6>
+                                            <h4 class="mb-0 text-primary-dark">{{ total_sales|default:0 }}</h4>
+                                        </div>
+                                        <div class="stat-icon bg-gradient-primary text-white">
+                                            <i class="fas fa-shopping-cart"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-3 col-md-6">
+                            <div class="card card-revenue">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="text-uppercase text-muted mb-2">Receita Total</h6>
+                                            <h4 class="mb-0 text-success">R$ {{ total_revenue|floatformat:2 }}</h4>
+                                        </div>
+                                        <div class="stat-icon bg-gradient-success text-white">
+                                            <i class="fas fa-dollar-sign"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-3 col-md-6">
+                            <div class="card card-ticket">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="text-uppercase text-muted mb-2">Ticket Médio</h6>
+                                            <h4 class="mb-0 text-info">R$ {{ average_ticket|floatformat:2 }}</h4>
+                                        </div>
+                                        <div class="stat-icon bg-gradient-info text-white">
+                                            <i class="fas fa-receipt"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-3 col-md-6">
+                            <div class="card card-profit">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="text-uppercase text-muted mb-2">Margem de Lucro</h6>
+                                            <h4 class="mb-0 text-warning">
+                                                {{ profit_margin|floatformat:1 }}%
+                                                <small class="text-success d-block mt-1">
+                                                    R$ {{ total_profit|floatformat:2 }}
+                                                </small>
+                                            </h4>
+                                        </div>
+                                        <div class="stat-icon bg-gradient-warning text-white">
+                                            <i class="fas fa-chart-line"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico de Vendas -->
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    const chartData = {{ chart_data|safe }};
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: 'Receita (R$)',
+                    data: chartData.revenue,
+                    backgroundColor: 'rgba(46, 184, 92, 0.2)',
+                    borderColor: 'rgb(46, 184, 92)',
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Vendas',
+                    data: chartData.sales,
+                    backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                    borderColor: 'rgb(52, 152, 219)',
+                    borderWidth: 1,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Receita (R$)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + value.toFixed(2);
+                        }
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Número de Vendas'
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.datasetIndex === 0) {
+                                label += 'R$ ' + context.parsed.y.toFixed(2);
+                            } else {
+                                label += context.parsed.y;
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %} 

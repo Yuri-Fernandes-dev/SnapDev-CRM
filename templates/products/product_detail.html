@@ -6,13 +6,13 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">Detalhes do Produto</h1>
     <div class="d-flex gap-2">
-        <a href="{% url 'product_update' product.id %}" class="btn btn-primary">
+        <a href="{% url 'products:product_update' product.id %}" class="btn btn-primary">
             <i class="fas fa-edit me-1"></i> Editar
         </a>
         <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
             <i class="fas fa-trash me-1"></i> Excluir
         </button>
-        <a href="{% url 'product_list' %}" class="btn btn-outline-secondary">
+        <a href="{% url 'products:product_list' %}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i> Voltar
         </a>
     </div>
@@ -21,71 +21,55 @@
 <div class="row">
     <div class="col-lg-8">
         <div class="card border-0 shadow-sm">
-            <div class="card-body">
+            <div class="card-body p-4">
                 <div class="row">
-                    <div class="col-md-4 text-center mb-4 mb-md-0">
+                    <div class="col-md-4">
                         {% if product.image %}
-                            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid rounded">
+                        <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-fluid rounded">
                         {% else %}
-                            <div class="bg-light d-flex align-items-center justify-content-center rounded" style="height: 200px;">
-                                <i class="fas fa-image fa-3x text-muted"></i>
-                            </div>
+                        <div class="bg-light rounded p-4 text-center">
+                            <i class="fas fa-image fa-3x text-muted"></i>
+                        </div>
                         {% endif %}
                     </div>
                     <div class="col-md-8">
-                        <h3 class="mb-3">{{ product.name }}</h3>
-                        <div class="mb-4">
-                            <span class="badge bg-primary me-2">{{ product.category.name }}</span>
-                            {% if product.is_active %}
-                                <span class="badge bg-success">Ativo</span>
-                            {% else %}
-                                <span class="badge bg-secondary">Inativo</span>
-                            {% endif %}
-                        </div>
+                        <h2 class="h4 mb-3">{{ product.name }}</h2>
+                        <p class="text-muted mb-4">{{ product.description|default:"Sem descrição" }}</p>
                         
-                        <table class="table table-sm">
-                            <tr>
-                                <td class="border-0 ps-0"><strong>Código:</strong></td>
-                                <td class="border-0">{{ product.code|default:"-" }}</td>
-                            </tr>
-                            <tr>
-                                <td class="border-0 ps-0"><strong>Preço:</strong></td>
-                                <td class="border-0">R$ {{ product.price }}</td>
-                            </tr>
-                            <tr>
-                                <td class="border-0 ps-0"><strong>Custo:</strong></td>
-                                <td class="border-0">R$ {{ product.cost }}</td>
-                            </tr>
-                            <tr>
-                                <td class="border-0 ps-0"><strong>Margem:</strong></td>
-                                <td class="border-0">{{ margin }}%</td>
-                            </tr>
-                            <tr>
-                                <td class="border-0 ps-0"><strong>Estoque:</strong></td>
-                                <td class="border-0">
-                                    {% if product.stock_quantity <= product.stock_alert_level %}
-                                        <span class="badge bg-danger">{{ product.stock_quantity }}</span>
-                                    {% else %}
-                                        {{ product.stock_quantity }}
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border-0 ps-0"><strong>Alerta de Estoque:</strong></td>
-                                <td class="border-0">{{ product.stock_alert_level }}</td>
-                            </tr>
-                            <tr>
-                                <td class="border-0 ps-0"><strong>Código de Barras:</strong></td>
-                                <td class="border-0">{{ product.barcode|default:"-" }}</td>
-                            </tr>
-                        </table>
-                        
-                        {% if product.description %}
-                            <div class="mt-4">
-                                <h5>Descrição</h5>
-                                <p class="text-muted mb-0">{{ product.description }}</p>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Código</small>
+                                <strong>{{ product.code|default:"-" }}</strong>
                             </div>
-                        {% endif %}
+                            <div class="col-6">
+                                <small class="text-muted d-block">Categoria</small>
+                                <strong>{{ product.category.name }}</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Preço</small>
+                                <strong>R$ {{ product.price }}</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Custo</small>
+                                <strong>R$ {{ product.cost }}</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Estoque</small>
+                                <strong>{{ product.stock_quantity }} unidades</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Alerta de Estoque</small>
+                                <strong>{{ product.stock_alert_level }} unidades</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Código de Barras</small>
+                                <strong>{{ product.barcode|default:"-" }}</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Status</small>
+                                <strong>{{ product.is_active|yesno:"Ativo,Inativo" }}</strong>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -107,39 +91,37 @@
                         <td class="border-0 ps-0"><strong>Última atualização</strong></td>
                         <td class="border-0 text-end pe-0">{{ product.updated_at|date:"d/m/Y H:i" }}</td>
                     </tr>
+                    <tr>
+                        <td class="border-0 ps-0"><strong>Total de vendas</strong></td>
+                        <td class="border-0 text-end pe-0">{{ product.sales_count }}</td>
+                    </tr>
+                    <tr>
+                        <td class="border-0 ps-0"><strong>Última venda</strong></td>
+                        <td class="border-0 text-end pe-0">{{ product.last_sale_date|date:"d/m/Y"|default:"-" }}</td>
+                    </tr>
                 </table>
-            </div>
-        </div>
-        
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-transparent border-0 pt-4 pb-2">
-                <h5 class="mb-0">Histórico de Vendas</h5>
-            </div>
-            <div class="card-body">
-                <!-- Aqui você pode adicionar um gráfico ou lista de vendas recentes -->
-                <p class="text-muted mb-0">Funcionalidade em desenvolvimento</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal de Confirmação de Exclusão -->
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+<!-- Modal de Exclusão -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel">Confirmar Exclusão</h5>
+                <h5 class="modal-title">Confirmar Exclusão</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>Tem certeza que deseja excluir o produto <strong>{{ product.name }}</strong>?</p>
-                <p class="text-danger mb-0"><small>Esta ação não pode ser desfeita.</small></p>
+                <p>Tem certeza que deseja excluir o produto "{{ product.name }}"?</p>
+                <p class="text-danger mb-0"><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <form method="post" action="{% url 'product_delete' product.id %}">
+                <form method="post" action="{% url 'products:product_delete' product.id %}">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Excluir Produto</button>
                 </form>
             </div>
         </div>

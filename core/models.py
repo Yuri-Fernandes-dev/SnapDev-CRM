@@ -1,9 +1,13 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 # Create your models here.
 
 class Company(models.Model):
+    owner = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name='Proprietário', null=True, blank=True)
     name = models.CharField('Nome da Empresa', max_length=100)
     cnpj = models.CharField('CNPJ', max_length=18, blank=True, null=True)
     email = models.EmailField('E-mail', max_length=100, blank=True, null=True)
@@ -13,6 +17,9 @@ class Company(models.Model):
     state = models.CharField('Estado', max_length=2, blank=True, null=True)
     zipcode = models.CharField('CEP', max_length=9, blank=True, null=True)
     logo = models.ImageField('Logo', upload_to='company_logos/', blank=True, null=True)
+    is_active = models.BooleanField('Ativa', default=True)
+    created_at = models.DateTimeField('Criado em', default=timezone.now)
+    updated_at = models.DateTimeField('Atualizado em', default=timezone.now)
     
     class Meta:
         verbose_name = 'Empresa'
@@ -24,6 +31,12 @@ class Company(models.Model):
     def get_full_address(self):
         address_parts = [part for part in [self.address, self.city, self.state, self.zipcode] if part]
         return ', '.join(address_parts) if address_parts else ''
+    
+    def save(self, *args, **kwargs):
+        if not self.pk:  # Se é uma nova instância
+            self.created_at = timezone.now()
+        self.updated_at = timezone.now()
+        super().save(*args, **kwargs)
 
 class Subscription(models.Model):
     STATUS_CHOICES = (
@@ -60,4 +73,27 @@ class Subscription(models.Model):
             self.start_date and 
             self.end_date and
             self.start_date <= today <= self.end_date
+        )
+
+@receiver(post_save, sender=User)
+def create_company_for_user(sender, instance, created, **kwargs):
+    """
+    Signal para criar automaticamente uma empresa e assinatura para novos usuários
+    """
+    if created and not hasattr(instance, 'company'):
+        # Criar empresa
+        company = Company.objects.create(
+            owner=instance,
+            name=f'Empresa de {instance.username}',
+            email=instance.email
+        )
+        
+        # Criar assinatura básica
+        Subscription.objects.create(
+            company=company,
+            plan='basic',
+            status='active',
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date() + timezone.timedelta(days=30),
+            price=0  # Trial gratuito de 30 dias
         )

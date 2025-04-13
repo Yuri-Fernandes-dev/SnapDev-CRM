@@ -8,6 +8,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
     <!-- Custom CSS -->
     <style>
         body {
@@ -99,6 +101,20 @@
             border: none;
             box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
         }
+        
+        .footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            padding: 0.5rem 1rem;
+            background-color: #fff;
+            border-top: 1px solid #e9ecef;
+            z-index: 1030;
+        }
+        
+        .main-content {
+            padding-bottom: 3rem;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -113,27 +129,27 @@
             
             <ul class="sidebar-menu">
                 <li class="sidebar-menu-item">
-                    <a href="{% url 'dashboard' %}" class="sidebar-menu-link {% if request.path == '/dashboard/' %}active{% endif %}">
+                    <a href="{% url 'dashboard:dashboard' %}" class="sidebar-menu-link {% if '/dashboard/' in request.path %}active{% endif %}">
                         <i class="fas fa-tachometer-alt"></i> Dashboard
                     </a>
                 </li>
                 <li class="sidebar-menu-item">
-                    <a href="{% url 'point_of_sale' %}" class="sidebar-menu-link {% if '/vendas/pdv/' in request.path %}active{% endif %}">
+                    <a href="{% url 'sales:point_of_sale' %}" class="sidebar-menu-link {% if '/vendas/pdv/' in request.path %}active{% endif %}">
                         <i class="fas fa-cash-register"></i> PDV
                     </a>
                 </li>
                 <li class="sidebar-menu-item">
-                    <a href="{% url 'product_list' %}" class="sidebar-menu-link {% if '/produtos/' in request.path %}active{% endif %}">
-                        <i class="fas fa-boxes"></i> Produtos
+                    <a href="{% url 'products:product_list' %}" class="sidebar-menu-link {% if '/produtos/' in request.path %}active{% endif %}">
+                        <i class="fas fa-box"></i> Produtos
                     </a>
                 </li>
                 <li class="sidebar-menu-item">
-                    <a href="{% url 'sale_list' %}" class="sidebar-menu-link {% if '/vendas/' in request.path and not '/vendas/pdv/' in request.path %}active{% endif %}">
+                    <a href="{% url 'sales:sale_list' %}" class="sidebar-menu-link {% if '/vendas/' in request.path and not '/vendas/pdv/' in request.path %}active{% endif %}">
                         <i class="fas fa-shopping-cart"></i> Vendas
                     </a>
                 </li>
                 <li class="sidebar-menu-item">
-                    <a href="{% url 'customer_list' %}" class="sidebar-menu-link {% if '/clientes/' in request.path %}active{% endif %}">
+                    <a href="{% url 'customers:customer_list' %}" class="sidebar-menu-link {% if '/clientes/' in request.path %}active{% endif %}">
                         <i class="fas fa-users"></i> Clientes
                     </a>
                 </li>
@@ -236,29 +252,16 @@
 
                 {% block content %}{% endblock %}
             </div>
-
-            <!-- Footer -->
-            <footer class="bg-dark text-white py-3 mt-auto">
-                <div class="container-fluid">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p class="mb-0">Sistema de gestão para pequenos negócios.</p>
-                        </div>
-                        <div class="col-md-6 text-md-end">
-                            <p class="mb-0">&copy; {% now "Y" %} SaaS CRM. Todos os direitos reservados.</p>
-                        </div>
-                    </div>
-                </div>
-            </footer>
         </div>
     </div>
 
-    <!-- Bootstrap JS Bundle with Popper -->
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- CSRF Token para AJAX -->
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Custom JS -->
     <script>
-        // Função para obter o cookie pelo nome
+        // CSRF Token functionality
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
@@ -273,23 +276,21 @@
             }
             return cookieValue;
         }
-        
-        // Configurar o token CSRF para todas as solicitações AJAX
-        const csrftoken = getCookie('csrftoken');
-        
-        // Adiciona o token CSRF a todas as solicitações AJAX
+
         document.addEventListener('DOMContentLoaded', function() {
-            // Toggle sidebar em dispositivos móveis
+            // Sidebar toggle functionality
             const sidebarToggle = document.getElementById('sidebar-toggle');
             const sidebar = document.getElementById('sidebar');
             
-            if (sidebarToggle) {
+            if (sidebarToggle && sidebar) {
                 sidebarToggle.addEventListener('click', function() {
                     sidebar.classList.toggle('active');
                 });
             }
+
+            // Configure CSRF token for all AJAX requests
+            const csrftoken = getCookie('csrftoken');
             
-            // Configura AJAX para incluir token CSRF em todas as solicitações
             if (window.fetch) {
                 const originalFetch = window.fetch;
                 window.fetch = function(url, options = {}) {
@@ -297,7 +298,6 @@
                         options.headers = {};
                     }
                     
-                    // Adiciona cabeçalho CSRF se for uma solicitação que pode mudar o estado (POST, PUT, DELETE, etc.)
                     if (options.method && options.method.toUpperCase() !== 'GET') {
                         options.headers['X-CSRFToken'] = csrftoken;
                     }
@@ -305,21 +305,8 @@
                     return originalFetch(url, options);
                 };
             }
-            
-            // Para bibliotecas como jQuery, se estiver usando
-            if (window.jQuery) {
-                jQuery.ajaxSetup({
-                    beforeSend: function(xhr, settings) {
-                        if (!(/^(GET|HEAD|OPTIONS|TRACE)$/.test(settings.type)) && !this.crossDomain) {
-                            xhr.setRequestHeader("X-CSRFToken", csrftoken);
-                        }
-                    }
-                });
-            }
         });
     </script>
-    
-    <!-- Custom JS -->
     {% block extra_js %}{% endblock %}
 </body>
 </html> 

@@ -2,85 +2,174 @@
 {% load static %}
 {% load humanize %}
 
-{% block title %}Detalhes da Venda #{{ sale.id }}{% endblock %}
+{% block title %}Detalhes da Venda #{{ sale.id }} - SaaS CRM{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2">Detalhes da Venda #{{ sale.id }}</h1>
+        <div class="btn-group">
+            <a href="{% url 'sales:sale_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Voltar
+            </a>
+            <a href="{% url 'sales:sale_receipt' sale.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-receipt me-1"></i> Ver Recibo
+            </a>
+            {% if weasyprint_available %}
+            <a href="{% url 'sales:sale_pdf' sale.id %}" class="btn btn-outline-danger">
+                <i class="fas fa-file-pdf me-1"></i> Baixar PDF
+            </a>
+            {% endif %}
+            {% if sale.customer and sale.customer.phone %}
+            <a href="{% url 'sales:sale_pdf' sale.id %}?whatsapp=true" class="btn btn-outline-success">
+                <i class="fab fa-whatsapp me-1"></i> Enviar WhatsApp
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
     <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header pb-0">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Detalhes da Venda #{{ sale.id }}</h5>
-                        <a href="{% url 'point_of_sale' %}" class="btn btn-primary btn-sm">Voltar ao PDV</a>
-                    </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Informações da Venda</h5>
                 </div>
                 <div class="card-body">
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h6 class="text-sm text-muted">Informações da Venda</h6>
-                            <p><strong>Data:</strong> {{ sale.created_at|date:"d/m/Y H:i" }}</p>
-                            <p><strong>Cliente:</strong> {{ sale.customer.name|default:"Cliente não identificado" }}</p>
-                            <p><strong>Método de Pagamento:</strong> {{ sale.payment_method.name }}</p>
-                            <p><strong>Status:</strong> 
-                                <span class="badge {% if sale.status == 'paid' %}bg-success{% elif sale.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
-                                    {{ sale.get_status_display }}
-                                </span>
-                            </p>
-                        </div>
-                        <div class="col-md-6 text-end">
-                            <h6 class="text-sm text-muted">Valores</h6>
-                            <p><strong>Subtotal:</strong> R$ {{ sale.total|add:sale.discount|floatformat:2 }}</p>
-                            <p><strong>Desconto:</strong> R$ {{ sale.discount|floatformat:2 }}</p>
-                            <p class="fs-5"><strong>Total:</strong> <span class="text-success">R$ {{ sale.total|floatformat:2 }}</span></p>
-                        </div>
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table align-items-center mb-0">
-                            <thead>
-                                <tr>
-                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Produto</th>
-                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Quantidade</th>
-                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Preço Unit.</th>
-                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in items %}
-                                <tr>
-                                    <td>
-                                        <div class="d-flex px-2 py-1">
-                                            <div class="d-flex flex-column justify-content-center">
-                                                <h6 class="mb-0 text-sm">{{ item.product.name }}</h6>
-                                                <p class="text-xs text-secondary mb-0">Código: {{ item.product.code }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <p class="text-xs font-weight-bold mb-0">{{ item.quantity }}</p>
-                                    </td>
-                                    <td>
-                                        <p class="text-xs font-weight-bold mb-0">R$ {{ item.price|floatformat:2 }}</p>
-                                    </td>
-                                    <td>
-                                        <p class="text-xs font-weight-bold mb-0">R$ {{ item.subtotal|floatformat:2 }}</p>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {% if sale.notes %}
-                    <div class="mt-4">
-                        <h6 class="text-sm text-muted">Observações</h6>
-                        <p class="text-sm">{{ sale.notes }}</p>
-                    </div>
-                    {% endif %}
+                    <p><strong>Data:</strong> {{ sale.created_at|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Cliente:</strong> 
+                        {% if sale.customer %}
+                            <a href="{% url 'customers:customer_detail' sale.customer.id %}">{{ sale.customer.name }}</a>
+                        {% else %}
+                            <span class="text-muted">Não informado</span>
+                        {% endif %}
+                    </p>
+                    <p><strong>Método de Pagamento:</strong> 
+                        {% if sale.payment_method %}
+                            {{ sale.payment_method.name }}
+                        {% else %}
+                            <span class="text-muted">Não informado</span>
+                        {% endif %}
+                    </p>
+                    <p><strong>Subtotal:</strong> R$ {{ sale.subtotal }}</p>
+                    <p><strong>Desconto:</strong> R$ {{ sale.discount }}</p>
+                    <p><strong>Total:</strong> <span class="fw-bold text-success">R$ {{ sale.total }}</span></p>
                 </div>
             </div>
         </div>
+        
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Itens do Pedido</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Produto</th>
+                                    <th class="text-center">Quantidade</th>
+                                    <th class="text-end">Preço Unit.</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in sale.items.all %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-medium">{{ item.product.name }}</div>
+                                        <small class="text-muted">{{ item.product.code }}</small>
+                                    </td>
+                                    <td class="text-center">{{ item.quantity }}</td>
+                                    <td class="text-end">R$ {{ item.price }}</td>
+                                    <td class="text-end fw-bold">R$ {{ item.subtotal }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold">Total:</td>
+                                    <td class="text-end fw-bold text-success">R$ {{ sale.total }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            {% if sale.notes %}
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Observações</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ sale.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cancelSaleBtn = document.getElementById('cancel-sale');
+    
+    if (cancelSaleBtn) {
+        cancelSaleBtn.addEventListener('click', function() {
+            Swal.fire({
+                title: 'Confirmar Cancelamento',
+                text: 'Tem certeza que deseja cancelar esta venda? Esta ação não pode ser desfeita.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sim, cancelar venda',
+                cancelButtonText: 'Não, manter venda',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Disable button and show loading state
+                    cancelSaleBtn.disabled = true;
+                    cancelSaleBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Cancelando...';
+                    
+                    // Send request to cancel sale
+                    fetch('{% url "cancel_sale" sale_id=sale.id %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                title: 'Venda Cancelada!',
+                                text: 'A venda foi cancelada com sucesso.',
+                                icon: 'success'
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            throw new Error(data.error || 'Erro ao cancelar a venda');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro:', error);
+                        Swal.fire({
+                            title: 'Erro!',
+                            text: error.message || 'Erro ao cancelar a venda. Tente novamente.',
+                            icon: 'error'
+                        });
+                        
+                        // Reset button state
+                        cancelSaleBtn.disabled = false;
+                        cancelSaleBtn.innerHTML = '<i class="fas fa-times-circle me-1"></i> Cancelar Venda';
+                    });
+                }
+            });
+        });
+    }
+});
+</script>
 {% endblock %} 

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo #{{ sale.id }} - {{ company.name }}</title>
+    <style>
+        @page {
+            size: a4 portrait;
+            margin: 2cm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .header h1 {
+            font-size: 18px;
+            margin: 0 0 5px 0;
+        }
+        .header p {
+            margin: 0 0 5px 0;
+            font-size: 10px;
+            color: #666;
+        }
+        .receipt-title {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .receipt-number {
+            background-color: #f0f0f0;
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            color: #555;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .info-block p {
+            margin: 5px 0;
+        }
+        .label {
+            color: #666;
+            font-size: 10px;
+            display: inline-block;
+            width: 80px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th {
+            background-color: #f0f0f0;
+            text-align: left;
+            padding: 8px;
+            font-weight: bold;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .item-name {
+            font-weight: bold;
+        }
+        .item-code {
+            font-size: 10px;
+            color: #666;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .totals {
+            margin-top: 20px;
+            text-align: right;
+        }
+        .total-row {
+            margin: 5px 0;
+        }
+        .total-label {
+            display: inline-block;
+            width: 150px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .total-value {
+            display: inline-block;
+            width: 100px;
+            text-align: right;
+        }
+        .grand-total {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 10px;
+            color: #666;
+        }
+        .signature {
+            margin-top: 60px;
+            text-align: center;
+        }
+        .signature-line {
+            width: 70%;
+            margin: 0 auto;
+            border-top: 1px solid #ddd;
+            padding-top: 5px;
+        }
+        .status-paid {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .status-pending {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .status-cancelled {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 60px;
+            color: rgba(200, 200, 200, 0.1);
+            pointer-events: none;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ company.name }}</h1>
+        <p>CNPJ: {{ company.cnpj }}</p>
+        <p>{{ company.address }}</p>
+        <p>{{ company.city }}/{{ company.state }} - CEP: {{ company.zipcode }}</p>
+        <p>Tel: {{ company.phone }}</p>
+    </div>
+
+    <div class="receipt-title">
+        <h2>RECIBO DE VENDA</h2>
+        <div class="receipt-number">#{{ sale.id }}</div>
+    </div>
+
+    <div class="section">
+        <div class="info-grid">
+            <div class="info-block">
+                <div class="section-title">Dados do Cliente</div>
+                <p><strong>{{ sale.customer.name|default:"Cliente não identificado" }}</strong></p>
+                {% if sale.customer %}
+                    <p><span class="label">E-mail:</span> {{ sale.customer.email|default:"-" }}</p>
+                    <p><span class="label">Telefone:</span> {{ sale.customer.phone|default:"-" }}</p>
+                    <p><span class="label">Endereço:</span> {{ sale.customer.address|default:"-" }}</p>
+                    <p><span class="label">Cidade/UF:</span> {{ sale.customer.city|default:"-" }}/{{ sale.customer.state|default:"-" }}</p>
+                {% endif %}
+            </div>
+            <div class="info-block">
+                <div class="section-title">Dados da Venda</div>
+                <p><span class="label">Data:</span> {{ sale.created_at|date:"d/m/Y H:i" }}</p>
+                <p><span class="label">Vendedor:</span> {{ sale.created_by.first_name }} {{ sale.created_by.last_name }}</p>
+                <p><span class="label">Pagamento:</span> {{ sale.payment_method.name }}</p>
+                <p><span class="label">Status:</span> 
+                    <span class="status-{% if sale.status == 'paid' %}paid{% elif sale.status == 'pending' %}pending{% else %}cancelled{% endif %}">
+                        {{ sale.get_status_display }}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Itens do Pedido</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 45%;">Produto</th>
+                    <th style="width: 15%;" class="text-center">Qtd</th>
+                    <th style="width: 20%;" class="text-right">Preço Unit.</th>
+                    <th style="width: 20%;" class="text-right">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>
+                        <div class="item-name">{{ item.product.name }}</div>
+                        <div class="item-code">Cód: {{ item.product.code|default:"-" }}</div>
+                    </td>
+                    <td class="text-center">{{ item.quantity }}</td>
+                    <td class="text-right">R$ {{ item.price|floatformat:2 }}</td>
+                    <td class="text-right">R$ {{ item.subtotal|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="totals">
+            <div class="total-row">
+                <span class="total-label">Subtotal:</span>
+                <span class="total-value">R$ {{ sale.total|add:sale.discount|floatformat:2 }}</span>
+            </div>
+            {% if sale.discount %}
+            <div class="total-row">
+                <span class="total-label">Desconto:</span>
+                <span class="total-value">R$ {{ sale.discount|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            <div class="total-row grand-total">
+                <span class="total-label">Total:</span>
+                <span class="total-value">R$ {{ sale.total|floatformat:2 }}</span>
+            </div>
+        </div>
+    </div>
+
+    {% if sale.notes %}
+    <div class="section">
+        <div class="section-title">Observações</div>
+        <p>{{ sale.notes }}</p>
+    </div>
+    {% endif %}
+
+    <div class="signature">
+        <div class="signature-line"></div>
+        <p>Assinatura do Cliente</p>
+    </div>
+
+    <div class="footer">
+        <p><strong>{{ company.name }}</strong> - Agradecemos pela preferência!</p>
+        <p>Este documento não possui valor fiscal.</p>
+        <p>Emitido em: {{ sale.created_at|date:"d/m/Y H:i:s" }}</p>
+    </div>
+
+    <div class="watermark">{{ company.name }}</div>
+</body>
+</html> 

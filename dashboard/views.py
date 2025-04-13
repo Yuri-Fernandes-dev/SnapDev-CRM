@@ -25,15 +25,24 @@ def dashboard(request):
     start_date = timezone.now().date() - timedelta(days=days)
     end_date = timezone.now().date()
     
-    # Métricas de vendas
-    sales_data = Sale.objects.filter(status='paid', created_at__date__gte=start_date)
+    # Métricas de vendas - filtrar por empresa
+    sales_data = Sale.objects.filter(
+        company=request.user.company,
+        status='paid', 
+        created_at__date__gte=start_date
+    )
     total_sales = sales_data.count()
     total_revenue = float(sales_data.aggregate(total=Sum('total'))['total'] or 0)
     
-    # Produtos mais vendidos
+    # Produtos mais vendidos - filtrar por empresa
     top_products = (
         SaleItem.objects
-        .filter(sale__status='paid', sale__created_at__date__gte=start_date)
+        .filter(
+            sale__company=request.user.company,
+            sale__status='paid', 
+            sale__created_at__date__gte=start_date,
+            product__company=request.user.company
+        )
         .values('product__name')
         .annotate(
             total_qty=Sum('quantity'),
@@ -48,8 +57,9 @@ def dashboard(request):
         for product in top_products:
             product['percentage'] = (product['total_qty'] / max_qty * 100) if max_qty > 0 else 0
     
-    # Produtos com estoque baixo
+    # Produtos com estoque baixo - filtrar por empresa
     low_stock_products = Product.objects.filter(
+        company=request.user.company,
         stock_quantity__lte=F('stock_alert_level')
     ).order_by('stock_quantity')[:5]
     
@@ -57,38 +67,34 @@ def dashboard(request):
     for product in low_stock_products:
         product.stock_value = float(product.stock_quantity * product.cost)
     
-    # Contagem de clientes
-    total_customers = Customer.objects.count()
-    new_customers = Customer.objects.filter(created_at__date__gte=start_date).count()
+    # Total de clientes - filtrar por empresa
+    total_customers = Customer.objects.filter(company=request.user.company).count()
     
-    # Gerar lista de datas para o período
-    dates = []
-    current_date = start_date
-    while current_date <= end_date:
-        dates.append(current_date)
-        current_date += timedelta(days=1)
+    # Novos clientes nos últimos 30 dias - filtrar por empresa
+    new_customers = Customer.objects.filter(
+        company=request.user.company,
+        created_at__date__gte=start_date
+    ).count()
     
-    # Dados para o gráfico de vendas diárias
-    daily_sales = (
-        Sale.objects
-        .filter(status='paid', created_at__date__gte=start_date, created_at__date__lte=end_date)
-        .annotate(date=TruncDate('created_at'))
-        .values('date')
-        .annotate(total=Sum('total'))
-        .order_by('date')
-    )
+    # Dados para o gráfico de vendas
+    sales_chart_data = []
+    for i in range(days):
+        date = end_date - timedelta(days=days-i-1)
+        
+        # Contar vendas do dia - filtrar por empresa
+        day_sales = Sale.objects.filter(
+            company=request.user.company,
+            status='paid',
+            created_at__date=date
+        ).count()
+        
+        sales_chart_data.append({
+            'date': date.strftime('%d/%m'),
+            'sales': day_sales
+        })
     
-    # Criar dicionário com vendas por data
-    sales_by_date = {sale['date']: float(sale['total']) for sale in daily_sales}
-    
-    # Formatação para o gráfico (preenchendo datas sem vendas com 0)
-    sales_chart_data = {
-        'labels': [date.strftime('%d/%m') for date in dates],
-        'values': [sales_by_date.get(date, 0) for date in dates]
-    }
-    
-    # Garantir que os valores são serializáveis
-    sales_chart_data = json.dumps(sales_chart_data)
+    # Calcular ticket médio
+    average_ticket = total_revenue / total_sales if total_sales > 0 else 0
     
     # Cálculo da lucratividade (baseada no custo dos produtos)
     profit_data = (
@@ -105,9 +111,6 @@ def dashboard(request):
     
     total_profit = float(profit_data['total_profit'] or 0)
     profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
-    
-    # Calcular ticket médio
-    average_ticket = total_revenue / total_sales if total_sales > 0 else 0
     
     context = {
         'period': period,
@@ -130,19 +133,23 @@ def inventory_dashboard(request):
     """
     View para dashboard de estoque
     """
-    # Produtos com estoque baixo
+    # Produtos com estoque baixo - filtrar por empresa
     low_stock_products = Product.objects.filter(
+        company=request.user.company,
         stock_quantity__lte=F('stock_alert_level')
     ).order_by('stock_quantity')
     
-    # Valor total do estoque
-    stock_value = Product.objects.aggregate(
+    # Valor total do estoque - filtrar por empresa
+    stock_value = Product.objects.filter(
+        company=request.user.company
+    ).aggregate(
         total_value=Sum(F('stock_quantity') * F('cost'))
     )['total_value'] or 0
     
-    # Produtos por categoria
+    # Produtos por categoria - filtrar por empresa
     products_by_category = (
         Product.objects
+        .filter(company=request.user.company)
         .values('category__name')
         .annotate(count=Count('id'), total_value=Sum(F('stock_quantity') * F('cost')))
         .order_by('-count')
@@ -171,29 +178,41 @@ def sales_dashboard(request):
     
     start_date = timezone.now().date() - timedelta(days=days)
     
-    # Vendas por mês
+    # Vendas por mês - filtrar por empresa
     monthly_sales = (
         Sale.objects
-        .filter(status='paid', created_at__date__gte=start_date)
+        .filter(
+            company=request.user.company,
+            status='paid', 
+            created_at__date__gte=start_date
+        )
         .annotate(month=TruncMonth('created_at'))
         .values('month')
         .annotate(total=Sum('total'), count=Count('id'))
         .order_by('month')
     )
     
-    # Vendas por método de pagamento
+    # Vendas por método de pagamento - filtrar por empresa
     sales_by_payment = (
         Sale.objects
-        .filter(status='paid', created_at__date__gte=start_date)
+        .filter(
+            company=request.user.company,
+            status='paid', 
+            created_at__date__gte=start_date
+        )
         .values('payment_method__name')
         .annotate(total=Sum('total'), count=Count('id'))
         .order_by('-total')
     )
     
-    # Ticket médio
+    # Ticket médio - filtrar por empresa
     avg_ticket = (
         Sale.objects
-        .filter(status='paid', created_at__date__gte=start_date)
+        .filter(
+            company=request.user.company,
+            status='paid', 
+            created_at__date__gte=start_date
+        )
         .aggregate(avg=Avg('total'))['avg'] or 0
     )
     
@@ -211,19 +230,23 @@ def customers_dashboard(request):
     """
     View para dashboard de clientes
     """
-    # Clientes que mais compram
+    # Clientes que mais compram - filtrar por empresa
     top_customers = (
         Sale.objects
-        .filter(status='paid')
+        .filter(
+            company=request.user.company,
+            status='paid'
+        )
         .values('customer__name')
         .annotate(total_spent=Sum('total'), order_count=Count('id'))
         .filter(customer__isnull=False)
         .order_by('-total_spent')[:10]
     )
     
-    # Clientes por cidade
+    # Clientes por cidade - filtrar por empresa
     customers_by_city = (
         Customer.objects
+        .filter(company=request.user.company)
         .values('city')
         .annotate(count=Count('id'))
         .filter(city__isnull=False)

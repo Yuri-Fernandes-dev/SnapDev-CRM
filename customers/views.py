@@ -14,7 +14,7 @@ def customer_list(request):
     """
     query = request.GET.get('query', '')
     
-    customers = Customer.objects.all()
+    customers = Customer.objects.filter(company=request.user.company)
     
     # Filtro por busca
     if query:
@@ -46,10 +46,13 @@ def customer_detail(request, pk):
     """
     View para detalhes de um cliente e histórico de compras
     """
-    customer = get_object_or_404(Customer, pk=pk)
+    customer = get_object_or_404(Customer, pk=pk, company=request.user.company)
     
     # Histórico de vendas
-    sales = Sale.objects.filter(customer=customer).order_by('-created_at')
+    sales = Sale.objects.filter(
+        customer=customer,
+        company=request.user.company
+    ).order_by('-created_at')
     
     # Resumo de compras
     total_purchases = sales.filter(status='paid').count()
@@ -72,9 +75,11 @@ def customer_create(request):
     if request.method == 'POST':
         form = CustomerForm(request.POST)
         if form.is_valid():
-            customer = form.save()
+            customer = form.save(commit=False)
+            customer.company = request.user.company
+            customer.save()
             messages.success(request, 'Cliente criado com sucesso!')
-            return redirect('customer_list')
+            return redirect('customers:customer_list')
     else:
         form = CustomerForm()
     
@@ -85,14 +90,14 @@ def customer_update(request, pk):
     """
     View para atualizar um cliente
     """
-    customer = get_object_or_404(Customer, pk=pk)
+    customer = get_object_or_404(Customer, pk=pk, company=request.user.company)
     
     if request.method == 'POST':
         form = CustomerForm(request.POST, instance=customer)
         if form.is_valid():
             form.save()
             messages.success(request, 'Cliente atualizado com sucesso!')
-            return redirect('customer_detail', pk=customer.pk)
+            return redirect('customers:customer_detail', pk=customer.pk)
     else:
         form = CustomerForm(instance=customer)
     
@@ -103,11 +108,11 @@ def customer_delete(request, pk):
     """
     View para excluir um cliente
     """
-    customer = get_object_or_404(Customer, pk=pk)
+    customer = get_object_or_404(Customer, pk=pk, company=request.user.company)
     
     if request.method == 'POST':
         customer.delete()
         messages.success(request, 'Cliente excluído com sucesso!')
-        return redirect('customer_list')
+        return redirect('customers:customer_list')
     
     return render(request, 'customers/customer_confirm_delete.html', {'customer': customer})

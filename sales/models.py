@@ -4,8 +4,10 @@ from django.conf import settings
 from customers.models import Customer
 from products.models import Product
 from decimal import Decimal
+from core.models import Company
 
 class PaymentMethod(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, verbose_name='Empresa', related_name='payment_methods')
     name = models.CharField('Nome', max_length=100)
     description = models.TextField('Descrição', blank=True, null=True)
     is_active = models.BooleanField('Ativo', default=True)
@@ -16,6 +18,7 @@ class PaymentMethod(models.Model):
         verbose_name = 'Método de Pagamento'
         verbose_name_plural = 'Métodos de Pagamento'
         ordering = ['name']
+        unique_together = ['company', 'name']  # Prevent duplicate payment methods within same company
     
     def __str__(self):
         return self.name
@@ -33,6 +36,7 @@ class Sale(models.Model):
         ('cancelled', 'Cancelado'),
     )
     
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, verbose_name='Empresa', related_name='sales')
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Cliente', related_name='sales')
     payment_method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Método de Pagamento')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Criado por')
@@ -65,6 +69,7 @@ class SaleItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Produto')
     quantity = models.PositiveIntegerField('Quantidade', default=1)
     price = models.DecimalField('Preço', max_digits=10, decimal_places=2)
+    cost_price = models.DecimalField('Custo', max_digits=10, decimal_places=2, null=True, blank=True)
     subtotal = models.DecimalField('Subtotal', max_digits=10, decimal_places=2, default=0)
     
     class Meta:
@@ -75,6 +80,10 @@ class SaleItem(models.Model):
         return f'{self.quantity} x {self.product.name}'
     
     def save(self, *args, **kwargs):
+        # Capturar o custo do produto no momento da venda
+        if not self.id:  # Apenas na criação
+            self.cost_price = self.product.cost
+            
         # Calcular subtotal
         self.subtotal = self.price * self.quantity
         super(SaleItem, self).save(*args, **kwargs)
