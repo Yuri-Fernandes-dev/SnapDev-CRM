@@ -325,7 +325,10 @@
                             <h6 class="text-uppercase text-muted mb-2">Total de Vendas</h6>
                             <h4 class="mb-0 text-primary-dark">{{ total_sales|default:0 }}</h4>
                             <div class="small text-muted mt-2">
-                                <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
+                                <i class="fas fa-{% if sales_variation >= 0 %}arrow-up{% else %}arrow-down{% endif %} me-1"></i>
+                                <span class="{% if sales_variation >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {% if sales_variation >= 0 %}+{% endif %}{{ sales_variation|floatformat:1 }}% desde o mês passado
+                                </span>
                             </div>
                         </div>
                         <div class="stat-icon bg-gradient-primary text-white">
@@ -344,7 +347,10 @@
                             <h6 class="text-uppercase text-muted mb-2">Receita Total</h6>
                             <h4 class="mb-0 text-success">R$ {{ total_revenue|floatformat:2 }}</h4>
                             <div class="small text-muted mt-2">
-                                <i class="fas fa-chart-line me-1"></i> +12% desde o mês passado
+                                <i class="fas fa-chart-line me-1"></i> 
+                                <span class="{% if revenue_variation >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {% if revenue_variation >= 0 %}+{% endif %}{{ revenue_variation|floatformat:1 }}% desde o mês passado
+                                </span>
                             </div>
                         </div>
                         <div class="stat-icon bg-gradient-success text-white">
@@ -363,7 +369,10 @@
                             <h6 class="text-uppercase text-muted mb-2">Ticket Médio</h6>
                             <h4 class="mb-0 text-info">R$ {{ average_ticket|floatformat:2 }}</h4>
                             <div class="small text-muted mt-2">
-                                <i class="fas fa-arrow-up me-1"></i> +5% desde ontem
+                                <i class="fas fa-{% if ticket_variation >= 0 %}arrow-up{% else %}arrow-down{% endif %} me-1"></i>
+                                <span class="{% if ticket_variation >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {% if ticket_variation >= 0 %}+{% endif %}{{ ticket_variation|floatformat:1 }}% desde ontem
+                                </span>
                             </div>
                         </div>
                         <div class="stat-icon bg-gradient-info text-white">

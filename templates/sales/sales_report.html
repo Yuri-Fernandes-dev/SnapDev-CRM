@@ -80,8 +80,8 @@
                                 <p class="text-sm mb-0 text-uppercase font-weight-bold text-muted">Total de Vendas</p>
                                 <h3 class="font-weight-bold mb-0">{{ total_sales }}</h3>
                                 <div class="mt-2 mb-0 text-sm">
-                                    <span class="text-success me-2">
-                                        <i class="fa fa-arrow-up"></i> 3.48%
+                                    <span class="{% if sales_variation >= 0 %}text-success{% else %}text-danger{% endif %} me-2">
+                                        <i class="fa fa-arrow-{% if sales_variation >= 0 %}up{% else %}down{% endif %}"></i> {{ sales_variation|floatformat:1 }}%
                                     </span>
                                     <span class="text-muted">vs período anterior</span>
                                 </div>
@@ -105,8 +105,8 @@
                                 <p class="text-sm mb-0 text-uppercase font-weight-bold text-muted">Receita Total</p>
                                 <h3 class="font-weight-bold mb-0">R$ {{ total_revenue|floatformat:2 }}</h3>
                                 <div class="mt-2 mb-0 text-sm">
-                                    <span class="text-success me-2">
-                                        <i class="fa fa-arrow-up"></i> 5.2%
+                                    <span class="{% if revenue_variation >= 0 %}text-success{% else %}text-danger{% endif %} me-2">
+                                        <i class="fa fa-arrow-{% if revenue_variation >= 0 %}up{% else %}down{% endif %}"></i> {{ revenue_variation|floatformat:1 }}%
                                     </span>
                                     <span class="text-muted">vs período anterior</span>
                                 </div>
@@ -130,8 +130,8 @@
                                 <p class="text-sm mb-0 text-uppercase font-weight-bold text-muted">Ticket Médio</p>
                                 <h3 class="font-weight-bold mb-0">R$ {{ average_ticket|floatformat:2 }}</h3>
                                 <div class="mt-2 mb-0 text-sm">
-                                    <span class="text-danger me-2">
-                                        <i class="fa fa-arrow-down"></i> 1.2%
+                                    <span class="{% if ticket_variation >= 0 %}text-success{% else %}text-danger{% endif %} me-2">
+                                        <i class="fa fa-arrow-{% if ticket_variation >= 0 %}up{% else %}down{% endif %}"></i> {{ ticket_variation|floatformat:1 }}%
                                     </span>
                                     <span class="text-muted">vs período anterior</span>
                                 </div>
@@ -155,8 +155,8 @@
                                 <p class="text-sm mb-0 text-uppercase font-weight-bold text-muted">Taxa de Conversão</p>
                                 <h3 class="font-weight-bold mb-0">{{ conversion_rate|floatformat:1 }}%</h3>
                                 <div class="mt-2 mb-0 text-sm">
-                                    <span class="text-success me-2">
-                                        <i class="fa fa-arrow-up"></i> 2.1%
+                                    <span class="{% if conversion_variation >= 0 %}text-success{% else %}text-danger{% endif %} me-2">
+                                        <i class="fa fa-arrow-{% if conversion_variation >= 0 %}up{% else %}down{% endif %}"></i> {{ conversion_variation|floatformat:1 }}%
                                     </span>
                                     <span class="text-muted">vs período anterior</span>
                                 </div>

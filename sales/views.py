@@ -268,28 +268,60 @@ def sales_report(request):
     period = request.GET.get('period', '30')
     days = int(period)
     
-    # Data inicial do período
+    # Data inicial do período atual
     if days == 1:
         start_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
     else:
         start_date = timezone.now() - timedelta(days=days)
     
-    # Vendas no período
+    # Data inicial do período anterior (para comparação)
+    start_date_previous = start_date - timedelta(days=days)
+    
+    # Vendas no período atual
     sales = Sale.objects.filter(
         created_at__gte=start_date,
         status='paid'
     )
     
-    # Métricas gerais
+    # Vendas no período anterior
+    sales_previous = Sale.objects.filter(
+        created_at__gte=start_date_previous,
+        created_at__lt=start_date,
+        status='paid'
+    )
+    
+    # Métricas do período atual
     total_sales = sales.count()
     total_revenue = sales.aggregate(
         total=Sum('total', output_field=DecimalField(max_digits=10, decimal_places=2))
     )['total'] or 0
     average_ticket = total_revenue / total_sales if total_sales > 0 else 0
     
-    # Taxa de conversão (vendas realizadas / total de vendas)
+    # Métricas do período anterior
+    total_sales_previous = sales_previous.count()
+    total_revenue_previous = sales_previous.aggregate(
+        total=Sum('total', output_field=DecimalField(max_digits=10, decimal_places=2))
+    )['total'] or 0
+    average_ticket_previous = total_revenue_previous / total_sales_previous if total_sales_previous > 0 else 0
+    
+    # Calcular variações percentuais
+    sales_variation = ((total_sales - total_sales_previous) / total_sales_previous * 100) if total_sales_previous > 0 else 0
+    revenue_variation = ((total_revenue - total_revenue_previous) / total_revenue_previous * 100) if total_revenue_previous > 0 else 0
+    ticket_variation = ((average_ticket - average_ticket_previous) / average_ticket_previous * 100) if average_ticket_previous > 0 else 0
+    
+    # Taxa de conversão atual
     total_attempts = Sale.objects.filter(created_at__gte=start_date).count()
     conversion_rate = (total_sales / total_attempts * 100) if total_attempts > 0 else 0
+    
+    # Taxa de conversão anterior
+    total_attempts_previous = Sale.objects.filter(
+        created_at__gte=start_date_previous,
+        created_at__lt=start_date
+    ).count()
+    conversion_rate_previous = (total_sales_previous / total_attempts_previous * 100) if total_attempts_previous > 0 else 0
+    
+    # Variação da taxa de conversão
+    conversion_variation = ((conversion_rate - conversion_rate_previous) / conversion_rate_previous * 100) if conversion_rate_previous > 0 else 0
     
     # Vendas por dia
     sales_by_date = sales.values('created_at__date').annotate(
@@ -317,7 +349,7 @@ def sales_report(request):
         revenue=Sum('subtotal', output_field=DecimalField(max_digits=10, decimal_places=2))
     ).order_by('-quantity')[:10]
     
-    # Desempenho por vendedor (usando o usuário que criou a venda)
+    # Desempenho por vendedor
     sellers = Sale.objects.filter(
         id__in=sales
     ).values(
@@ -348,6 +380,10 @@ def sales_report(request):
         'total_revenue': total_revenue,
         'average_ticket': average_ticket,
         'conversion_rate': conversion_rate,
+        'sales_variation': sales_variation,
+        'revenue_variation': revenue_variation,
+        'ticket_variation': ticket_variation,
+        'conversion_variation': conversion_variation,
         'sales_by_date': sales_by_date,
         'top_products': top_products,
         'sellers': sellers,
