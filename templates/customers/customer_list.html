@@ -1,4 +1,6 @@
 {% extends 'core/base.html' %}
+{% load static %}
+{% load humanize %}
 
 {% block title %}Clientes - SaaS CRM{% endblock %}
 
@@ -10,43 +12,25 @@
     </a>
 </div>
 
-<!-- Filtros -->
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-4">
+<div class="row mb-4">
+    <div class="col-md-8">
+        <form method="get" class="d-flex gap-2">
+            <div class="flex-grow-1">
                 <div class="input-group">
                     <span class="input-group-text bg-transparent">
                         <i class="fas fa-search"></i>
                     </span>
-                    <input type="text" name="q" class="form-control" placeholder="Buscar cliente..." value="{{ request.GET.q|default:'' }}">
+                    <input type="text" name="query" class="form-control" placeholder="Buscar clientes..." value="{{ query }}">
                 </div>
             </div>
-            <div class="col-md-3">
-                <select name="city" class="form-select">
-                    <option value="">Todas as cidades</option>
-                    {% for city in cities %}
-                    <option value="{{ city }}" {% if request.GET.city == city %}selected{% endif %}>
-                        {{ city }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <select name="status" class="form-select">
-                    <option value="">Todos os status</option>
-                    <option value="active" {% if request.GET.status == "active" %}selected{% endif %}>Ativos</option>
-                    <option value="inactive" {% if request.GET.status == "inactive" %}selected{% endif %}>Inativos</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary w-100">Filtrar</button>
-            </div>
+            <button type="submit" class="btn btn-primary">Buscar</button>
+            {% if query %}
+            <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary">Limpar</a>
+            {% endif %}
         </form>
     </div>
 </div>
 
-<!-- Tabela de Clientes -->
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -71,11 +55,12 @@
                             </a>
                         </td>
                         <td>{{ customer.email|default:"-" }}</td>
-                        <td>{{ customer.phone }}</td>
+                        <td>{{ customer.phone|default:"-" }}</td>
                         <td>{{ customer.city|default:"-" }}</td>
                         <td>
                             {% if customer.total_purchases > 0 %}
-                            <span class="badge bg-success">R$ {{ customer.total_purchases }}</span>
+                            <span class="badge bg-success">R$ {{ customer.total_purchases|floatformat:2 }}</span>
+                            <small class="text-muted">({{ customer.total_purchases_count }} compras)</small>
                             {% else %}
                             <span class="badge bg-secondary">Nenhuma</span>
                             {% endif %}
@@ -84,30 +69,22 @@
                             {% if customer.is_active %}
                             <span class="badge bg-success">Ativo</span>
                             {% else %}
-                            <span class="badge bg-secondary">Inativo</span>
+                            <span class="badge bg-danger">Inativo</span>
                             {% endif %}
                         </td>
                         <td class="text-end">
-                            <div class="btn-group">
-                                <a href="{% url 'customer_detail' customer.id %}" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                <a href="{% url 'customer_update' customer.id %}" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                <a href="{% url 'customer_delete' customer.id %}" class="btn btn-sm btn-outline-danger">
-                                    <i class="fas fa-trash"></i>
-                                </a>
-                            </div>
+                            <a href="{% url 'customer_detail' customer.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'customer_update' customer.id %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-edit"></i>
+                            </a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
                         <td colspan="7" class="text-center py-4">
-                            <p class="mb-0 text-muted">Nenhum cliente encontrado.</p>
-                            <a href="{% url 'customer_create' %}" class="btn btn-sm btn-primary mt-2">
-                                <i class="fas fa-plus me-1"></i> Novo Cliente
-                            </a>
+                            <p class="text-muted mb-0">Nenhum cliente encontrado.</p>
                         </td>
                     </tr>
                     {% endfor %}
@@ -117,18 +94,17 @@
     </div>
 </div>
 
-<!-- Paginação -->
-{% if customers.has_other_pages %}
+{% if customers.paginator.num_pages > 1 %}
 <nav class="mt-4">
     <ul class="pagination justify-content-center">
         {% if customers.has_previous %}
         <li class="page-item">
-            <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.city %}&city={{ request.GET.city }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+            <a class="page-link" href="?page=1{% if query %}&query={{ query }}{% endif %}">
                 <i class="fas fa-angle-double-left"></i>
             </a>
         </li>
         <li class="page-item">
-            <a class="page-link" href="?page={{ customers.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.city %}&city={{ request.GET.city }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+            <a class="page-link" href="?page={{ customers.previous_page_number }}{% if query %}&query={{ query }}{% endif %}">
                 <i class="fas fa-angle-left"></i>
             </a>
         </li>
@@ -141,7 +117,7 @@
             </li>
             {% elif num > customers.number|add:'-3' and num < customers.number|add:'3' %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.city %}&city={{ request.GET.city }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                <a class="page-link" href="?page={{ num }}{% if query %}&query={{ query }}{% endif %}">
                     {{ num }}
                 </a>
             </li>
@@ -150,12 +126,12 @@
         
         {% if customers.has_next %}
         <li class="page-item">
-            <a class="page-link" href="?page={{ customers.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.city %}&city={{ request.GET.city }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+            <a class="page-link" href="?page={{ customers.next_page_number }}{% if query %}&query={{ query }}{% endif %}">
                 <i class="fas fa-angle-right"></i>
             </a>
         </li>
         <li class="page-item">
-            <a class="page-link" href="?page={{ customers.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.city %}&city={{ request.GET.city }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+            <a class="page-link" href="?page={{ customers.paginator.num_pages }}{% if query %}&query={{ query }}{% endif %}">
                 <i class="fas fa-angle-double-right"></i>
             </a>
         </li>

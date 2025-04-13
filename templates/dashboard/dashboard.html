@@ -4,238 +4,488 @@
 {% block title %}Dashboard - SaaS CRM{% endblock %}
 
 {% block extra_css %}
-<!-- Chart.js -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
+<style>
+    .stat-icon {
+        width: 52px;
+        height: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 15px;
+        font-size: 24px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease;
+    }
+    
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        overflow: hidden;
+        background: white;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-header {
+        background: #ffffff !important;
+        border-bottom: 1px solid #e9ecef;
+        padding: 1.25rem;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    /* Cores de fundo para os cards */
+    .card-sales {
+        background: white;
+        border-left: 4px solid #4c6ef5;
+    }
+    
+    .card-revenue {
+        background: white;
+        border-left: 4px solid #37b24d;
+    }
+    
+    .card-ticket {
+        background: white;
+        border-left: 4px solid #1c7ed6;
+    }
+    
+    .card-profit {
+        background: white;
+        border-left: 4px solid #f08c00;
+    }
+
+    /* Cores dos textos nos cards */
+    .card-sales h6 {
+        color: #4c6ef5;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+    }
+
+    .card-revenue h6 {
+        color: #37b24d;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+    }
+
+    .card-ticket h6 {
+        color: #1c7ed6;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+    }
+
+    .card-profit h6 {
+        color: #f08c00;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+    }
+
+    .card-sales h4 {
+        color: #364fc7;
+        font-weight: 600;
+        font-size: 1.75rem;
+        margin: 0.5rem 0;
+    }
+
+    .card-revenue h4 {
+        color: #2b8a3e;
+        font-weight: 600;
+        font-size: 1.75rem;
+        margin: 0.5rem 0;
+    }
+
+    .card-ticket h4 {
+        color: #1864ab;
+        font-weight: 600;
+        font-size: 1.75rem;
+        margin: 0.5rem 0;
+    }
+
+    .card-profit h4 {
+        color: #e67700;
+        font-weight: 600;
+        font-size: 1.75rem;
+        margin: 0.5rem 0;
+    }
+
+    .card-sales .small, .card-revenue .small, .card-ticket .small, .card-profit .small {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+    
+    .bg-gradient-primary {
+        background: #4c6ef5;
+    }
+    
+    .bg-gradient-success {
+        background: #37b24d;
+    }
+    
+    .bg-gradient-info {
+        background: #1c7ed6;
+    }
+    
+    .bg-gradient-warning {
+        background: #f08c00;
+    }
+
+    /* Melhorias nos textos */
+    .text-xs {
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .text-primary-dark {
+        color: #ffffff;
+        font-weight: 600;
+    }
+
+    h4.mb-0 {
+        font-size: 1.75rem;
+        font-weight: 600;
+        letter-spacing: -0.5px;
+    }
+
+    h6.text-uppercase {
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .small {
+        font-size: 0.85rem;
+    }
+    
+    /* Melhorias nas tabelas */
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table th {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        padding: 1rem;
+        background: #f8f9fa;
+        color: #495057;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .table td {
+        padding: 1rem;
+        vertical-align: middle;
+        color: #495057;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    /* Melhorias nos botões */
+    .btn {
+        border-radius: 8px;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #4c6ef5 0%, #364fc7 100%);
+        border: none;
+        box-shadow: 0 2px 6px rgba(76, 110, 245, 0.2);
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #364fc7 0%, #2b3dad 100%);
+        box-shadow: 0 4px 12px rgba(76, 110, 245, 0.3);
+    }
+
+    .btn-outline-primary {
+        border: 2px solid #4c6ef5;
+        color: #4c6ef5;
+    }
+
+    .btn-outline-primary:hover {
+        background: #4c6ef5;
+        color: #ffffff;
+    }
+
+    /* Melhorias no gráfico */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        padding: 1rem;
+    }
+
+    /* Melhorias na lista de produtos */
+    .list-group-item {
+        padding: 1.25rem;
+        border-bottom: 1px solid #e9ecef !important;
+    }
+
+    .list-group-item:last-child {
+        border-bottom: none !important;
+    }
+
+    .progress {
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        background-color: #e9ecef;
+    }
+
+    .progress-bar {
+        border-radius: 3px;
+        background: linear-gradient(135deg, #4c6ef5 0%, #364fc7 100%);
+    }
+
+    .progress-bar.bg-success {
+        background: linear-gradient(135deg, #37b24d 0%, #2b8a3e 100%);
+    }
+
+    /* Badge personalizado */
+    .badge {
+        padding: 0.5em 0.8em;
+        font-weight: 500;
+        border-radius: 6px;
+    }
+
+    .badge.bg-danger {
+        background: #fa5252 !important;
+        color: #ffffff;
+    }
+
+    /* Cards secundários */
+    .card-header h6 {
+        color: #495057;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .text-muted {
+        color: #6c757d !important;
+    }
+
+    .text-success {
+        color: #2b8a3e !important;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">Dashboard</h1>
-    <div class="btn-group">
-        <a href="?period=7" class="btn btn-outline-primary {% if period == '7' %}active{% endif %}">7 dias</a>
-        <a href="?period=30" class="btn btn-outline-primary {% if period == '30' %}active{% endif %}">30 dias</a>
-        <a href="?period=90" class="btn btn-outline-primary {% if period == '90' %}active{% endif %}">90 dias</a>
+<div class="container-fluid py-4">
+    <!-- Filtro de período -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="d-flex align-items-center">
+                        <label for="period" class="me-2">Período:</label>
+                        <select name="period" id="period" class="form-select me-2" style="width: auto;">
+                            <option value="1" {% if period == '1' %}selected{% endif %}>Hoje</option>
+                            <option value="7" {% if period == '7' %}selected{% endif %}>Últimos 7 dias</option>
+                            <option value="15" {% if period == '15' %}selected{% endif %}>Últimos 15 dias</option>
+                            <option value="30" {% if period == '30' %}selected{% endif %}>Últimos 30 dias</option>
+                            <option value="90" {% if period == '90' %}selected{% endif %}>Últimos 90 dias</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sync-alt me-1"></i> Atualizar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
 
-<!-- Stats Cards -->
-<div class="row g-4 mb-4">
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="flex-shrink-0 bg-primary bg-opacity-10 p-3 rounded">
-                        <i class="fas fa-shopping-cart text-primary fa-lg"></i>
+    <!-- Cards de Estatísticas -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-sales">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted mb-2">Total de Vendas</h6>
+                            <h4 class="mb-0 text-primary-dark">{{ total_sales|default:0 }}</h4>
+                            <div class="small text-muted mt-2">
+                                <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
+                            </div>
+                        </div>
+                        <div class="stat-icon bg-gradient-primary text-white">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
                     </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h6 class="fw-normal text-muted mb-0">Vendas</h6>
-                        <h3 class="fw-bold mb-0">{{ total_sales }}</h3>
-                    </div>
-                </div>
-                <div class="progress" style="height: 5px;">
-                    <div class="progress-bar bg-primary" style="width: 75%"></div>
                 </div>
             </div>
         </div>
-    </div>
-    
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="flex-shrink-0 bg-success bg-opacity-10 p-3 rounded">
-                        <i class="fas fa-dollar-sign text-success fa-lg"></i>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h6 class="fw-normal text-muted mb-0">Faturamento</h6>
-                        <h3 class="fw-bold mb-0">R$ {{ total_revenue|floatformat:2 }}</h3>
-                    </div>
-                </div>
-                <div class="progress" style="height: 5px;">
-                    <div class="progress-bar bg-success" style="width: 65%"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="flex-shrink-0 bg-info bg-opacity-10 p-3 rounded">
-                        <i class="fas fa-chart-pie text-info fa-lg"></i>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h6 class="fw-normal text-muted mb-0">Lucro</h6>
-                        <h3 class="fw-bold mb-0">R$ {{ total_profit|floatformat:2 }}</h3>
-                    </div>
-                </div>
-                <div class="progress" style="height: 5px;">
-                    <div class="progress-bar bg-info" style="width: {{ profit_margin }}%"></div>
-                </div>
-                <div class="text-end mt-2">
-                    <small class="text-muted">Margem: {{ profit_margin|floatformat:1 }}%</small>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="flex-shrink-0 bg-warning bg-opacity-10 p-3 rounded">
-                        <i class="fas fa-users text-warning fa-lg"></i>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h6 class="fw-normal text-muted mb-0">Clientes</h6>
-                        <h3 class="fw-bold mb-0">{{ total_customers }}</h3>
-                    </div>
-                </div>
-                <div class="progress" style="height: 5px;">
-                    <div class="progress-bar bg-warning" style="width: 50%"></div>
-                </div>
-                <div class="text-end mt-2">
-                    <small class="text-muted">Novos: +{{ new_customers }}</small>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<div class="row g-4">
-    <!-- Sales Chart -->
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-transparent border-0 pt-4 pb-2">
-                <h5 class="mb-0">Vendas Diárias</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="salesChart" height="250"></canvas>
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-revenue">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted mb-2">Receita Total</h6>
+                            <h4 class="mb-0 text-success">R$ {{ total_revenue|floatformat:2 }}</h4>
+                            <div class="small text-muted mt-2">
+                                <i class="fas fa-chart-line me-1"></i> +12% desde o mês passado
+                            </div>
+                        </div>
+                        <div class="stat-icon bg-gradient-success text-white">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Low Stock Products -->
-    <div class="col-lg-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-transparent border-0 pt-4 pb-2 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Produtos com Estoque Baixo</h5>
-                <a href="{% url 'inventory_dashboard' %}" class="btn btn-sm btn-outline-primary">Ver todos</a>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-ticket">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted mb-2">Ticket Médio</h6>
+                            <h4 class="mb-0 text-info">R$ {{ average_ticket|floatformat:2 }}</h4>
+                            <div class="small text-muted mt-2">
+                                <i class="fas fa-arrow-up me-1"></i> +5% desde ontem
+                            </div>
+                        </div>
+                        <div class="stat-icon bg-gradient-info text-white">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Produto</th>
-                                <th class="text-center">Estoque</th>
-                                <th class="text-center">Alerta</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for product in low_stock_products %}
-                            <tr>
-                                <td>{{ product.name }}</td>
-                                <td class="text-center">
-                                    <span class="badge bg-danger">{{ product.stock_quantity }}</span>
-                                </td>
-                                <td class="text-center">{{ product.stock_alert_level }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center py-3">Nenhum produto com estoque baixo</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-profit">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted mb-2">Margem de Lucro</h6>
+                            <h4 class="mb-0 text-warning">{{ profit_margin|floatformat:1 }}%</h4>
+                            <div class="small text-success mt-2">
+                                <i class="fas fa-dollar-sign me-1"></i> R$ {{ total_profit|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="stat-icon bg-gradient-warning text-white">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Top Products -->
-    <div class="col-lg-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-transparent border-0 pt-4 pb-2">
-                <h5 class="mb-0">Produtos Mais Vendidos</h5>
+
+    <!-- Gráfico de Vendas e Produtos Mais Vendidos -->
+    <div class="row mb-4">
+        <!-- Gráfico de Vendas -->
+        <div class="col-xl-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white pb-0">
+                    <h6 class="mb-0">Evolução de Vendas</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Produto</th>
-                                <th class="text-end">Qtd. Vendida</th>
-                                <th class="text-end">Total (R$)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for product in top_products %}
-                            <tr>
-                                <td>{{ product.product__name }}</td>
-                                <td class="text-end">{{ product.total_qty }}</td>
-                                <td class="text-end">{{ product.total_sales|floatformat:2 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center py-3">Nenhuma venda registrada no período</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+        </div>
+
+        <!-- Produtos Mais Vendidos -->
+        <div class="col-xl-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white pb-0 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Produtos Mais Vendidos</h6>
+                    <a href="{% url 'product_list' %}" class="btn btn-sm btn-outline-primary">
+                        Ver Todos
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for product in top_products|slice:":5" %}
+                        <div class="list-group-item border-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ product.product__name }}</h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-box me-1"></i> {{ product.total_qty }} unidades
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="text-success">R$ {{ product.total_sales|floatformat:2 }}</div>
+                                    <small class="text-muted">{{ product.percentage|floatformat:1 }}%</small>
+                                </div>
+                            </div>
+                            <div class="progress mt-2" style="height: 4px;">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ product.percentage|floatformat:1 }}%"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Quick Links -->
-    <div class="col-lg-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-transparent border-0 pt-4 pb-2">
-                <h5 class="mb-0">Acesso Rápido</h5>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-sm-6">
-                        <a href="{% url 'point_of_sale' %}" class="text-decoration-none">
-                            <div class="card bg-primary bg-opacity-10 border-0 h-100">
-                                <div class="card-body text-center py-4">
-                                    <i class="fas fa-cash-register fa-2x text-primary mb-3"></i>
-                                    <h6 class="mb-0 text-primary">PDV</h6>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-sm-6">
-                        <a href="{% url 'product_create' %}" class="text-decoration-none">
-                            <div class="card bg-success bg-opacity-10 border-0 h-100">
-                                <div class="card-body text-center py-4">
-                                    <i class="fas fa-box-open fa-2x text-success mb-3"></i>
-                                    <h6 class="mb-0 text-success">Novo Produto</h6>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-sm-6">
-                        <a href="{% url 'customer_create' %}" class="text-decoration-none">
-                            <div class="card bg-info bg-opacity-10 border-0 h-100">
-                                <div class="card-body text-center py-4">
-                                    <i class="fas fa-user-plus fa-2x text-info mb-3"></i>
-                                    <h6 class="mb-0 text-info">Novo Cliente</h6>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-sm-6">
-                        <a href="{% url 'sales_report' %}" class="text-decoration-none">
-                            <div class="card bg-warning bg-opacity-10 border-0 h-100">
-                                <div class="card-body text-center py-4">
-                                    <i class="fas fa-chart-line fa-2x text-warning mb-3"></i>
-                                    <h6 class="mb-0 text-warning">Relatórios</h6>
-                                </div>
-                            </div>
-                        </a>
+
+    <div class="row">
+        <!-- Produtos com Estoque Baixo -->
+        <div class="col-12 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white pb-0 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Produtos com Estoque Baixo</h6>
+                    <button class="btn btn-sm btn-outline-danger">
+                        Repor Estoque
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table align-items-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Estoque</th>
+                                    <th>Mínimo</th>
+                                    <th>Valor em Estoque</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in low_stock_products %}
+                                <tr>
+                                    <td>{{ product.name }}</td>
+                                    <td>
+                                        <span class="badge bg-danger">{{ product.stock_quantity }}</span>
+                                    </td>
+                                    <td>{{ product.stock_alert_level }}</td>
+                                    <td>R$ {{ product.stock_value|floatformat:2 }}</td>
+                                    <td>
+                                        <a href="#" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-plus"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -245,96 +495,94 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Dados para o gráfico de vendas
-        const salesData = {
-            labels: {{ sales_chart_data.labels|safe }},
-            values: {{ sales_chart_data.values|safe }},
-            counts: {{ sales_chart_data.counts|safe }}
-        };
-        
-        // Configuração do gráfico de vendas
-        const ctx = document.getElementById('salesChart').getContext('2d');
-        const salesChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: salesData.labels,
-                datasets: [
-                    {
-                        label: 'Valor Total (R$)',
-                        data: salesData.values,
-                        borderColor: '#0d6efd',
-                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.3,
-                        yAxisID: 'y'
-                    },
-                    {
-                        label: 'Quantidade de Vendas',
-                        data: salesData.counts,
-                        borderColor: '#fd7e14',
-                        backgroundColor: 'rgba(253, 126, 20, 0.1)',
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        fill: false,
-                        tension: 0.3,
-                        yAxisID: 'y1'
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                interaction: {
+document.addEventListener('DOMContentLoaded', function() {
+    const salesChartEl = document.getElementById('salesChart');
+    if (!salesChartEl) {
+        console.error('Elemento do gráfico não encontrado');
+        return;
+    }
+
+    const salesData = JSON.parse('{{ sales_chart_data|escapejs }}');
+    if (!salesData || !salesData.labels || !salesData.values) {
+        console.error('Dados do gráfico inválidos:', salesData);
+        return;
+    }
+
+    new Chart(salesChartEl, {
+        type: 'line',
+        data: {
+            labels: salesData.labels,
+            datasets: [{
+                label: 'Vendas (R$)',
+                data: salesData.values,
+                fill: true,
+                borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                tension: 0.4,
+                pointRadius: 3,
+                pointBackgroundColor: '#4e73df',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: '#4e73df',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
                     mode: 'index',
                     intersect: false,
-                },
-                scales: {
-                    y: {
-                        type: 'linear',
-                        display: true,
-                        position: 'left',
-                        title: {
-                            display: true,
-                            text: 'Valor (R$)'
-                        }
-                    },
-                    y1: {
-                        type: 'linear',
-                        display: true,
-                        position: 'right',
-                        title: {
-                            display: true,
-                            text: 'Quantidade'
-                        },
-                        grid: {
-                            drawOnChartArea: false
-                        }
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.datasetIndex === 0) {
-                                    label += 'R$ ' + context.raw.toFixed(2);
-                                } else {
-                                    label += context.raw;
-                                }
-                                return label;
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
                             }
+                            if (context.parsed.y !== null) {
+                                label += new Intl.NumberFormat('pt-BR', {
+                                    style: 'currency',
+                                    currency: 'BRL'
+                                }).format(context.parsed.y);
+                            }
+                            return label;
                         }
                     }
                 }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        drawBorder: false,
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return new Intl.NumberFormat('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL'
+                            }).format(value);
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        drawBorder: false,
+                        display: false
+                    }
+                }
             }
-        });
+        }
     });
+});
 </script>
 {% endblock %} 

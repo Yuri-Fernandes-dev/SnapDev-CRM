@@ -1,0 +1,98 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block title %}Dashboard de Vendas - SaaS CRM{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Filtro de período -->
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="d-flex align-items-center">
+                        <label for="period" class="me-2">Período:</label>
+                        <select name="period" id="period" class="form-select me-2" style="width: auto;">
+                            <option value="7" {% if period == '7' %}selected{% endif %}>Últimos 7 dias</option>
+                            <option value="15" {% if period == '15' %}selected{% endif %}>Últimos 15 dias</option>
+                            <option value="30" {% if period == '30' %}selected{% endif %}>Últimos 30 dias</option>
+                            <option value="90" {% if period == '90' %}selected{% endif %}>Últimos 90 dias</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary">Filtrar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vendas por Mês -->
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header pb-0">
+                    <h6>Vendas por Mês</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table align-items-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Mês</th>
+                                    <th>Total de Vendas</th>
+                                    <th>Valor Total</th>
+                                    <th>Ticket Médio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in monthly_sales %}
+                                <tr>
+                                    <td>{{ sale.month|date:"F Y" }}</td>
+                                    <td>{{ sale.count }}</td>
+                                    <td>R$ {{ sale.total|floatformat:2 }}</td>
+                                    <td>R$ {{ sale.total|div:sale.count|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vendas por Método de Pagamento -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header pb-0">
+                    <h6>Vendas por Método de Pagamento</h6>
+                </div>
+                <div class="card-body px-0 pt-0 pb-2">
+                    <div class="table-responsive p-0">
+                        <table class="table align-items-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Método</th>
+                                    <th>Total de Vendas</th>
+                                    <th>Valor Total</th>
+                                    <th>Ticket Médio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in sales_by_payment %}
+                                <tr>
+                                    <td>{{ payment.payment_method__name }}</td>
+                                    <td>{{ payment.count }}</td>
+                                    <td>R$ {{ payment.total|floatformat:2 }}</td>
+                                    <td>R$ {{ payment.total|div:payment.count|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

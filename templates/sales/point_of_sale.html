@@ -24,13 +24,42 @@
         overflow-y: auto;
     }
     #cart-container {
-        height: calc(100vh - 380px);
+        height: calc(100vh - 650px);
         overflow-y: auto;
+    }
+    .customer-suggestion {
+        cursor: pointer;
+        padding: 5px 10px;
+    }
+    .customer-suggestion:hover {
+        background-color: #f8f9fa;
+    }
+    .total-value {
+        font-size: 1.5rem;
+        color: #198754;
+        font-weight: bold;
+    }
+    .change-value {
+        font-size: 1.25rem;
+        color: #0d6efd;
+        font-weight: bold;
     }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="successToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="fas fa-check-circle me-2"></i>
+                Venda realizada com sucesso!
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">Ponto de Venda (PDV)</h1>
     <a href="{% url 'sale_list' %}" class="btn btn-outline-primary">
@@ -49,7 +78,7 @@
                             <span class="input-group-text bg-transparent">
                                 <i class="fas fa-search"></i>
                             </span>
-                            <input type="text" id="product-search" class="form-control" placeholder="Buscar produto...">
+                            <input type="text" id="product-search" class="form-control" placeholder="Digite o código do produto...">
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -133,7 +162,7 @@
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <span class="fs-5">Total:</span>
-                        <span class="fs-5 fw-bold" id="total">R$ 0,00</span>
+                        <span class="total-value" id="total">R$ 0,00</span>
                     </div>
                 </div>
                 
@@ -141,19 +170,31 @@
                     <div class="mb-3">
                         <label for="payment-method" class="form-label">Método de Pagamento</label>
                         <select id="payment-method" class="form-select">
+                            <option value="">Selecione o método de pagamento</option>
                             {% for method in payment_methods %}
                             <option value="{{ method.id }}">{{ method.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
+                    <div id="change-container" style="display: none;" class="mb-3">
+                        <label for="payment-amount" class="form-label">Valor Pago</label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="number" id="payment-amount" class="form-control" step="0.01" min="0">
+                        </div>
+                        <div class="mt-2">
+                            <span class="fs-5">Troco: </span>
+                            <span class="change-value" id="change-amount">R$ 0,00</span>
+                        </div>
+                    </div>
                     <div class="mb-3">
-                        <label for="customer" class="form-label">Cliente (opcional)</label>
-                        <select id="customer" class="form-select">
-                            <option value="">Selecione um cliente</option>
-                            {% for customer in customers %}
-                            <option value="{{ customer.id }}">{{ customer.name }}</option>
-                            {% endfor %}
-                        </select>
+                        <label for="customer-search" class="form-label">Cliente (opcional)</label>
+                        <div class="position-relative">
+                            <input type="text" id="customer-search" class="form-control" placeholder="Digite o nome do cliente...">
+                            <input type="hidden" id="customer-id">
+                            <div id="customer-suggestions" class="position-absolute w-100 bg-white border rounded shadow-sm" style="display: none; z-index: 1000; max-height: 200px; overflow-y: auto;">
+                            </div>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="notes" class="form-label">Observações</label>
@@ -239,9 +280,13 @@
         const discountEl = document.getElementById('discount');
         const totalEl = document.getElementById('total');
         const paymentMethodEl = document.getElementById('payment-method');
-        const customerEl = document.getElementById('customer');
+        const customerSearch = document.getElementById('customer-search');
+        const customerId = document.getElementById('customer-id');
         const notesEl = document.getElementById('notes');
         const finalizeSaleBtn = document.getElementById('finalize-sale');
+        const successToast = new bootstrap.Toast(document.getElementById('successToast'), {
+            delay: 3000
+        });
         
         // Modal de quantidade
         const quantityModal = new bootstrap.Modal(document.getElementById('quantityModal'));
@@ -266,16 +311,34 @@
         let cart = [];
         let currentProduct = null;
         
+        // Adicionar evento de Enter no campo de quantidade
+        document.getElementById('quantityModal').addEventListener('shown.bs.modal', function () {
+            productQuantity.focus();
+            productQuantity.select();
+        });
+
+        // Controles de quantidade
+        productQuantity.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addToCartBtn.click();
+            }
+        });
+        
         // Evento de clique nos produtos
         productsGrid.addEventListener('click', function(e) {
             const productCard = e.target.closest('.product-item');
             if (!productCard) return;
             
+            showQuantityModal(productCard);
+        });
+        
+        function showQuantityModal(productItem) {
             currentProduct = {
-                id: productCard.dataset.id,
-                name: productCard.dataset.name,
-                price: parseFloat(productCard.dataset.price),
-                stock: parseInt(productCard.dataset.stock, 10)
+                id: productItem.dataset.id,
+                name: productItem.dataset.name,
+                price: parseFloat(productItem.dataset.price),
+                stock: parseInt(productItem.dataset.stock, 10)
             };
             
             modalProductName.textContent = currentProduct.name;
@@ -285,20 +348,7 @@
             productQuantity.max = currentProduct.stock;
             
             quantityModal.show();
-        });
-        
-        // Controles de quantidade
-        decreaseQtyBtn.addEventListener('click', function() {
-            if (productQuantity.value > 1) {
-                productQuantity.value = parseInt(productQuantity.value, 10) - 1;
-            }
-        });
-        
-        increaseQtyBtn.addEventListener('click', function() {
-            if (parseInt(productQuantity.value, 10) < currentProduct.stock) {
-                productQuantity.value = parseInt(productQuantity.value, 10) + 1;
-            }
-        });
+        }
         
         // Adicionar ao carrinho
         addToCartBtn.addEventListener('click', function() {
@@ -322,6 +372,10 @@
                 
                 updateCartDisplay();
                 quantityModal.hide();
+                
+                // Focar no campo de busca após adicionar ao carrinho
+                productSearch.value = '';
+                productSearch.focus();
             }
         });
         
@@ -386,6 +440,35 @@
         // Evento de mudança no desconto
         discountEl.addEventListener('input', updateTotals);
         
+        // Atualizar o troco quando o valor pago é alterado
+        const paymentAmount = document.getElementById('payment-amount');
+        const changeAmount = document.getElementById('change-amount');
+        paymentAmount.addEventListener('input', function() {
+            const total = parseFloat(totalEl.textContent.replace('R$ ', '').replace(',', '.')) || 0;
+            const paid = parseFloat(this.value) || 0;
+            const change = paid - total;
+            changeAmount.textContent = `R$ ${change.toFixed(2)}`.replace('.', ',');
+        });
+
+        // Atualizar campos quando método de pagamento é alterado
+        paymentMethodEl.addEventListener('change', function() {
+            const isDinheiro = this.options[this.selectedIndex].text.toLowerCase().includes('dinheiro');
+            const changeContainer = document.getElementById('change-container');
+            changeContainer.style.display = isDinheiro ? 'block' : 'none';
+            
+            if (isDinheiro) {
+                const total = parseFloat(totalEl.textContent.replace('R$ ', '').replace(',', '.')) || 0;
+                paymentAmount.value = total.toFixed(2);
+                const change = 0;
+                changeAmount.textContent = `R$ ${change.toFixed(2)}`.replace('.', ',');
+                paymentAmount.focus();
+                paymentAmount.select();
+            } else {
+                paymentAmount.value = '';
+                changeAmount.textContent = 'R$ 0,00';
+            }
+        });
+
         // Finalizar venda
         finalizeSaleBtn.addEventListener('click', function() {
             if (cart.length === 0) {
@@ -393,36 +476,61 @@
                 return;
             }
             
+            if (!paymentMethodEl.value) {
+                alert('Selecione um método de pagamento antes de finalizar a venda.');
+                paymentMethodEl.focus();
+                return;
+            }
+
+            const isDinheiro = paymentMethodEl.options[paymentMethodEl.selectedIndex].text.toLowerCase().includes('dinheiro');
+            if (isDinheiro) {
+                const paid = parseFloat(paymentAmount.value) || 0;
+                const total = parseFloat(totalEl.textContent.replace('R$ ', '').replace(',', '.')) || 0;
+                if (paid < total) {
+                    alert('O valor pago deve ser maior ou igual ao total da venda.');
+                    paymentAmount.focus();
+                    return;
+                }
+            }
+            
             const total = cart.reduce((sum, item) => sum + item.subtotal, 0) - (parseFloat(discountEl.value) || 0);
             const paymentMethodText = paymentMethodEl.options[paymentMethodEl.selectedIndex].text;
-            const customerText = customerEl.selectedIndex > 0 ? customerEl.options[customerEl.selectedIndex].text : '-';
+            const customerText = customerSearch.value || '-';
             
-            confirmTotal.textContent = `R$ ${total.toFixed(2)}`;
+            confirmTotal.textContent = `R$ ${total.toFixed(2)}`.replace('.', ',');
             confirmPaymentMethod.textContent = paymentMethodText;
             confirmCustomer.textContent = customerText;
-            confirmCustomerContainer.style.display = customerEl.value ? 'block' : 'none';
+            confirmCustomerContainer.style.display = customerSearch.value ? 'block' : 'none';
+            
+            if (isDinheiro) {
+                const paid = parseFloat(paymentAmount.value) || 0;
+                const change = paid - total;
+                confirmPaymentMethod.textContent = `${paymentMethodText} (Pago: R$ ${paid.toFixed(2)}, Troco: R$ ${change.toFixed(2)})`.replace(/\./g, ',');
+            }
             
             confirmationModal.show();
         });
         
         // Confirmar venda
         confirmSaleBtn.addEventListener('click', function() {
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processando...';
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processando...';
             
             const saleData = {
-                customer_id: customerEl.value || null,
-                payment_method_id: paymentMethodEl.value,
+                customer_id: customerId.value || null,
+                payment_method_id: parseInt(paymentMethodEl.value),
                 items: cart.map(item => ({
-                    product_id: item.id,
-                    quantity: item.quantity,
-                    price: item.price
+                    product_id: parseInt(item.id),
+                    quantity: parseInt(item.quantity),
+                    price: parseFloat(item.price)
                 })),
                 discount: parseFloat(discountEl.value) || 0,
                 notes: notesEl.value
             };
+
+            console.log('Enviando dados:', saleData);
             
-            // Enviar venda para o servidor
             fetch('{% url "create_sale" %}', {
                 method: 'POST',
                 headers: {
@@ -431,33 +539,55 @@
                 },
                 body: JSON.stringify(saleData)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                confirmationModal.hide();
+                
                 if (data.success) {
-                    // Mostrar mensagem de sucesso
-                    saleSuccessMessage.style.display = 'block';
-                    confirmSaleBtn.style.display = 'none';
-                    document.querySelector('.btn-secondary').textContent = 'Fechar';
-                    
                     // Limpar carrinho
                     cart = [];
                     updateCartDisplay();
                     
-                    // Redirecionar após 2 segundos
-                    setTimeout(() => {
-                        window.location.href = `{% url 'sale_detail' 1 %}`.replace('1', data.sale_id);
-                    }, 2000);
+                    // Mostrar Toast de sucesso
+                    successToast.show();
+                    
+                    // Mostrar modal de confirmação
+                    Swal.fire({
+                        title: 'Venda Realizada!',
+                        text: 'A venda foi finalizada com sucesso.',
+                        icon: 'success',
+                        showCancelButton: true,
+                        confirmButtonText: 'Ver Detalhes',
+                        cancelButtonText: 'Nova Venda',
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = `{% url 'sale_detail' 1 %}`.replace('1', data.sale_id);
+                        } else {
+                            window.location.reload();
+                        }
+                    });
                 } else {
-                    alert('Erro ao processar a venda. Tente novamente.');
-                    confirmSaleBtn.disabled = false;
-                    confirmSaleBtn.innerHTML = 'Confirmar Venda';
+                    throw new Error(data.error || 'Erro ao processar a venda');
                 }
             })
             .catch(error => {
                 console.error('Erro:', error);
-                alert('Erro ao processar a venda. Tente novamente.');
-                confirmSaleBtn.disabled = false;
-                confirmSaleBtn.innerHTML = 'Confirmar Venda';
+                confirmationModal.hide();
+                
+                Swal.fire({
+                    title: 'Erro!',
+                    text: error.message || 'Erro ao processar a venda. Tente novamente.',
+                    icon: 'error'
+                }).then(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Confirmar Venda';
+                });
             });
         });
         
@@ -482,6 +612,69 @@
                 item.style.display = (categoryMatch && searchMatch) ? 'block' : 'none';
             });
         }
+
+        // Busca por código do produto com Enter
+        productSearch.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const searchTerm = this.value.trim().toLowerCase();
+                
+                // Primeiro tenta encontrar por código exato
+                let productItem = Array.from(document.querySelectorAll('.product-item')).find(item => {
+                    const code = (item.dataset.code || '').toLowerCase();
+                    return code === searchTerm;
+                });
+                
+                if (productItem) {
+                    showQuantityModal(productItem);
+                    this.value = '';
+                }
+                
+                filterProducts();
+            }
+        });
+
+        // Busca de clientes
+        const customerSuggestions = document.getElementById('customer-suggestions');
+        const customers = JSON.parse('{{ customers_json|escapejs }}');
+
+        customerSearch.addEventListener('input', function() {
+            const searchTerm = this.value.trim().toLowerCase();
+            if (searchTerm.length < 2) {
+                customerSuggestions.style.display = 'none';
+                return;
+            }
+
+            const matches = customers.filter(customer => 
+                customer.name.toLowerCase().includes(searchTerm)
+            );
+
+            if (matches.length > 0) {
+                customerSuggestions.innerHTML = matches.map(customer => `
+                    <div class="customer-suggestion" data-id="${customer.id}" data-name="${customer.name}">
+                        ${customer.name}
+                    </div>
+                `).join('');
+                customerSuggestions.style.display = 'block';
+            } else {
+                customerSuggestions.style.display = 'none';
+            }
+        });
+
+        customerSuggestions.addEventListener('click', function(e) {
+            const suggestion = e.target.closest('.customer-suggestion');
+            if (suggestion) {
+                customerSearch.value = suggestion.dataset.name;
+                customerId.value = suggestion.dataset.id;
+                customerSuggestions.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!customerSearch.contains(e.target) && !customerSuggestions.contains(e.target)) {
+                customerSuggestions.style.display = 'none';
+            }
+        });
     });
 </script>
 {% endblock %} 

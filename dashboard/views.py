@@ -7,6 +7,7 @@ from sales.models import Sale, SaleItem
 from products.models import Product
 from customers.models import Customer
 from datetime import timedelta
+import json
 
 @login_required
 def dashboard(request):
@@ -22,46 +23,72 @@ def dashboard(request):
         days = 30
     
     start_date = timezone.now().date() - timedelta(days=days)
+    end_date = timezone.now().date()
     
     # Métricas de vendas
     sales_data = Sale.objects.filter(status='paid', created_at__date__gte=start_date)
     total_sales = sales_data.count()
-    total_revenue = sales_data.aggregate(total=Sum('total'))['total'] or 0
+    total_revenue = float(sales_data.aggregate(total=Sum('total'))['total'] or 0)
     
     # Produtos mais vendidos
     top_products = (
         SaleItem.objects
         .filter(sale__status='paid', sale__created_at__date__gte=start_date)
         .values('product__name')
-        .annotate(total_qty=Sum('quantity'), total_sales=Sum(F('price') * F('quantity')))
+        .annotate(
+            total_qty=Sum('quantity'),
+            total_sales=Sum(F('price') * F('quantity'))
+        )
         .order_by('-total_qty')[:5]
     )
+    
+    # Calcular porcentagem para cada produto
+    if top_products:
+        max_qty = top_products[0]['total_qty']
+        for product in top_products:
+            product['percentage'] = (product['total_qty'] / max_qty * 100) if max_qty > 0 else 0
     
     # Produtos com estoque baixo
     low_stock_products = Product.objects.filter(
         stock_quantity__lte=F('stock_alert_level')
     ).order_by('stock_quantity')[:5]
     
+    # Add stock value calculation for each product
+    for product in low_stock_products:
+        product.stock_value = float(product.stock_quantity * product.cost)
+    
     # Contagem de clientes
     total_customers = Customer.objects.count()
     new_customers = Customer.objects.filter(created_at__date__gte=start_date).count()
     
+    # Gerar lista de datas para o período
+    dates = []
+    current_date = start_date
+    while current_date <= end_date:
+        dates.append(current_date)
+        current_date += timedelta(days=1)
+    
     # Dados para o gráfico de vendas diárias
     daily_sales = (
         Sale.objects
-        .filter(status='paid', created_at__date__gte=start_date)
+        .filter(status='paid', created_at__date__gte=start_date, created_at__date__lte=end_date)
         .annotate(date=TruncDate('created_at'))
         .values('date')
-        .annotate(total=Sum('total'), count=Count('id'))
+        .annotate(total=Sum('total'))
         .order_by('date')
     )
     
-    # Formatação para o gráfico
+    # Criar dicionário com vendas por data
+    sales_by_date = {sale['date']: float(sale['total']) for sale in daily_sales}
+    
+    # Formatação para o gráfico (preenchendo datas sem vendas com 0)
     sales_chart_data = {
-        'labels': [str(item['date']) for item in daily_sales],
-        'values': [float(item['total']) for item in daily_sales],
-        'counts': [item['count'] for item in daily_sales],
+        'labels': [date.strftime('%d/%m') for date in dates],
+        'values': [sales_by_date.get(date, 0) for date in dates]
     }
+    
+    # Garantir que os valores são serializáveis
+    sales_chart_data = json.dumps(sales_chart_data)
     
     # Cálculo da lucratividade (baseada no custo dos produtos)
     profit_data = (
@@ -76,8 +103,11 @@ def dashboard(request):
         .aggregate(total_profit=Sum('profit'))
     )
     
-    total_profit = profit_data['total_profit'] or 0
+    total_profit = float(profit_data['total_profit'] or 0)
     profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # Calcular ticket médio
+    average_ticket = total_revenue / total_sales if total_sales > 0 else 0
     
     context = {
         'period': period,
@@ -90,6 +120,7 @@ def dashboard(request):
         'total_customers': total_customers,
         'new_customers': new_customers,
         'sales_chart_data': sales_chart_data,
+        'average_ticket': average_ticket,
     }
     
     return render(request, 'dashboard/dashboard.html', context)

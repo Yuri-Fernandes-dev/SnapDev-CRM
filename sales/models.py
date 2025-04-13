@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 from customers.models import Customer
 from products.models import Product
+from decimal import Decimal
 
 class PaymentMethod(models.Model):
     name = models.CharField('Nome', max_length=100)
@@ -43,12 +44,10 @@ class Sale(models.Model):
         return self.items.count()
     
     def calculate_total(self):
-        self.total = sum(item.subtotal for item in self.items.all()) - self.discount
-        return self.total
-    
-    def save(self, *args, **kwargs):
-        self.calculate_total()
-        super(Sale, self).save(*args, **kwargs)
+        if not self.id:  # Se a venda ainda não foi salva, retorna 0
+            return Decimal('0')
+        total = sum(item.subtotal for item in self.items.all())
+        return total - self.discount if total else Decimal('0')
 
 class SaleItem(models.Model):
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, verbose_name='Venda', related_name='items')
@@ -65,13 +64,11 @@ class SaleItem(models.Model):
         return f'{self.quantity} x {self.product.name}'
     
     def save(self, *args, **kwargs):
+        # Calcular subtotal
         self.subtotal = self.price * self.quantity
         super(SaleItem, self).save(*args, **kwargs)
         
-        # Atualizar o total da venda
-        self.sale.save()
-        
-        # Atualizar o estoque do produto
+        # Atualizar estoque do produto apenas se a venda estiver paga
         if self.sale.status == 'paid':
             self.product.stock_quantity -= self.quantity
             self.product.save()

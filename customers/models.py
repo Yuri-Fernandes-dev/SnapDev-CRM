@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from decimal import Decimal
+from django.db.models import Sum
 
 class LoyaltyTier(models.Model):
     name = models.CharField('Nome', max_length=50)
@@ -25,6 +26,7 @@ class Customer(models.Model):
     state = models.CharField('Estado', max_length=2, blank=True, null=True)
     zipcode = models.CharField('CEP', max_length=9, blank=True, null=True)
     notes = models.TextField('Observações', blank=True, null=True)
+    is_active = models.BooleanField('Ativo', default=True)
     
     # Campos de fidelidade
     loyalty_points = models.IntegerField('Pontos de Fidelidade', default=0)
@@ -46,8 +48,23 @@ class Customer(models.Model):
         address_parts = [part for part in [self.address, self.city, self.state, self.zipcode] if part]
         return ', '.join(address_parts) if address_parts else ''
     
-    def get_total_purchases(self):
-        return sum(sale.total for sale in self.sales.all())
+    @property
+    def total_purchases(self):
+        """Retorna o total de compras pagas do cliente"""
+        from sales.models import Sale
+        total = Sale.objects.filter(
+            customer=self,
+            status='paid'
+        ).aggregate(
+            total=Sum('total')
+        )['total'] or 0
+        return total
+    
+    @property
+    def total_purchases_count(self):
+        """Retorna o número de compras pagas do cliente"""
+        from sales.models import Sale
+        return Sale.objects.filter(customer=self, status='paid').count()
     
     def add_points(self, amount):
         """Adiciona pontos baseado no valor da compra"""

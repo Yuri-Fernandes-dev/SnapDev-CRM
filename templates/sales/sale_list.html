@@ -4,249 +4,230 @@
 {% block title %}Vendas - SaaS CRM{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">Vendas</h1>
-    <div class="d-flex gap-2">
-        <a href="{% url 'sales_report' %}" class="btn btn-outline-primary">
-            <i class="fas fa-chart-line me-1"></i> Relatórios
-        </a>
-        <a href="{% url 'point_of_sale' %}" class="btn btn-primary">
-            <i class="fas fa-cash-register me-1"></i> Nova Venda (PDV)
-        </a>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 mb-0">Vendas</h1>
+        <div class="d-flex gap-2">
+            <a href="{% url 'sales_report' %}" class="btn btn-outline-primary">
+                <i class="fas fa-chart-line me-1"></i> Relatórios
+            </a>
+            <a href="{% url 'point_of_sale' %}" class="btn btn-primary">
+                <i class="fas fa-cash-register me-1"></i> Nova Venda (PDV)
+            </a>
+        </div>
     </div>
-</div>
 
-<!-- Filtros -->
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-3">
-                <div class="input-group">
-                    <span class="input-group-text bg-transparent">
-                        <i class="fas fa-search"></i>
-                    </span>
-                    <input type="text" name="q" class="form-control" placeholder="Buscar venda..." value="{{ request.GET.q|default:'' }}">
+    <!-- Filtros -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" name="q" class="form-control" placeholder="Buscar venda..." value="{{ query }}">
+                    </div>
                 </div>
-            </div>
-            <div class="col-md-2">
-                <input type="date" name="date_from" class="form-control" placeholder="Data Inicial" value="{{ request.GET.date_from|default:'' }}">
-            </div>
-            <div class="col-md-2">
-                <input type="date" name="date_to" class="form-control" placeholder="Data Final" value="{{ request.GET.date_to|default:'' }}">
-            </div>
-            <div class="col-md-2">
-                <select name="status" class="form-select">
-                    <option value="">Todos os status</option>
-                    <option value="pending" {% if request.GET.status == "pending" %}selected{% endif %}>Pendente</option>
-                    <option value="paid" {% if request.GET.status == "paid" %}selected{% endif %}>Pago</option>
-                    <option value="canceled" {% if request.GET.status == "canceled" %}selected{% endif %}>Cancelado</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <select name="payment_method" class="form-select">
-                    <option value="">Todos os métodos</option>
-                    {% for method in payment_methods %}
-                    <option value="{{ method.id }}" {% if request.GET.payment_method == method.id|stringformat:"i" %}selected{% endif %}>
-                        {{ method.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-1">
-                <button type="submit" class="btn btn-primary w-100">Filtrar</button>
-            </div>
-        </form>
+                <div class="col-md-2">
+                    <input type="date" name="date_from" class="form-control" placeholder="Data Inicial" value="{{ date_from }}">
+                </div>
+                <div class="col-md-2">
+                    <input type="date" name="date_to" class="form-control" placeholder="Data Final" value="{{ date_to }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="status" class="form-select">
+                        <option value="">Todos os status</option>
+                        <option value="pending" {% if status == "pending" %}selected{% endif %}>Pendente</option>
+                        <option value="paid" {% if status == "paid" %}selected{% endif %}>Pago</option>
+                        <option value="canceled" {% if status == "canceled" %}selected{% endif %}>Cancelado</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="payment_method" class="form-select">
+                        <option value="">Todos os métodos</option>
+                        {% for method in payment_methods %}
+                        <option value="{{ method.id }}" {% if payment_method == method.id|stringformat:"i" %}selected{% endif %}>
+                            {{ method.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
-<!-- Estatísticas Rápidas -->
-<div class="row g-4 mb-4">
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 me-3">
-                        <div class="stat-icon bg-primary bg-opacity-10 text-primary">
-                            <i class="fas fa-shopping-cart"></i>
-                        </div>
-                    </div>
-                    <div>
-                        <p class="text-muted mb-0">Total de Vendas</p>
-                        <h4 class="mb-0">{{ total_sales }}</h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 me-3">
-                        <div class="stat-icon bg-success bg-opacity-10 text-success">
-                            <i class="fas fa-money-bill-wave"></i>
-                        </div>
-                    </div>
-                    <div>
-                        <p class="text-muted mb-0">Receita Total</p>
-                        <h4 class="mb-0">R$ {{ total_revenue|floatformat:2 }}</h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 me-3">
-                        <div class="stat-icon bg-info bg-opacity-10 text-info">
-                            <i class="fas fa-receipt"></i>
-                        </div>
-                    </div>
-                    <div>
-                        <p class="text-muted mb-0">Ticket Médio</p>
-                        <h4 class="mb-0">R$ {{ avg_ticket|floatformat:2 }}</h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 me-3">
-                        <div class="stat-icon bg-warning bg-opacity-10 text-warning">
-                            <i class="fas fa-box"></i>
-                        </div>
-                    </div>
-                    <div>
-                        <p class="text-muted mb-0">Itens Vendidos</p>
-                        <h4 class="mb-0">{{ total_items }}</h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Tabela de Vendas -->
-<div class="card border-0 shadow-sm">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th scope="col">Código</th>
-                        <th scope="col">Data/Hora</th>
-                        <th scope="col">Cliente</th>
-                        <th scope="col">Total</th>
-                        <th scope="col">Itens</th>
-                        <th scope="col">Pagamento</th>
-                        <th scope="col">Status</th>
-                        <th scope="col" class="text-end">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for sale in sales %}
-                    <tr>
-                        <td>#{{ sale.id }}</td>
-                        <td>{{ sale.created_at|date:"d/m/Y H:i" }}</td>
-                        <td>
-                            {% if sale.customer %}
-                            <a href="{% url 'customer_detail' sale.customer.id %}" class="text-decoration-none">
-                                {{ sale.customer.name }}
-                            </a>
-                            {% else %}
-                            <span class="text-muted">Cliente não informado</span>
-                            {% endif %}
-                        </td>
-                        <td>R$ {{ sale.total|floatformat:2 }}</td>
-                        <td>{{ sale.items_count }}</td>
-                        <td>{{ sale.payment_method.name }}</td>
-                        <td>
-                            {% if sale.status == 'paid' %}
-                            <span class="badge bg-success">Pago</span>
-                            {% elif sale.status == 'pending' %}
-                            <span class="badge bg-warning">Pendente</span>
-                            {% else %}
-                            <span class="badge bg-danger">Cancelado</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-end">
-                            <div class="btn-group">
-                                <a href="{% url 'sale_detail' sale.id %}" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                {% if sale.status == 'pending' %}
-                                <a href="{% url 'sale_update' sale.id %}" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                {% endif %}
+    <!-- Estatísticas Rápidas -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                                <i class="fas fa-shopping-cart"></i>
                             </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8" class="text-center py-4">
-                            <p class="mb-0 text-muted">Nenhuma venda encontrada.</p>
-                            <a href="{% url 'point_of_sale' %}" class="btn btn-sm btn-primary mt-2">
-                                <i class="fas fa-cash-register me-1"></i> Nova Venda (PDV)
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0">Total de Vendas</p>
+                            <h4 class="mb-0">{{ total_sales|default:0 }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <div class="stat-icon bg-success bg-opacity-10 text-success">
+                                <i class="fas fa-money-bill-wave"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0">Receita Total</p>
+                            <h4 class="mb-0">R$ {{ total_revenue|floatformat:2 }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <div class="stat-icon bg-info bg-opacity-10 text-info">
+                                <i class="fas fa-receipt"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0">Ticket Médio</p>
+                            <h4 class="mb-0">R$ {{ avg_ticket|floatformat:2 }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                                <i class="fas fa-box"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0">Itens Vendidos</p>
+                            <h4 class="mb-0">{{ total_items|default:0 }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Paginação -->
-{% if sales.has_other_pages %}
-<nav class="mt-4">
-    <ul class="pagination justify-content-center">
-        {% if sales.has_previous %}
-        <li class="page-item">
-            <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.payment_method %}&payment_method={{ request.GET.payment_method }}{% endif %}">
-                <i class="fas fa-angle-double-left"></i>
-            </a>
-        </li>
-        <li class="page-item">
-            <a class="page-link" href="?page={{ sales.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.payment_method %}&payment_method={{ request.GET.payment_method }}{% endif %}">
-                <i class="fas fa-angle-left"></i>
-            </a>
-        </li>
-        {% endif %}
-        
-        {% for num in sales.paginator.page_range %}
-            {% if sales.number == num %}
-            <li class="page-item active">
-                <span class="page-link">{{ num }}</span>
-            </li>
-            {% elif num > sales.number|add:'-3' and num < sales.number|add:'3' %}
+    <!-- Tabela de Vendas -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Código</th>
+                            <th scope="col">Data/Hora</th>
+                            <th scope="col">Cliente</th>
+                            <th scope="col">Total</th>
+                            <th scope="col">Itens</th>
+                            <th scope="col">Pagamento</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sale in sales %}
+                        <tr>
+                            <td>#{{ sale.id }}</td>
+                            <td>{{ sale.created_at|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if sale.customer %}
+                                <a href="{% url 'customer_detail' sale.customer.id %}" class="text-decoration-none">
+                                    {{ sale.customer.name }}
+                                </a>
+                                {% else %}
+                                <span class="text-muted">Cliente não informado</span>
+                                {% endif %}
+                            </td>
+                            <td>R$ {{ sale.total|floatformat:2 }}</td>
+                            <td>{{ sale.items_count|default:0 }}</td>
+                            <td>{{ sale.payment_method.name }}</td>
+                            <td>
+                                {% if sale.status == 'paid' %}
+                                <span class="badge bg-success">Pago</span>
+                                {% elif sale.status == 'pending' %}
+                                <span class="badge bg-warning">Pendente</span>
+                                {% else %}
+                                <span class="badge bg-danger">Cancelado</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group">
+                                    <a href="{% url 'sale_detail' sale.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4">
+                                <p class="mb-0 text-muted">Nenhuma venda encontrada.</p>
+                                <a href="{% url 'point_of_sale' %}" class="btn btn-sm btn-primary mt-2">
+                                    <i class="fas fa-cash-register me-1"></i> Nova Venda (PDV)
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    {% if sales.has_other_pages %}
+    <nav aria-label="Paginação" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if sales.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.payment_method %}&payment_method={{ request.GET.payment_method }}{% endif %}">
-                    {{ num }}
+                <a class="page-link" href="?page={{ sales.previous_page_number }}&q={{ query }}&status={{ status }}&payment_method={{ payment_method }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                    <i class="fas fa-chevron-left"></i>
                 </a>
             </li>
             {% endif %}
-        {% endfor %}
-        
-        {% if sales.has_next %}
-        <li class="page-item">
-            <a class="page-link" href="?page={{ sales.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.payment_method %}&payment_method={{ request.GET.payment_method }}{% endif %}">
-                <i class="fas fa-angle-right"></i>
-            </a>
-        </li>
-        <li class="page-item">
-            <a class="page-link" href="?page={{ sales.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.payment_method %}&payment_method={{ request.GET.payment_method }}{% endif %}">
-                <i class="fas fa-angle-double-right"></i>
-            </a>
-        </li>
-        {% endif %}
-    </ul>
-</nav>
-{% endif %}
+
+            {% for num in sales.paginator.page_range %}
+            <li class="page-item {% if sales.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}&q={{ query }}&status={{ status }}&payment_method={{ payment_method }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                    {{ num }}
+                </a>
+            </li>
+            {% endfor %}
+
+            {% if sales.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ sales.next_page_number }}&q={{ query }}&status={{ status }}&payment_method={{ payment_method }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
 {% endblock %} 
