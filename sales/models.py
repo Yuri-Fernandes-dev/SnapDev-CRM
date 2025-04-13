@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 from customers.models import Customer
 from products.models import Product
 from decimal import Decimal
@@ -7,6 +8,9 @@ from decimal import Decimal
 class PaymentMethod(models.Model):
     name = models.CharField('Nome', max_length=100)
     description = models.TextField('Descrição', blank=True, null=True)
+    is_active = models.BooleanField('Ativo', default=True)
+    created_at = models.DateTimeField('Criado em', default=timezone.now)
+    updated_at = models.DateTimeField('Atualizado em', default=timezone.now)
     
     class Meta:
         verbose_name = 'Método de Pagamento'
@@ -15,6 +19,12 @@ class PaymentMethod(models.Model):
     
     def __str__(self):
         return self.name
+    
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.created_at = timezone.now()
+        self.updated_at = timezone.now()
+        super().save(*args, **kwargs)
 
 class Sale(models.Model):
     STATUS_CHOICES = (
@@ -25,6 +35,7 @@ class Sale(models.Model):
     
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Cliente', related_name='sales')
     payment_method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Método de Pagamento')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Criado por')
     status = models.CharField('Status', max_length=20, choices=STATUS_CHOICES, default='pending')
     total = models.DecimalField('Total', max_digits=10, decimal_places=2, default=0)
     discount = models.DecimalField('Desconto', max_digits=10, decimal_places=2, default=0)

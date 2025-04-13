@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from sales.views import sales_report
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
@@ -9,4 +10,5 @@ urlpatterns = [
     path('cadastro/', views.register, name='register'),
     path('perfil/', views.profile, name='profile'),
     path('empresa/', views.company_settings, name='company_settings'),
+    path('relatorios/', sales_report, name='reports'),
 ] 

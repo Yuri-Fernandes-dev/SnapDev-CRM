@@ -2,14 +2,17 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from .models import Sale, SaleItem, PaymentMethod
-from products.models import Product
-from customers.models import Customer
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Count, Avg, F, DecimalField, CharField, Value
+from django.db.models.functions import Concat
 from django.core.paginator import Paginator
+from django.utils import timezone
+from datetime import timedelta
 import json
 from decimal import Decimal
 from django.core.serializers.json import DjangoJSONEncoder
+from .models import Sale, SaleItem, PaymentMethod
+from products.models import Product
+from customers.models import Customer
 
 @login_required
 def sale_list(request):
@@ -209,6 +212,7 @@ def create_sale(request):
             sale = Sale.objects.create(
                 customer_id=customer_id if customer_id else None,
                 payment_method_id=payment_method_id,
+                created_by=request.user,
                 discount=discount,
                 notes=notes,
                 total=total,
@@ -260,15 +264,93 @@ def sales_report(request):
     """
     View para relatório de vendas com gráficos
     """
-    # Dados para o relatório
-    total_sales = Sale.objects.filter(status='paid').count()
-    total_revenue = Sale.objects.filter(status='paid').aggregate(total=Sum('total'))['total'] or 0
+    # Obtém o período selecionado (padrão: 30 dias)
+    period = request.GET.get('period', '30')
+    days = int(period)
     
-    # Mais dados para gráficos seriam processados aqui
+    # Data inicial do período
+    if days == 1:
+        start_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    else:
+        start_date = timezone.now() - timedelta(days=days)
+    
+    # Vendas no período
+    sales = Sale.objects.filter(
+        created_at__gte=start_date,
+        status='paid'
+    )
+    
+    # Métricas gerais
+    total_sales = sales.count()
+    total_revenue = sales.aggregate(
+        total=Sum('total', output_field=DecimalField(max_digits=10, decimal_places=2))
+    )['total'] or 0
+    average_ticket = total_revenue / total_sales if total_sales > 0 else 0
+    
+    # Taxa de conversão (vendas realizadas / total de vendas)
+    total_attempts = Sale.objects.filter(created_at__gte=start_date).count()
+    conversion_rate = (total_sales / total_attempts * 100) if total_attempts > 0 else 0
+    
+    # Vendas por dia
+    sales_by_date = sales.values('created_at__date').annotate(
+        date=F('created_at__date'),
+        total_sales=Count('id'),
+        total_revenue=Sum('total', output_field=DecimalField(max_digits=10, decimal_places=2)),
+        avg_ticket=Avg('total', output_field=DecimalField(max_digits=10, decimal_places=2))
+    ).order_by('created_at__date')
+    
+    # Adicionar taxa de conversão por dia
+    for sale in sales_by_date:
+        daily_attempts = Sale.objects.filter(
+            created_at__date=sale['date']
+        ).count()
+        sale['conversion_rate'] = (sale['total_sales'] / daily_attempts * 100) if daily_attempts > 0 else 0
+    
+    # Produtos mais vendidos
+    top_products = SaleItem.objects.filter(
+        sale__in=sales
+    ).values(
+        'product__name'
+    ).annotate(
+        name=F('product__name'),
+        quantity=Sum('quantity'),
+        revenue=Sum('subtotal', output_field=DecimalField(max_digits=10, decimal_places=2))
+    ).order_by('-quantity')[:10]
+    
+    # Desempenho por vendedor (usando o usuário que criou a venda)
+    sellers = Sale.objects.filter(
+        id__in=sales
+    ).values(
+        'created_by__username',
+        'created_by__first_name',
+        'created_by__last_name'
+    ).annotate(
+        name=Concat(
+            F('created_by__first_name'),
+            Value(' '),
+            F('created_by__last_name'),
+            output_field=CharField()
+        ),
+        username=F('created_by__username'),
+        total_sales=Count('id'),
+        total_revenue=Sum('total', output_field=DecimalField(max_digits=10, decimal_places=2))
+    ).order_by('-total_revenue')
+    
+    # Adicionar ticket médio por vendedor e tratar nomes vazios
+    for seller in sellers:
+        seller['avg_ticket'] = seller['total_revenue'] / seller['total_sales'] if seller['total_sales'] > 0 else 0
+        if not seller['name'] or seller['name'].strip() == ' ':
+            seller['name'] = seller['username']
     
     context = {
+        'period': period,
         'total_sales': total_sales,
         'total_revenue': total_revenue,
+        'average_ticket': average_ticket,
+        'conversion_rate': conversion_rate,
+        'sales_by_date': sales_by_date,
+        'top_products': top_products,
+        'sellers': sellers,
     }
     
     return render(request, 'sales/sales_report.html', context)

@@ -1,0 +1,181 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Relatórios - SaaS CRM{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Filtro de período -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="d-flex align-items-center">
+                        <label for="period" class="me-2">Período:</label>
+                        <select name="period" id="period" class="form-select me-2" style="width: auto;">
+                            <option value="1" {% if period == '1' %}selected{% endif %}>Hoje</option>
+                            <option value="7" {% if period == '7' %}selected{% endif %}>Últimos 7 dias</option>
+                            <option value="15" {% if period == '15' %}selected{% endif %}>Últimos 15 dias</option>
+                            <option value="30" {% if period == '30' %}selected{% endif %}>Últimos 30 dias</option>
+                            <option value="90" {% if period == '90' %}selected{% endif %}>Últimos 90 dias</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sync-alt me-1"></i> Atualizar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Relatório de Vendas por Dia -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white pb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Vendas por Dia</h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportTableToCSV('vendas-por-dia')">
+                            <i class="fas fa-download me-1"></i>Exportar CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table" id="vendas-por-dia">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Total de Vendas</th>
+                                    <th>Receita Total</th>
+                                    <th>Ticket Médio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in sales_by_date %}
+                                <tr>
+                                    <td>{{ sale.created_at__date|date:"d/m/Y" }}</td>
+                                    <td>{{ sale.total_sales }}</td>
+                                    <td>R$ {{ sale.total_revenue|floatformat:2 }}</td>
+                                    <td>R$ {{ sale.avg_ticket|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Produtos Mais Vendidos -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white pb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Produtos Mais Vendidos</h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportTableToCSV('produtos-mais-vendidos')">
+                            <i class="fas fa-download me-1"></i>Exportar CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table" id="produtos-mais-vendidos">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Quantidade</th>
+                                    <th>Receita</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in top_products %}
+                                <tr>
+                                    <td>{{ product.product__name }}</td>
+                                    <td>{{ product.total_quantity }}</td>
+                                    <td>R$ {{ product.total_revenue|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clientes que Mais Compraram -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white pb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Clientes que Mais Compraram</h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportTableToCSV('clientes-mais-compraram')">
+                            <i class="fas fa-download me-1"></i>Exportar CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table" id="clientes-mais-compraram">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Total de Compras</th>
+                                    <th>Total Gasto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for customer in top_customers %}
+                                <tr>
+                                    <td>{{ customer.customer__name }}</td>
+                                    <td>{{ customer.total_purchases }}</td>
+                                    <td>R$ {{ customer.total_spent|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+function exportTableToCSV(tableId) {
+    const table = document.getElementById(tableId);
+    let csv = [];
+    
+    // Header
+    const header = [];
+    const headerCells = table.querySelectorAll('thead th');
+    headerCells.forEach(cell => header.push(cell.textContent.trim()));
+    csv.push(header.join(','));
+    
+    // Rows
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const rowData = [];
+        const cells = row.querySelectorAll('td');
+        cells.forEach(cell => rowData.push(cell.textContent.trim()));
+        csv.push(rowData.join(','));
+    });
+    
+    // Download
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${tableId}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+{% endblock %}
+
+{% endblock %} 
