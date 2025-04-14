@@ -4,60 +4,74 @@ from django.contrib import messages
 from .models import Product, Category, Size, Color, ProductVariation
 from .forms import ProductForm, CategoryForm, SizeForm, ColorForm
 from django.db.models import Q, F
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 import json
 from django.http import JsonResponse
 from .variation_views import variation_create_ajax
+from django.db.models.functions import Cast
+from django.db.models import IntegerField, Value, Case, When
 
 # Create your views here.
 
 @login_required
 def product_list(request):
     """
-    View para listar produtos com filtros e paginação
+    View para listar produtos com filtros
     """
-    query = request.GET.get('query', '')
-    category_id = request.GET.get('category', '')
-    stock_status = request.GET.get('stock_status', '')
+    categories = Category.objects.filter(company=request.user.company)
+    products_query = Product.objects.filter(company=request.user.company)
     
-    products = Product.objects.filter(company=request.user.company)
+    # Aplicar filtros se presentes
+    query = request.GET.get('q')
+    category_id = request.GET.get('category')
+    status = request.GET.get('status')
     
-    # Filtro por busca
     if query:
-        products = products.filter(
-            Q(name__icontains=query) |
-            Q(description__icontains=query) |
-            Q(barcode__icontains=query)
+        products_query = products_query.filter(
+            Q(name__icontains=query) | 
+            Q(code__icontains=query) |
+            Q(description__icontains=query)
         )
     
-    # Filtro por categoria
     if category_id:
-        products = products.filter(category_id=category_id)
+        products_query = products_query.filter(category_id=category_id)
     
-    # Filtro por status de estoque
-    if stock_status == 'low':
-        products = products.filter(stock_quantity__lte=F('min_stock_quantity'))
+    if status == 'active':
+        products_query = products_query.filter(is_active=True)
+    elif status == 'inactive':
+        products_query = products_query.filter(is_active=False)
+    elif status == 'low_stock':
+        # Buscar produtos com estoque baixo
+        products_with_low_stock = []
+        for product in products_query:
+            if product.is_stock_low():
+                products_with_low_stock.append(product.id)
+        products_query = products_query.filter(id__in=products_with_low_stock)
     
-    # Ordenação
-    products = products.order_by('name')
+    # Ordenar por código numérico - converte para inteiro quando possível
+    products_query = products_query.annotate(
+        numeric_code=Case(
+            When(code__regex=r'^\d+$', then=Cast('code', output_field=IntegerField())),
+            default=Value(999999),  # Valor alto para códigos não numéricos
+            output_field=IntegerField()
+        )
+    ).order_by('numeric_code')
     
     # Paginação
-    paginator = Paginator(products, 10)
-    page_number = request.GET.get('page', 1)
-    products_page = paginator.get_page(page_number)
+    paginator = Paginator(products_query, 20)  # 20 produtos por página
+    page = request.GET.get('page')
     
-    # Contexto
-    categories = Category.objects.filter(company=request.user.company)
+    try:
+        products = paginator.page(page)
+    except PageNotAnInteger:
+        products = paginator.page(1)
+    except EmptyPage:
+        products = paginator.page(paginator.num_pages)
     
-    context = {
-        'products': products_page,
-        'categories': categories,
-        'query': query,
-        'category_id': category_id,
-        'stock_status': stock_status,
-    }
-    
-    return render(request, 'products/product_list.html', context)
+    return render(request, 'products/product_list.html', {
+        'products': products,
+        'categories': categories
+    })
 
 @login_required
 def product_detail(request, pk):
@@ -93,6 +107,25 @@ def product_create(request):
             # Verificar status de variações
             has_variations = request.POST.get('has_variations') == 'on'
             product.has_variations = has_variations
+            
+            # Verificar se deve gerar código sequencial
+            auto_generate_code = request.POST.get('auto_generate_code') == 'on'
+            if auto_generate_code:
+                # Encontrar o último produto com código numérico
+                last_product = Product.objects.filter(
+                    company=request.user.company,
+                    code__regex=r'^\d+$'  # Apenas códigos numéricos
+                ).order_by('-code').first()
+                
+                if last_product and last_product.code and last_product.code.isdigit():
+                    # Incrementar o último código numérico
+                    next_code = int(last_product.code) + 1
+                else:
+                    # Começar do código 1
+                    next_code = 1
+                
+                # Atribuir o novo código ao produto
+                product.code = str(next_code)
             
             product.save()
             
@@ -161,11 +194,31 @@ def product_update(request, pk):
     if request.method == 'POST':
         form = ProductForm(request.POST, request.FILES, instance=product)
         if form.is_valid():
-            product = form.save()
+            product = form.save(commit=False)
             
             # Atualizar o status de variações
             has_variations = request.POST.get('has_variations') == 'on'
             product.has_variations = has_variations
+            
+            # Verificar se deve gerar código sequencial
+            auto_generate_code = request.POST.get('auto_generate_code') == 'on'
+            if auto_generate_code:
+                # Encontrar o último produto com código numérico
+                last_product = Product.objects.filter(
+                    company=request.user.company,
+                    code__regex=r'^\d+$'  # Apenas códigos numéricos
+                ).order_by('-code').first()
+                
+                if last_product and last_product.code and last_product.code.isdigit():
+                    # Incrementar o último código numérico
+                    next_code = int(last_product.code) + 1
+                else:
+                    # Começar do código 1
+                    next_code = 1
+                
+                # Atribuir o novo código ao produto
+                product.code = str(next_code)
+            
             product.save()
             
             # Processar campos de tamanho e cor se tiver variações
@@ -516,3 +569,48 @@ def create_sample_sizes_and_colors(request):
         return redirect('products:product_update', pk=request.GET['product_id'])
     
     return redirect('products:product_list')
+
+@login_required
+def reorder_product_codes(request):
+    """
+    View para reorganizar os códigos dos produtos em sequência numérica
+    """
+    if request.method == 'POST':
+        # Buscar todos os produtos da empresa que não têm código ou têm um código não numérico
+        products_without_numeric_code = Product.objects.filter(
+            Q(company=request.user.company),
+            Q(code__isnull=True) | ~Q(code__regex=r'^\d+$')
+        ).order_by('name')
+        
+        # Encontrar o maior código numérico atual
+        last_product = Product.objects.filter(
+            company=request.user.company,
+            code__regex=r'^\d+$'
+        ).order_by('-code_as_int').first()
+        
+        if last_product and last_product.code and last_product.code.isdigit():
+            next_code = int(last_product.code) + 1
+        else:
+            next_code = 1
+            
+        # Atualizar os produtos sem código numérico
+        products_updated = 0
+        for product in products_without_numeric_code:
+            product.code = str(next_code)
+            product.save(update_fields=['code'])
+            next_code += 1
+            products_updated += 1
+            
+        messages.success(request, f'{products_updated} produtos receberam novos códigos sequenciais.')
+        return redirect('products:product_list')
+        
+    # Se for GET, apenas mostrar a página de confirmação
+    # Contar quantos produtos seriam afetados
+    products_count = Product.objects.filter(
+        Q(company=request.user.company),
+        Q(code__isnull=True) | ~Q(code__regex=r'^\d+$')
+    ).count()
+    
+    return render(request, 'products/reorder_codes.html', {
+        'products_count': products_count
+    })

@@ -1,0 +1,220 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ customer.name }} - Detalhes do Cliente - SaaS CRM{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">{{ customer.name }}</h1>
+    <div>
+        <a href="{% url 'customers:customer_update' customer.id %}" class="btn btn-primary">
+            <i class="fas fa-edit me-1"></i> Editar
+        </a>
+        <a href="{% url 'customers:customer_list' %}" class="btn btn-outline-secondary ms-2">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Customer Information -->
+    <div class="col-lg-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-bottom-0">
+                <h5 class="mb-0"><i class="fas fa-user-circle me-2 text-primary"></i>Informações do Cliente</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    {% if customer.email %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="fas fa-envelope me-2 text-muted"></i> Email</span>
+                        <span>{{ customer.email }}</span>
+                    </li>
+                    {% endif %}
+                    
+                    {% if customer.phone %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="fas fa-phone me-2 text-muted"></i> Telefone</span>
+                        <span>{{ customer.phone }}</span>
+                    </li>
+                    {% endif %}
+                    
+                    {% if customer.birthday %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span><i class="fas fa-birthday-cake me-2 text-muted"></i> Aniversário</span>
+                        <span>{{ customer.birthday|date:"d/m/Y" }}</span>
+                    </li>
+                    {% endif %}
+                    
+                    {% if customer.address %}
+                    <li class="list-group-item d-flex flex-column px-0">
+                        <span class="mb-2"><i class="fas fa-map-marker-alt me-2 text-muted"></i> Endereço</span>
+                        <address class="mb-0">
+                            {{ customer.address }}<br>
+                            {% if customer.city or customer.state %}
+                                {{ customer.city }}{% if customer.city and customer.state %}, {% endif %}{{ customer.state }}
+                            {% endif %}
+                            {% if customer.zipcode %}
+                                <br>CEP: {{ customer.zipcode }}
+                            {% endif %}
+                        </address>
+                    </li>
+                    {% endif %}
+                    
+                    {% if customer.notes %}
+                    <li class="list-group-item d-flex flex-column px-0">
+                        <span class="mb-2"><i class="fas fa-sticky-note me-2 text-muted"></i> Notas</span>
+                        <p class="mb-0">{{ customer.notes }}</p>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Customer Statistics -->
+    <div class="col-lg-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-bottom-0">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2 text-primary"></i>Estatísticas</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-4">
+                        <h6 class="text-muted mb-1">Total Gasto</h6>
+                        <h3 class="mb-0">R$ {{ total_spent|floatformat:2|default:"0,00" }}</h3>
+                    </div>
+                    <div class="col-6 mb-4">
+                        <h6 class="text-muted mb-1">Compras</h6>
+                        <h3 class="mb-0">{{ total_purchases }}</h3>
+                    </div>
+                    <div class="col-12">
+                        <h6 class="text-muted mb-1">Status</h6>
+                        {% if customer.is_active %}
+                        <span class="badge bg-success px-3 py-2">Ativo</span>
+                        {% else %}
+                        <span class="badge bg-danger px-3 py-2">Inativo</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="col-lg-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-bottom-0">
+                <h5 class="mb-0"><i class="fas fa-clock me-2 text-primary"></i>Atividade Recente</h5>
+            </div>
+            <div class="card-body">
+                <ul class="timeline">
+                    <li class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <h6 class="mb-0">Cliente cadastrado</h6>
+                            <small class="text-muted">{{ customer.created_at|date:"d/m/Y H:i" }}</small>
+                        </div>
+                    </li>
+                    {% if customer.updated_at and customer.updated_at != customer.created_at %}
+                    <li class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <h6 class="mb-0">Informações atualizadas</h6>
+                            <small class="text-muted">{{ customer.updated_at|date:"d/m/Y H:i" }}</small>
+                        </div>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sales History -->
+<div class="card border-0 shadow-sm mt-2">
+    <div class="card-header bg-transparent">
+        <h5 class="mb-0"><i class="fas fa-shopping-cart me-2 text-primary"></i>Histórico de Compras</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Código</th>
+                        <th scope="col">Data</th>
+                        <th scope="col">Valor</th>
+                        <th scope="col">Status</th>
+                        <th scope="col" class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in sales %}
+                    <tr>
+                        <td>{{ sale.code }}</td>
+                        <td>{{ sale.created_at|date:"d/m/Y H:i" }}</td>
+                        <td>R$ {{ sale.total|floatformat:2 }}</td>
+                        <td>
+                            {% if sale.status == 'paid' %}
+                            <span class="badge bg-success">Pago</span>
+                            {% elif sale.status == 'pending' %}
+                            <span class="badge bg-warning">Pendente</span>
+                            {% else %}
+                            <span class="badge bg-danger">Cancelado</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="#" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4">
+                            <p class="text-muted mb-0">Nenhuma compra registrada.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 1.5rem;
+    list-style: none;
+}
+.timeline-marker {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    left: -6px;
+    background-color: #4e73df;
+    border-radius: 50%;
+}
+.timeline-item {
+    position: relative;
+    padding-bottom: 1.5rem;
+}
+.timeline-item:before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #e3e6f0;
+}
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+.timeline-item:last-child:before {
+    bottom: 50%;
+}
+</style>
+{% endblock %} 

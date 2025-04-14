@@ -31,6 +31,12 @@
                         </div>
                         <div class="col-md-6">
                             {{ form.code|as_crispy_field }}
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="autoGenerateCode" name="auto_generate_code">
+                                <label class="form-check-label" for="autoGenerateCode">
+                                    Gerar código sequencial automaticamente
+                                </label>
+                            </div>
                         </div>
                     </div>
                     
@@ -223,6 +229,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 variationsSection.classList.remove('d-none');
             } else {
                 variationsSection.classList.add('d-none');
+            }
+        });
+    }
+
+    // Controle do checkbox de código automático
+    const autoGenerateCodeCheckbox = document.getElementById('autoGenerateCode');
+    const codeField = document.getElementById('id_code');
+    
+    if (autoGenerateCodeCheckbox && codeField) {
+        autoGenerateCodeCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                codeField.value = '';
+                codeField.disabled = true;
+                codeField.placeholder = 'Será gerado automaticamente';
+            } else {
+                codeField.disabled = false;
+                codeField.placeholder = '';
             }
         });
     }

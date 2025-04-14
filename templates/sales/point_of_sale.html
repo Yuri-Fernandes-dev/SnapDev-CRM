@@ -307,7 +307,18 @@
 </div>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">Ponto de Venda (PDV)</h1>
+    <div class="d-flex align-items-center">
+        <h1 class="h2 mb-0">Ponto de Venda (PDV)</h1>
+        <span class="text-muted ms-3 d-none d-md-inline-flex align-items-center">
+            <span class="me-2"><kbd class="bg-light text-secondary border">F1</kbd> busca</span>
+            <span class="me-2"><kbd class="bg-light text-secondary border">F2</kbd> pagto</span>
+            <span class="me-2"><kbd class="bg-light text-secondary border">F3</kbd> desc</span>
+            <span class="me-2"><kbd class="bg-light text-secondary border">F4</kbd> fim</span>
+        </span>
+        <button type="button" class="btn btn-link ms-1 text-muted p-0" data-bs-toggle="modal" data-bs-target="#shortcutsModal" title="Mais atalhos">
+            <i class="fas fa-keyboard"></i>
+        </button>
+    </div>
     <a href="{% url 'sales:sale_list' %}" class="btn btn-outline-primary">
         <i class="fas fa-list me-1"></i> Histórico de Vendas
     </a>
@@ -575,6 +586,69 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Atalhos de Teclado -->
+<div class="modal fade" id="shortcutsModal" tabindex="-1" aria-labelledby="shortcutsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shortcutsModalLabel">
+                    <i class="fas fa-keyboard me-2"></i> Atalhos de Teclado
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th style="width: 100px">Tecla</th>
+                                <th>Função</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><kbd>F1</kbd></td>
+                                <td>Focar na busca de produtos</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>F2</kbd></td>
+                                <td>Focar no método de pagamento</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>F3</kbd></td>
+                                <td>Focar no campo de desconto</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>F4</kbd></td>
+                                <td>Finalizar venda</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>↑</kbd> / <kbd>↓</kbd></td>
+                                <td>Navegar entre produtos</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Enter</kbd></td>
+                                <td>Selecionar produto / confirmar</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Esc</kbd></td>
+                                <td>Limpar campo de busca</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Alt</kbd>+<kbd>X</kbd></td>
+                                <td>Limpar carrinho</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -714,7 +788,19 @@
                 addToCart(product, quantity);
                 
                 // Fechar modal
-                bootstrap.Modal.getInstance(document.getElementById('quantityModal')).hide();
+                const modal = bootstrap.Modal.getInstance(document.getElementById('quantityModal'));
+                modal.hide();
+                
+                // Permitir fechar com Enter após adicionar (registra evento temporário)
+                setTimeout(() => {
+                    const enterHandler = function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            document.removeEventListener('keydown', enterHandler);
+                        }
+                    };
+                    document.addEventListener('keydown', enterHandler);
+                }, 100);
             };
             
             // Abrir modal de quantidade
@@ -947,10 +1033,18 @@
             })
             .then(response => {
                 if (!response.ok) {
+                    // Log de debug para ajudar a identificar o problema
+                    console.error('Erro na resposta:', response.status, response.statusText);
+                    
                     return response.json().then(data => {
+                        console.error('Detalhes do erro:', data);
                         throw new Error(data.error || 'Erro ao processar venda');
-                    }).catch(() => {
-                        throw new Error(`Erro no servidor: ${response.status} ${response.statusText}`);
+                    }).catch(err => {
+                        // Se não conseguir ler o JSON da resposta
+                        if (err.name === 'SyntaxError') {
+                            throw new Error(`Erro no servidor: ${response.status} ${response.statusText}`);
+                        }
+                        throw err;
                     });
                 }
                 return response.json();
@@ -1028,8 +1122,11 @@
                     errorMessage = 'Falha na conexão com o servidor. Verifique sua conexão com a internet e tente novamente.';
                 } else if (error.message.includes('NetworkError')) {
                     errorMessage = 'Erro de rede ao conectar-se ao servidor. Verifique sua conexão com a internet.';
+                } else if (error.message.includes('400')) {
+                    errorMessage = 'Dados inválidos na requisição. Verifique os itens no carrinho, método de pagamento e tente novamente.';
                 }
                 
+                console.error('Erro completo:', error);
                 alert('Erro ao finalizar venda: ' + errorMessage);
                 confirmSaleBtn.disabled = false;
                 confirmSaleBtn.innerHTML = 'Confirmar Venda';
@@ -1173,6 +1270,206 @@
                 });
             });
         }
+
+        // Configurar navegação pelo teclado nos modais
+        document.getElementById('quantityModal').addEventListener('shown.bs.modal', function() {
+            // Focar automaticamente no campo de quantidade
+            document.getElementById('product-quantity').focus();
+            document.getElementById('product-quantity').select();
+
+            // Permitir confirmar com Enter
+            const quantityInput = document.getElementById('product-quantity');
+            
+            // Remover qualquer event listener existente para evitar duplicações
+            quantityInput.removeEventListener('keydown', quantityKeydownHandler);
+            
+            // Adicionar novo event listener
+            quantityInput.addEventListener('keydown', quantityKeydownHandler);
+        });
+        
+        // Manipulador de eventos de teclado para o modal de quantidade
+        function quantityKeydownHandler(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('add-to-cart').click();
+            }
+            // Aumentar quantidade com seta para cima
+            else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                document.getElementById('increase-qty').click();
+            }
+            // Diminuir quantidade com seta para baixo
+            else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                document.getElementById('decrease-qty').click();
+            }
+        }
+        
+        // Após adicionar ao carrinho, focar automaticamente na busca
+        document.addEventListener('hidden.bs.modal', function(event) {
+            if (event.target.id === 'quantityModal' && productJustAdded) {
+                setTimeout(() => {
+                    productSearch.focus();
+                }, 100);
+            }
+        });
+
+        // Facilitar confirmação de venda com Enter no modal de confirmação
+        document.getElementById('confirmationModal').addEventListener('shown.bs.modal', function() {
+            // Remover qualquer event listener existente para evitar duplicações
+            document.removeEventListener('keydown', confirmationKeydownHandler);
+            
+            // Adicionar novo event listener
+            document.addEventListener('keydown', confirmationKeydownHandler);
+            
+            // Remover o event listener quando o modal for fechado
+            document.getElementById('confirmationModal').addEventListener('hidden.bs.modal', function() {
+                document.removeEventListener('keydown', confirmationKeydownHandler);
+            }, { once: true });
+        });
+        
+        // Manipulador de eventos de teclado para o modal de confirmação
+        function confirmationKeydownHandler(e) {
+            // Verificar se o modal está visível
+            if (!document.getElementById('confirmationModal').classList.contains('show')) {
+                return;
+            }
+            
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                
+                // Se o botão de sucesso está visível, clicar no botão para ver histórico/fechar
+                if (saleSuccessMessage.style.display === 'block') {
+                    viewSalesHistoryBtn.click();
+                } 
+                // Senão, se o botão de confirmar estiver habilitado, clicar nele
+                else if (!confirmSaleBtn.disabled && confirmSaleBtn.style.display !== 'none') {
+                    confirmSaleBtn.click();
+                }
+            } 
+            // Permitir fechar o modal com Escape também
+            else if (e.key === 'Escape') {
+                bootstrap.Modal.getInstance(document.getElementById('confirmationModal')).hide();
+            }
+        }
+
+        // Implementar atalhos de teclado para melhorar a usabilidade
+        let productJustAdded = false; // Indicador de produto recém adicionado
+        
+        document.addEventListener('keydown', function(event) {
+            // F1 - Focar no campo de pesquisa de produtos
+            if (event.key === 'F1') {
+                event.preventDefault(); // Evitar o comportamento padrão do F1 (ajuda do navegador)
+                productSearch.focus();
+            }
+            // F2 - Focar no método de pagamento
+            else if (event.key === 'F2') {
+                event.preventDefault();
+                paymentMethodEl.focus();
+            }
+            // F3 - Focar no campo de desconto
+            else if (event.key === 'F3') {
+                event.preventDefault();
+                discountEl.focus();
+            }
+            // F4 - Finalizar venda (se houver itens no carrinho)
+            else if (event.key === 'F4') {
+                event.preventDefault();
+                if (cart.length > 0) {
+                    finalizeSaleBtn.click();
+                }
+            }
+            // Escape - Limpar campo de pesquisa quando estiver focado
+            else if (event.key === 'Escape' && document.activeElement === productSearch) {
+                productSearch.value = '';
+                productSearch.focus();
+            }
+            // Enter - Após adicionar produto ao carrinho, fechar qualquer toast ou notificação visível
+            else if (event.key === 'Enter' && productJustAdded) {
+                event.preventDefault();
+                productJustAdded = false;
+                
+                // Focar de volta na pesquisa para continuar adicionando produtos
+                setTimeout(() => {
+                    productSearch.focus();
+                }, 100);
+            }
+            // Enter - Adicionar primeiro produto da lista quando estiver pesquisando
+            else if (event.key === 'Enter' && document.activeElement === productSearch && productSearch.value.trim() !== '') {
+                const firstProduct = productsGrid.querySelector('.product-item');
+                if (firstProduct) {
+                    event.preventDefault();
+                    firstProduct.click();
+                }
+            }
+            // Navegação pelas setas (quando o foco estiver no campo de pesquisa)
+            else if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && 
+                    (document.activeElement === productSearch || document.activeElement.closest('.product-item'))) {
+                event.preventDefault();
+                
+                // Encontrar todos os produtos visíveis
+                const products = Array.from(productsGrid.querySelectorAll('.product-item'));
+                if (products.length === 0) return;
+                
+                // Encontrar o produto selecionado atualmente
+                let currentIndex = -1;
+                const highlightedProduct = document.querySelector('.product-item.selected');
+                
+                if (highlightedProduct) {
+                    currentIndex = products.indexOf(highlightedProduct);
+                    highlightedProduct.classList.remove('selected');
+                }
+                
+                // Calcular o próximo índice
+                let nextIndex;
+                if (event.key === 'ArrowDown') {
+                    nextIndex = (currentIndex < products.length - 1) ? currentIndex + 1 : 0;
+                } else {
+                    nextIndex = (currentIndex > 0) ? currentIndex - 1 : products.length - 1;
+                }
+                
+                // Destacar o próximo produto
+                const nextProduct = products[nextIndex];
+                nextProduct.classList.add('selected');
+                nextProduct.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            // Enter para selecionar o produto destacado
+            else if (event.key === 'Enter' && document.querySelector('.product-item.selected')) {
+                event.preventDefault();
+                document.querySelector('.product-item.selected').click();
+            }
+            // Alt+X - Limpar carrinho (com confirmação)
+            else if (event.key === 'x' && event.altKey && cart.length > 0) {
+                event.preventDefault();
+                if (confirm('Deseja limpar o carrinho?')) {
+                    cart.length = 0;
+                    renderCartItems();
+                    updateTotals();
+                }
+            }
+        });
+        
+        // Modificar a função addToCart para definir o flag quando um produto é adicionado
+        const originalAddToCart = addToCart;
+        addToCart = function(product, quantity) {
+            originalAddToCart(product, quantity);
+            productJustAdded = true;
+            
+            // Resetar o flag após alguns segundos se o usuário não interagir
+            setTimeout(() => {
+                productJustAdded = false;
+            }, 5000);
+        };
+
+        // Adicionar estilo para o produto selecionado
+        const style = document.createElement('style');
+        style.textContent = `
+            .product-item.selected {
+                background-color: rgba(13, 110, 253, 0.1);
+                outline: 2px solid #0d6efd;
+            }
+        `;
+        document.head.appendChild(style);
     });
 </script>
 {% endblock %} 
