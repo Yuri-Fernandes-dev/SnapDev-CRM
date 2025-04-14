@@ -1,58 +1,647 @@
 {% extends 'core/base.html' %}
 {% load crispy_forms_tags %}
 
-{% block title %}Cadastre-se - SaaS CRM{% endblock %}
+{% block title %}Cadastre-se - SnapDev CRM{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8 col-md-10">
-        <div class="card shadow-sm border-0">
-            <div class="card-body p-5">
-                <div class="text-center mb-4">
-                    <h2 class="fw-bold">Crie sua conta</h2>
-                    <p class="text-muted">Comece seu período gratuito de 30 dias hoje mesmo!</p>
+<style>
+    :root {
+        --primary: #4e73df;
+        --primary-dark: #3a5ac9;
+        --primary-light: #6e8ae4;
+        --text-dark: #2d3748;
+        --text-light: #718096;
+        --border-color: #e2e8f0;
+        --bg-light: #f8fafc;
+    }
+    
+    body {
+        background-color: var(--bg-light);
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    
+    .auth-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+    }
+    
+    .auth-card {
+        max-width: 1000px;
+        width: 100%;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+        background-color: white;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .auth-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    }
+    
+    .sidebar {
+        background: linear-gradient(135deg, #4e73df 0%, #3a5ac9 100%);
+        padding: 0;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        padding-top: 80px;
+        padding-bottom: 40px;
+    }
+    
+    .sidebar::before {
+        content: "";
+        position: absolute;
+        left: -50px;
+        top: -50px;
+        width: 150px;
+        height: 150px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+    
+    .sidebar::after {
+        content: "";
+        position: absolute;
+        right: -30px;
+        bottom: -30px;
+        width: 100px;
+        height: 100px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+    
+    .sidebar-step {
+        position: relative;
+        padding-left: 30px;
+        margin-bottom: 40px;
+        z-index: 1;
+    }
+    
+    .sidebar-step:after {
+        content: "";
+        position: absolute;
+        left: 22px;
+        top: 50px;
+        width: 3px;
+        height: 40px;
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .sidebar-step:last-child:after {
+        display: none;
+    }
+    
+    .step-number {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        background-color: transparent;
+        color: white;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        transition: all 0.3s ease;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .active .step-number {
+        background-color: white;
+        color: var(--primary);
+        border-color: white;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .step-name {
+        font-size: 14px;
+        opacity: 0.9;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+    
+    .form-section {
+        padding: 40px 50px;
+        background-color: white;
+    }
+
+    .section-title {
+        color: var(--primary);
+        font-size: 22px;
+        margin-bottom: 35px;
+        font-weight: 600;
+        letter-spacing: -0.5px;
+    }
+    
+    .form-control {
+        border: 1px solid var(--border-color);
+        padding: 12px 16px;
+        height: 50px;
+        border-radius: 10px;
+        font-size: 14px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+        transform: translateY(-1px);
+    }
+    
+    .form-group {
+        margin-bottom: 24px;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: var(--text-dark);
+        font-size: 14px;
+        display: block;
+    }
+    
+    .field-label {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: var(--text-dark);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(to right, var(--primary), var(--primary-dark));
+        border: none;
+        padding: 14px 26px;
+        font-weight: 600;
+        border-radius: 50px;
+        min-width: 140px;
+        font-size: 15px;
+        box-shadow: 0 5px 15px rgba(78, 115, 223, 0.25);
+        transition: all 0.3s ease;
+        letter-spacing: 0.5px;
+    }
+    
+    .btn-primary:hover, .btn-primary:focus {
+        background: linear-gradient(to right, var(--primary-dark), var(--primary));
+        box-shadow: 0 7px 20px rgba(78, 115, 223, 0.35);
+        transform: translateY(-2px);
+    }
+    
+    .password-requirements {
+        padding-left: 0;
+        margin-top: 10px;
+        margin-bottom: 0;
+        list-style: none;
+        font-size: 0.8rem;
+        color: var(--text-light);
+    }
+    
+    .password-requirements li {
+        position: relative;
+        padding-left: 22px;
+        margin-bottom: 6px;
+    }
+    
+    .password-requirements li:before {
+        content: "•";
+        position: absolute;
+        left: 8px;
+        color: var(--primary);
+    }
+    
+    .password-help {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--text-light);
+        margin-top: 8px;
+    }
+    
+    .input-help {
+        font-size: 12px;
+        color: var(--text-light);
+        margin-top: 6px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 40px;
+    }
+    
+    .form-section-divider {
+        border-bottom: 1px solid #e9ecef;
+        margin: 30px 0;
+    }
+    
+    .form-section-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--primary);
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        letter-spacing: -0.3px;
+    }
+    
+    .field-group {
+        margin-bottom: 25px;
+    }
+    
+    .input-group {
+        position: relative;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        transition: all 0.3s ease;
+    }
+    
+    .input-group:focus-within {
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+        transform: translateY(-1px);
+    }
+    
+    .input-group .form-control {
+        box-shadow: none;
+        border-right: none;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+    
+    .input-group .form-control:focus {
+        transform: none;
+    }
+    
+    .input-group .btn {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+        border: 1px solid var(--border-color);
+        border-left: none;
+        background-color: white;
+        color: var(--text-light);
+        transition: all 0.3s ease;
+    }
+    
+    .input-group .btn:hover {
+        color: var(--primary);
+    }
+    
+    /* Crispy forms overrides */
+    .asteriskField {
+        color: #dc3545;
+        margin-left: 3px;
+    }
+    
+    select.form-control {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23718096' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 16px 12px;
+        padding-right: 2.5rem;
+    }
+    
+    .form-group .help-block {
+        color: var(--text-light);
+        font-size: 0.8rem;
+        margin-top: 5px;
+    }
+    
+    /* Card hover effect for form sections */
+    .user-form-section, .company-form-section {
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .user-form-section:hover, .company-form-section:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    
+    .link-primary {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    
+    .link-primary:hover {
+        color: var(--primary-dark);
+        text-decoration: underline;
+    }
+    
+    @media (max-width: 767px) {
+        .form-section {
+            padding: 30px 25px;
+        }
+        
+        .auth-card {
+            margin: 1rem;
+        }
+        
+        .sidebar {
+            padding: 30px 20px;
+            padding-bottom: 20px;
+        }
+        
+        .sidebar-step {
+            padding-left: 0;
+            margin-bottom: 15px;
+            display: inline-block;
+            margin-right: 20px;
+        }
+        
+        .sidebar-step:after {
+            display: none;
+        }
+        
+        .step-number {
+            width: 38px;
+            height: 38px;
+            font-size: 16px;
+        }
+        
+        .action-buttons {
+            justify-content: center;
+        }
+    }
+</style>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="row g-0">
+            <!-- Sidebar -->
+            <div class="col-md-3 sidebar">
+                <div class="sidebar-step active">
+                    <div class="step-number">1</div>
+                    <div class="step-name">Informações Básicas</div>
                 </div>
                 
-                <form method="post" action="{% url 'register' %}">
-                    {% csrf_token %}
+                <div class="sidebar-step">
+                    <div class="step-number">2</div>
+                    <div class="step-name">Dados da Empresa</div>
+                </div>
+                
+                <div class="sidebar-step">
+                    <div class="step-number">3</div>
+                    <div class="step-name">Confirmação</div>
+                </div>
+            </div>
+            
+            <!-- Form content -->
+            <div class="col-md-9">
+                <div class="form-section">
+                    <h3 class="section-title">Crie sua conta SnapDev</h3>
                     
-                    {% if messages %}
-                    <div class="alert alert-danger">
-                        {% for message in messages %}
-                        <p>{{ message }}</p>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h4 class="mb-3">Dados do Usuário</h4>
-                            {{ user_form|crispy }}
+                    <form method="post" action="{% url 'register' %}" id="registerForm">
+                        {% csrf_token %}
+                        
+                        {% if messages %}
+                        <div class="alert alert-danger rounded-3">
+                            {% for message in messages %}
+                            <p class="mb-0"><i class="fas fa-exclamation-circle me-2"></i>{{ message }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row field-group">
+                            <div class="col-md-6 pe-md-3">
+                                <div class="form-section-title">
+                                    <i class="fas fa-user-circle me-2 text-primary"></i>Dados do Usuário
+                                </div>
+                                <div id="user-fields" class="user-form-section p-4 rounded-3">
+                                    {{ user_form|crispy }}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 ps-md-3">
+                                <div class="form-section-title">
+                                    <i class="fas fa-building me-2 text-primary"></i>Dados da Empresa
+                                </div>
+                                <div id="company-fields" class="company-form-section p-4 rounded-3">
+                                    {{ company_form|crispy }}
+                                </div>
+                            </div>
                         </div>
                         
-                        <div class="col-md-6">
-                            <h4 class="mb-3">Dados da Empresa</h4>
-                            {{ company_form|crispy }}
+                        <div class="action-buttons">
+                            <button type="submit" class="btn btn-primary" id="registerButton">
+                                <i class="fas fa-check-circle me-2"></i>Criar Conta
+                            </button>
                         </div>
-                    </div>
-                    
-                    <div class="mt-4">
-                        <button type="submit" class="btn btn-primary btn-lg w-100">
-                            Criar Conta e Começar Trial
-                        </button>
-                        <p class="text-center mt-3 text-muted">
-                            Ao criar sua conta, você concorda com nossos 
-                            <a href="#">Termos de Serviço</a> e 
-                            <a href="#">Política de Privacidade</a>
-                        </p>
-                    </div>
-                </form>
-                
-                <div class="text-center mt-4">
-                    <p>Já tem uma conta? <a href="{% url 'login' %}">Faça login</a></p>
+                        
+                        <div class="mt-5 text-center">
+                            <small class="text-muted d-block mb-3">
+                                Ao criar sua conta, você concorda com nossos 
+                                <a href="#" class="link-primary">Termos de Serviço</a> e 
+                                <a href="#" class="link-primary">Política de Privacidade</a>
+                            </small>
+                            <p class="mb-0">Já tem uma conta? <a href="{% url 'login' %}" class="link-primary">Faça login</a></p>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    // Loading state for register button
+    document.getElementById('registerForm').addEventListener('submit', function() {
+        const registerButton = document.getElementById('registerButton');
+        registerButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processando...';
+        registerButton.disabled = true;
+    });
+    
+    // Arrange password fields side by side
+    document.addEventListener('DOMContentLoaded', function() {
+        // Find password fields (they might have different IDs depending on form implementation)
+        const passwordField = document.querySelector('input[type="password"][name*="password1"]')?.closest('.mb-3');
+        const confirmField = document.querySelector('input[type="password"][name*="password2"]')?.closest('.mb-3');
+        
+        if (passwordField && confirmField) {
+            // Get the label and input from password field
+            const passwordLabel = passwordField.querySelector('label');
+            const passwordInput = passwordField.querySelector('input');
+            const passwordHelp = passwordField.querySelector('.form-text');
+            
+            // Get the label and input from confirm password field
+            const confirmLabel = confirmField.querySelector('label');
+            const confirmInput = confirmField.querySelector('input');
+            const confirmHelp = confirmField.querySelector('.form-text');
+            
+            // Create a container column
+            const colDiv = document.createElement('div');
+            colDiv.className = 'col-12';
+            
+            // Password field container
+            const passwordGroup = document.createElement('div');
+            passwordGroup.className = 'form-group mb-3';
+            
+            // Adicionar o label
+            passwordGroup.appendChild(passwordLabel);
+            
+            // Create input container for password with toggle button
+            const passwordInputGroup = document.createElement('div');
+            passwordInputGroup.className = 'input-group';
+            
+            passwordInput.className = 'form-control';
+            passwordInputGroup.appendChild(passwordInput);
+            
+            // Add toggle button for password visibility
+            const toggleButton = document.createElement('button');
+            toggleButton.type = 'button';
+            toggleButton.className = 'btn btn-outline-secondary';
+            toggleButton.style.minWidth = 'auto';
+            toggleButton.style.padding = '0 15px';
+            toggleButton.innerHTML = '<i class="fas fa-eye"></i>';
+            toggleButton.onclick = function() {
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    this.innerHTML = '<i class="fas fa-eye-slash"></i>';
+                } else {
+                    passwordInput.type = 'password';
+                    this.innerHTML = '<i class="fas fa-eye"></i>';
+                }
+            };
+            passwordInputGroup.appendChild(toggleButton);
+            passwordGroup.appendChild(passwordInputGroup);
+            
+            // Add compact help text
+            if (passwordHelp) {
+                const minLength = document.createElement('div');
+                minLength.className = 'password-help';
+                minLength.textContent = 'Mínimo de 8 caracteres';
+                minLength.style.textAlign = 'left';
+                minLength.style.marginTop = '5px';
+                minLength.style.color = '#718096';
+                minLength.style.fontSize = '0.75rem';
+                passwordGroup.appendChild(minLength);
+            }
+            
+            // Create formatted confirm password field
+            const confirmGroup = document.createElement('div');
+            confirmGroup.className = 'form-group mb-0';
+            
+            confirmGroup.appendChild(confirmLabel);
+            
+            // Input para confirmar senha
+            const confirmInputGroup = document.createElement('div');
+            confirmInputGroup.className = 'input-group';
+            
+            confirmInput.className = 'form-control';
+            confirmInputGroup.appendChild(confirmInput);
+            confirmGroup.appendChild(confirmInputGroup);
+            
+            // Add compact help text for confirm
+            if (confirmHelp) {
+                const confirmHelpText = document.createElement('div');
+                confirmHelpText.className = 'password-help';
+                confirmHelpText.textContent = 'Informe a mesma senha';
+                confirmHelpText.style.textAlign = 'left';
+                confirmHelpText.style.marginTop = '5px';
+                confirmHelpText.style.color = '#718096';
+                confirmHelpText.style.fontSize = '0.75rem';
+                confirmGroup.appendChild(confirmHelpText);
+            }
+            
+            // Add password requirements
+            const requirementsDiv = document.createElement('div');
+            requirementsDiv.className = 'mt-3';
+            
+            const requirementsList = document.createElement('ul');
+            requirementsList.className = 'password-requirements';
+            requirementsList.style.fontSize = '0.75rem';
+            requirementsList.style.color = '#718096';
+            requirementsList.style.display = 'none'; // Inicialmente oculto
+            
+            const requirements = [
+                'Sua senha não pode ser muito parecida com o resto das suas informações pessoais.',
+                'Sua senha precisa conter pelo menos 8 caracteres.',
+                'Sua senha não pode ser uma senha comumente utilizada.',
+                'Sua senha não pode ser inteiramente numérica.'
+            ];
+            
+            requirements.forEach(req => {
+                const li = document.createElement('li');
+                li.textContent = req;
+                li.style.marginBottom = '4px';
+                requirementsList.appendChild(li);
+            });
+            
+            requirementsDiv.appendChild(requirementsList);
+            
+            // Add all elements to the container
+            colDiv.appendChild(passwordGroup);
+            colDiv.appendChild(confirmGroup);
+            colDiv.appendChild(requirementsDiv);
+            
+            // Replace the original password field with our new container
+            passwordField.parentNode.replaceChild(colDiv, passwordField);
+            
+            // Remove the original confirm field
+            if (confirmField.parentNode) {
+                confirmField.parentNode.removeChild(confirmField);
+            }
+            
+            // Add validation to show password requirements only when needed
+            passwordInput.addEventListener('input', function() {
+                const password = this.value;
+                const hasMinLength = password.length >= 8;
+                const hasNonNumeric = /[^0-9]/.test(password);
+                
+                // Show requirements list if password doesn't meet criteria
+                if (!hasMinLength || !hasNonNumeric) {
+                    requirementsList.style.display = 'block';
+                } else {
+                    requirementsList.style.display = 'none';
+                }
+            });
+            
+            // Check for match between password and confirmation
+            confirmInput.addEventListener('input', function() {
+                if (passwordInput.value !== this.value) {
+                    this.setCustomValidity('As senhas não coincidem');
+                    confirmHelpText.textContent = 'As senhas não coincidem';
+                    confirmHelpText.style.color = '#dc3545';
+                } else {
+                    this.setCustomValidity('');
+                    confirmHelpText.textContent = 'Informe a mesma senha';
+                    confirmHelpText.style.color = '#718096';
+                }
+            });
+        }
+        
+        // Style all form inputs to match the design
+        document.querySelectorAll('.form-label').forEach(label => {
+            label.classList.add('field-label');
+        });
+        
+        document.querySelectorAll('.form-control').forEach(input => {
+            input.classList.add('custom-input');
+        });
+        
+        // Add subtle box shadow to inputs on focus
+        document.querySelectorAll('.form-control').forEach(input => {
+            input.addEventListener('focus', function() {
+                this.style.boxShadow = '0 0 0 3px rgba(78, 115, 223, 0.15)';
+                this.style.borderColor = '#4e73df';
+                this.style.transform = 'translateY(-1px)';
+            });
+            
+            input.addEventListener('blur', function() {
+                this.style.boxShadow = '';
+                this.style.borderColor = '';
+                this.style.transform = '';
+            });
+        });
+    });
+</script>
 {% endblock %} 
