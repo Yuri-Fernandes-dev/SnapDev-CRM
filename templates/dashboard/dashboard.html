@@ -342,6 +342,111 @@
         box-shadow: 0 4px 12px rgba(28, 126, 214, 0.3);
         color: #ffffff;
     }
+
+    /* Classes para os indicadores de cores dos produtos */
+    .color-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        display: inline-block;
+    }
+    
+    .color-primary { background-color: #4c6ef5; }
+    .color-success { background-color: #38d6ae; }
+    .color-warning { background-color: #f59f00; }
+    .color-danger { background-color: #fa5252; }
+    .color-purple { background-color: #be4bdb; }
+    
+    .symbol-color-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        display: inline-block;
+    }
+
+    /* Estilos adicionais para a tabela */
+    .table-responsive::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 3px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    
+    .badge.bg-danger {
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    /* Estilo para linhas da tabela de estoque baixo */
+    .table-hover tbody tr:not(.empty-row) {
+        transition: all 0.2s ease;
+        border-bottom: 1px solid #f2f2f2;
+    }
+    
+    .table-hover tbody tr:not(.empty-row):hover {
+        background-color: rgba(76, 110, 245, 0.05);
+    }
+    
+    .empty-row {
+        height: 48px;
+    }
+    
+    /* Adicionar espaço entre as células da tabela */
+    .table td {
+        padding: 12px 8px;
+        vertical-align: middle;
+    }
+
+    /* Estilos para a tabela de produtos com estoque baixo */
+    .table {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+    }
+
+    .table th, .table td {
+        padding: 12px 8px;
+        vertical-align: middle;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+
+    /* Esconder a barra de rolagem vertical no Chrome */
+    .table-responsive::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 3px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    .badge.bg-danger {
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
 </style>
 {% endblock %}
 
@@ -418,14 +523,14 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-uppercase text-muted mb-2">Ticket Médio</h6>
-                            <h4 class="mb-0 text-info">R$ {{ average_ticket|floatformat:2 }}</h4>
+                            <h6 class="text-uppercase text-muted mb-2">Despesas Totais</h6>
+                            <h4 class="mb-0 text-info">R$ {{ total_expenses|default:0|floatformat:2|intcomma }}</h4>
                             <div class="small text-muted mt-2">
                                 <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
                             </div>
                         </div>
                         <div class="stat-icon bg-gradient-info text-white">
-                            <i class="fas fa-receipt"></i>
+                            <i class="fas fa-money-bill-wave"></i>
                         </div>
                     </div>
                 </div>
@@ -441,7 +546,7 @@
                             <h4 class="mb-0 text-warning d-flex align-items-center">
                                 {{ profit_margin|floatformat:1 }}%
                                 <span class="text-success ms-2" style="font-size: 1rem;">
-                                    <i class="fas fa-dollar-sign me-1"></i>R$ {{ total_profit|floatformat:2 }}
+                                    <i class="fas fa-dollar-sign me-1"></i>R$ {{ total_profit|floatformat:2|intcomma }}
                                 </span>
                             </h4>
                             <div class="small text-muted mt-2">
@@ -457,104 +562,111 @@
         </div>
     </div>
 
-    <!-- Gráfico de Vendas e Produtos Mais Vendidos -->
+    <!-- Produtos Mais Vendidos e Estoque Baixo -->
     <div class="row mb-4">
-        <!-- Gráfico de Vendas -->
-        <div class="col-xl-8 mb-4">
-            <div class="card h-100">
-                <div class="card-header bg-white pb-0">
-                    <h6 class="mb-0">Evolução de Vendas</h6>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container" style="height: 250px;">
-                        <canvas id="salesChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Produtos Mais Vendidos -->
-        <div class="col-xl-4 mb-4">
-            <div class="card h-100">
+        <div class="col-xl-6 col-lg-6 mb-4">
+            <div class="card h-100" style="min-height: 550px;">
                 <div class="card-header bg-white pb-0 d-flex justify-content-between align-items-center">
                     <h6 class="mb-0">Produtos Mais Vendidos</h6>
                     <a href="{% url 'products:product_list' %}" class="btn btn-sm btn-outline-primary">
                         Ver Todos
                     </a>
                 </div>
-                <div class="card-body p-0">
-                    <div class="list-group list-group-flush products-scroll">
-                        {% for product in top_products|slice:":5" %}
-                        <div class="list-group-item border-0">
-                            <div class="d-flex flex-column">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div class="flex-grow-1 me-3">
-                                        <h6 class="mb-1" style="word-wrap: break-word;">{{ product.product__name }}</h6>
-                                    </div>
-                                    <div class="text-end">
-                                        <div class="text-success">R$ {{ product.total_sales|floatformat:2 }}</div>
-                                    </div>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="d-flex align-items-center">
-                                        <small class="text-muted me-3">
-                                            <i class="fas fa-box me-1"></i> {{ product.total_qty }} unidades
-                                        </small>
-                                        <small class="text-muted">
-                                            {{ product.percentage|floatformat:1 }}%
-                                        </small>
-                                    </div>
-                                </div>
-                                <div class="progress" style="height: 4px;">
-                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ product.percentage|floatformat:1 }}%"></div>
-                                </div>
+                <div class="card-body pt-4">
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div class="chart-container" style="height: 460px; position: relative; width: 100%; margin: 0 auto;">
+                                <canvas id="topProductsChart"></canvas>
                             </div>
                         </div>
-                        {% endfor %}
+                        <div class="col-md-5">
+                            <h6 class="text-muted mb-3 text-uppercase" style="font-size: 0.75rem; font-weight: 600;">Detalhes dos Produtos</h6>
+                            <div class="list-group list-group-flush products-scroll" style="max-height: 430px; overflow-y: auto;">
+                                {% for product in top_products|slice:":5" %}
+                                <div class="list-group-item border-0 py-3 px-0">
+                                    <div class="d-flex align-items-center">
+                                        <div class="symbol-color-indicator me-3 {% if forloop.counter == 1 %}color-primary{% elif forloop.counter == 2 %}color-success{% elif forloop.counter == 3 %}color-warning{% elif forloop.counter == 4 %}color-danger{% else %}color-purple{% endif %}"></div>
+                                        <div class="flex-grow-1">
+                                            <p class="mb-0 fw-semibold text-dark">{{ product.product__name }}</p>
+                                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                                <span class="text-muted small">{{ product.total_qty }} unidades</span>
+                                                <span class="text-success small">R$ {{ product.total_sales|floatformat:2|intcomma }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="row">
         <!-- Produtos com Estoque Baixo -->
-        <div class="col-12 mb-4">
-            <div class="card h-100">
+        <div class="col-xl-6 col-lg-6 mb-4">
+            <div class="card h-100" style="min-height: 550px;">
                 <div class="card-header bg-white pb-0 d-flex justify-content-between align-items-center">
                     <h6 class="mb-0">Produtos com Estoque Baixo</h6>
-                    <button class="btn btn-sm btn-outline-danger">
+                    <a href="{% url 'products:product_list' %}" class="btn btn-sm btn-outline-danger">
                         Repor Estoque
-                    </button>
+                    </a>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table align-items-center mb-0">
+                <div class="card-body pt-4">
+                    <div class="table-responsive" style="height: 470px; overflow-y: auto;">
+                        <table class="table table-hover align-items-center mb-0" style="width: 100%;">
                             <thead>
                                 <tr>
-                                    <th>Produto</th>
-                                    <th>Estoque</th>
-                                    <th>Mínimo</th>
-                                    <th>Valor em Estoque</th>
-                                    <th>Ações</th>
+                                    <th class="text-white fw-bold" style="position: sticky; top: 0; background-color: #495057; padding: 15px; border-bottom: none; width: 55%;">Produto</th>
+                                    <th class="text-white fw-bold text-center" style="position: sticky; top: 0; background-color: #495057; padding: 15px; border-bottom: none; width: 15%;">Estoque</th>
+                                    <th class="text-white fw-bold text-center" style="position: sticky; top: 0; background-color: #495057; padding: 15px; border-bottom: none; width: 15%;">Mínimo</th>
+                                    <th class="text-white fw-bold text-center" style="position: sticky; top: 0; background-color: #495057; padding: 15px; border-bottom: none; width: 15%;">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for product in low_stock_products %}
                                 <tr>
-                                    <td>{{ product.name }}</td>
-                                    <td>
-                                        <span class="badge bg-danger">{{ product.stock_quantity }}</span>
+                                    <td class="py-3" style="width: 55%;">
+                                        <div class="d-flex align-items-center">
+                                            <div class="d-flex flex-column">
+                                                <span class="fw-semibold mb-0">{{ product.name }}</span>
+                                                <span class="text-muted small">Cód: {{ product.code }}</span>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td>{{ product.stock_alert_level }}</td>
-                                    <td>R$ {{ product.stock_value|floatformat:2 }}</td>
-                                    <td>
-                                        <a href="#" class="btn btn-sm btn-outline-primary">
+                                    <td class="text-center" style="width: 15%;">
+                                        <span class="badge bg-danger px-3 py-2">{{ product.stock_quantity }}</span>
+                                    </td>
+                                    <td class="text-center" style="width: 15%;">{{ product.stock_alert_level }}</td>
+                                    <td class="text-center" style="width: 15%;">
+                                        <a href="{% url 'products:product_update' product.id %}" class="btn btn-sm btn-outline-primary">
                                             <i class="fas fa-plus"></i>
                                         </a>
                                     </td>
                                 </tr>
                                 {% endfor %}
+                                {% if not low_stock_products %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">
+                                        <span class="text-muted">Nenhum produto com estoque baixo</span>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                
+                                <!-- Linhas extras para preencher espaço -->
+                                {% if low_stock_products|length < 6 %}
+                                {% for i in "12345"|make_list %}
+                                {% if forloop.counter <= 5 %}
+                                <tr class="empty-row">
+                                    <td class="py-4 text-muted fw-light border-0" style="width: 55%;">&nbsp;</td>
+                                    <td class="py-4 text-muted fw-light border-0" style="width: 15%;">&nbsp;</td>
+                                    <td class="py-4 text-muted fw-light border-0" style="width: 15%;">&nbsp;</td>
+                                    <td class="py-4 text-muted fw-light border-0" style="width: 15%;">&nbsp;</td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
@@ -567,104 +679,146 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+<!-- Pré-carregando dados do Django para JavaScript -->
+<script id="chart-data" type="application/json">
+{
+    "topProducts": {
+        "labels": [{% for product in top_products|slice:":5" %}"{{ product.product__name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+        "values": [{% for product in top_products|slice:":5" %}{{ product.total_qty }}{% if not forloop.last %},{% endif %}{% endfor %}],
+        "colors": ["#4c6ef5", "#38d6ae", "#f59f00", "#fa5252", "#be4bdb"]
+    }
+}
+</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Dados do gráfico
-    const chartData = {{ chart_data|safe }};
+    console.log('Dashboard inicializado com sucesso!');
     
-    // Configuração do gráfico
-    const ctx = document.getElementById('salesChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: chartData.labels,
-            datasets: [
-                {
-                    label: 'Receita (R$)',
-                    data: chartData.revenue,
-                    backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1,
-                    borderRadius: 5,
-                    yAxisID: 'y-revenue'
-                },
-                {
-                    label: 'Vendas',
-                    data: chartData.sales,
-                    backgroundColor: 'rgba(75, 192, 192, 0.8)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1,
-                    borderRadius: 5,
-                    yAxisID: 'y-sales'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 15
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.dataset.yAxisID === 'y-revenue') {
-                                label += 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2
-                                });
-                            } else {
-                                label += context.parsed.y;
-                            }
-                            return label;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: {
-                        display: false
-                    }
-                },
-                'y-revenue': {
-                    type: 'linear',
-                    position: 'left',
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.1)'
-                    },
-                    ticks: {
-                        callback: function(value) {
-                            return 'R$ ' + value.toLocaleString('pt-BR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            });
-                        }
-                    }
-                },
-                'y-sales': {
-                    type: 'linear',
-                    position: 'right',
-                    grid: {
-                        display: false
-                    }
-                }
+    // Obter dados pré-carregados
+    let chartData;
+    try {
+        const dataElement = document.getElementById('chart-data');
+        chartData = JSON.parse(dataElement.textContent);
+        console.log('Dados carregados:', chartData);
+    } catch (error) {
+        console.error('Erro ao carregar dados do gráfico:', error);
+        chartData = { 
+            topProducts: { 
+                labels: ['Produto A', 'Produto B', 'Produto C', 'Outros'], 
+                values: [45, 25, 20, 10],
+                colors: ["#4c6ef5", "#38d6ae", "#f59f00", "#fa5252"] 
+            } 
+        };
+    }
+    
+    // Configuração do gráfico de produtos mais vendidos
+    if (document.getElementById('topProductsChart')) {
+        try {
+            // Verificar se temos dados
+            if (!chartData.topProducts.labels.length || !chartData.topProducts.values.length) {
+                console.warn('Sem dados para o gráfico, usando dados de exemplo');
+                chartData.topProducts = {
+                    labels: ['Produto A', 'Produto B', 'Produto C', 'Outros'],
+                    values: [45, 25, 20, 10],
+                    colors: ["#4c6ef5", "#38d6ae", "#f59f00", "#fa5252"]
+                };
             }
+            
+            console.log('Configurando gráfico com dados:', chartData.topProducts);
+            
+            // Dados para o gráfico de produtos mais vendidos
+            const topProductsData = {
+                labels: chartData.topProducts.labels,
+                datasets: [{
+                    data: chartData.topProducts.values,
+                    backgroundColor: chartData.topProducts.colors,
+                    borderColor: Array(chartData.topProducts.labels.length).fill('#ffffff'),
+                    borderWidth: 2,
+                    hoverOffset: 4
+                }]
+            };
+
+            // Configurações do gráfico
+            const topProductsConfig = {
+                type: 'pie',
+                data: topProductsData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            top: 20,
+                            bottom: 20,
+                            left: 20,
+                            right: 20
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 15,
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                },
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    if (data.labels.length && data.datasets.length) {
+                                        return data.labels.map(function(label, i) {
+                                            const meta = chart.getDatasetMeta(0);
+                                            const style = meta.controller.getStyle(i);
+                                            
+                                            return {
+                                                text: label,
+                                                fillStyle: style.backgroundColor,
+                                                strokeStyle: style.borderColor,
+                                                lineWidth: style.borderWidth,
+                                                hidden: !chart.getDataVisibility(i),
+                                                index: i
+                                            };
+                                        });
+                                    }
+                                    return [];
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            titleColor: '#495057',
+                            bodyColor: '#495057',
+                            borderColor: '#e9ecef',
+                            borderWidth: 1,
+                            padding: 12,
+                            boxPadding: 6,
+                            usePointStyle: true,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    let value = context.raw || 0;
+                                    let total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    let percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} unidades (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Inicializar o gráfico
+            const topProductsCtx = document.getElementById('topProductsChart').getContext('2d');
+            new Chart(topProductsCtx, topProductsConfig);
+            console.log('Gráfico de produtos carregado com sucesso');
+        } catch (error) {
+            console.error('Erro ao renderizar o gráfico de produtos:', error);
         }
-    });
+    } else {
+        console.warn('Elemento de gráfico de produtos não encontrado');
+    }
 });
 </script>
 {% endblock %} 

@@ -1,0 +1,720 @@
+{% extends 'core/base.html' %}
+{% load humanize %}
+
+{% block title %}Gerenciamento de Despesas - SaaS CRM{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Cabeçalho e filtros -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Gerenciamento de Despesas - {{ month_year }}</h5>
+                        <div>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                                <i class="fas fa-plus me-1"></i> Nova Despesa
+                            </button>
+                            <button type="button" class="btn btn-outline-primary ms-2" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                                <i class="fas fa-folder-plus me-1"></i> Nova Categoria
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensagens de alerta -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Resumo de despesas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header pb-0">
+                    <h6>Resumo de Despesas</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded bg-light mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0">Total de Despesas</h6>
+                                    <span class="badge bg-danger fs-6">R$ {{ total_expenses|floatformat:2 }}</span>
+                                </div>
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div class="progress-bar bg-danger" role="progressbar" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded bg-light mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0">Receita Mensal</h6>
+                                    <span class="badge bg-success fs-6">R$ {{ total_revenue|floatformat:2 }}</span>
+                                </div>
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded bg-light mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0">Lucro Total</h6>
+                                    {% if total_profit >= 0 %}
+                                        <span class="badge bg-success fs-6">R$ {{ total_profit|floatformat:2 }}</span>
+                                    {% else %}
+                                        <span class="badge bg-danger fs-6">R$ {{ total_profit|floatformat:2 }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="progress mb-2" style="height: 8px;">
+                                    {% if total_profit >= 0 %}
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                                    {% else %}
+                                        <div class="progress-bar bg-danger" role="progressbar" style="width: 100%"></div>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted d-block mt-1">
+                                    {% if total_profit >= 0 %}
+                                        Margem de lucro: <span class="text-success">{{ profit_margin|floatformat:1 }}%</span>
+                                    {% else %}
+                                        Prejuízo de <span class="text-danger">{{ profit_margin_abs|floatformat:1 }}%</span> da receita
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de despesas -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header pb-0">
+                    <h6>Despesas por Categoria</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table align-items-center">
+                            <thead>
+                                <tr>
+                                    <th>Categoria</th>
+                                    <th>Valor</th>
+                                    <th>% do Total</th>
+                                    <th>Quantidade</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for category in expenses_categories %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="icon-box me-3 rounded-circle bg-{{ category.color }} text-white" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                                <i class="fas {{ category.icon }}"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0">{{ category.name }}</h6>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        {% if category.total_amount %}
+                                            R$ {{ category.total_amount|floatformat:2|stringformat:'s'|slice:':-3' }}{{ category.total_amount|floatformat:2|stringformat:'s'|slice:'-3:'|default:',00' }}
+                                        {% else %}
+                                            R$ 0,00
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2">{{ category.percentage }}%</span>
+                                            <div class="progress" style="width: 100px; height: 5px;">
+                                                <div class="progress-bar bg-{{ category.color }}" role="progressbar" style="width: {{ category.percentage }}%"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ category.expenses_count }} despesa{{ category.expenses_count|pluralize }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="showCategoryExpenses('{{ category.id }}')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addExpenseModal" 
+                                                onclick="preSelectCategory('{{ category.id }}', '{{ category.name }}')">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editCategoryModal" 
+                                                onclick="editCategory('{{ category.id }}', '{{ category.name }}', '{{ category.icon }}', '{{ category.color }}')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteCategory('{{ category.id }}', '{{ category.name }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista detalhada de despesas -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header pb-0">
+                    <h6>Despesas Detalhadas</h6>
+                </div>
+                <div class="card-body">
+                    {% if expenses %}
+                        <div class="table-responsive">
+                            <table class="table align-items-center">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Categoria</th>
+                                        <th>Descrição</th>
+                                        <th>Valor</th>
+                                        <th>Recorrente</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for expense in expenses %}
+                                    <tr>
+                                        <td>{{ expense.date|date:"d/m/Y" }}</td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="icon-box me-2 rounded-circle bg-{{ expense.category.color }} text-white" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">
+                                                    <i class="fas {{ expense.category.icon }}"></i>
+                                                </div>
+                                                {{ expense.category.name }}
+                                            </div>
+                                        </td>
+                                        <td>{{ expense.description|default:"--" }}</td>
+                                        <td>
+                                            {% with amount_str=expense.amount|floatformat:2 %}
+                                                {% with integer_part=amount_str|stringformat:'s'|slice:':-3'|default:'0' decimal_part=amount_str|stringformat:'s'|slice:'-2:'|default:'00' %}
+                                                    R$ {{ integer_part|intcomma }},{{ decimal_part }}
+                                                {% endwith %}
+                                            {% endwith %}
+                                        </td>
+                                        <td>
+                                            {% if expense.is_recurring %}
+                                                <span class="badge bg-info">{{ expense.get_recurrence_period_display }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Não</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary" onclick="editExpense('{{ expense.id }}')">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteExpense('{{ expense.id }}', '{{ expense.description|default:expense.category.name }}')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center p-4">
+                            <p class="mb-3">Nenhuma despesa registrada neste mês.</p>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                                <i class="fas fa-plus me-1"></i> Adicionar Despesa
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Adicionar Despesa -->
+<div class="modal fade" id="addExpenseModal" tabindex="-1" aria-labelledby="addExpenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addExpenseModalLabel">Adicionar Nova Despesa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'dashboard:add_expense' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Categoria</label>
+                        <select class="form-select" id="category" name="category" required>
+                            <option value="">Selecione uma categoria</option>
+                            {% for category in expenses_categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="amount">Valor</label>
+                        <input type="text" class="form-control money-input" id="amount" name="amount" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Data</label>
+                        <input type="date" class="form-control" id="date" name="date" value="{{ today|date:'Y-m-d' }}">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_recurring" name="is_recurring">
+                        <label class="form-check-label" for="is_recurring">Despesa Recorrente</label>
+                    </div>
+                    <div class="mb-3" id="recurrenceOptions" style="display: none;">
+                        <label for="recurrence_period" class="form-label">Período de Recorrência</label>
+                        <select class="form-select" id="recurrence_period" name="recurrence_period">
+                            <option value="monthly">Mensal</option>
+                            <option value="quarterly">Trimestral</option>
+                            <option value="yearly">Anual</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Despesa -->
+<div class="modal fade" id="editExpenseModal" tabindex="-1" aria-labelledby="editExpenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editExpenseModalLabel">Editar Despesa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editExpenseForm" action="" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_category" class="form-label">Categoria</label>
+                        <select class="form-select" id="edit_category" name="category" required>
+                            {% for category in expenses_categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_amount">Valor</label>
+                        <input type="text" class="form-control money-input" id="edit_amount" name="amount" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_description" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="edit_description" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_date" class="form-label">Data</label>
+                        <input type="date" class="form-control" id="edit_date" name="date">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="edit_is_recurring" name="is_recurring">
+                        <label class="form-check-label" for="edit_is_recurring">Despesa Recorrente</label>
+                    </div>
+                    <div class="mb-3" id="edit_recurrenceOptions">
+                        <label for="edit_recurrence_period" class="form-label">Período de Recorrência</label>
+                        <select class="form-select" id="edit_recurrence_period" name="recurrence_period">
+                            <option value="monthly">Mensal</option>
+                            <option value="quarterly">Trimestral</option>
+                            <option value="yearly">Anual</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Atualizar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Adicionar Categoria -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addCategoryModalLabel">Adicionar Nova Categoria</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'dashboard:add_expense_category' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Nome da Categoria</label>
+                        <input type="text" class="form-control" id="categoryName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="categoryIcon" class="form-label">Ícone</label>
+                        <select class="form-select" id="categoryIcon" name="icon">
+                            <option value="fa-building">Prédio</option>
+                            <option value="fa-users">Pessoas</option>
+                            <option value="fa-boxes">Caixas</option>
+                            <option value="fa-bolt">Raio</option>
+                            <option value="fa-car">Carro</option>
+                            <option value="fa-shopping-cart">Carrinho</option>
+                            <option value="fa-tools">Ferramentas</option>
+                            <option value="fa-coffee">Café</option>
+                            <option value="fa-laptop">Laptop</option>
+                            <option value="fa-phone">Telefone</option>
+                            <option value="fa-home">Casa</option>
+                            <option value="fa-truck">Caminhão</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="categoryColor" class="form-label">Cor</label>
+                        <select class="form-select" id="categoryColor" name="color">
+                            <option value="primary">Azul</option>
+                            <option value="info">Azul Claro</option>
+                            <option value="success">Verde</option>
+                            <option value="warning">Amarelo</option>
+                            <option value="danger">Vermelho</option>
+                            <option value="secondary">Cinza</option>
+                            <option value="dark">Preto</option>
+                        </select>
+                    </div>
+                    <!-- Preview do ícone -->
+                    <div class="text-center mt-3">
+                        <div id="iconPreview" class="d-inline-block rounded-circle bg-primary text-white" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-building fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação para Excluir -->
+<div class="modal fade" id="deleteExpenseModal" tabindex="-1" aria-labelledby="deleteExpenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteExpenseModalLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir a despesa <span id="deleteExpenseName" class="fw-bold"></span>?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <a href="#" id="confirmDeleteBtn" class="btn btn-danger">Excluir</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Categoria -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1" aria-labelledby="editCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editCategoryModalLabel">Editar Categoria</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editCategoryForm" action="" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editCategoryName" class="form-label">Nome da Categoria</label>
+                        <input type="text" class="form-control" id="editCategoryName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCategoryIcon" class="form-label">Ícone</label>
+                        <select class="form-select" id="editCategoryIcon" name="icon">
+                            <option value="fa-building">Prédio</option>
+                            <option value="fa-users">Pessoas</option>
+                            <option value="fa-boxes">Caixas</option>
+                            <option value="fa-bolt">Raio</option>
+                            <option value="fa-car">Carro</option>
+                            <option value="fa-shopping-cart">Carrinho</option>
+                            <option value="fa-tools">Ferramentas</option>
+                            <option value="fa-coffee">Café</option>
+                            <option value="fa-laptop">Laptop</option>
+                            <option value="fa-phone">Telefone</option>
+                            <option value="fa-home">Casa</option>
+                            <option value="fa-truck">Caminhão</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCategoryColor" class="form-label">Cor</label>
+                        <select class="form-select" id="editCategoryColor" name="color">
+                            <option value="primary">Azul</option>
+                            <option value="info">Azul Claro</option>
+                            <option value="success">Verde</option>
+                            <option value="warning">Amarelo</option>
+                            <option value="danger">Vermelho</option>
+                            <option value="secondary">Cinza</option>
+                            <option value="dark">Preto</option>
+                        </select>
+                    </div>
+                    <!-- Preview do ícone -->
+                    <div class="text-center mt-3">
+                        <div id="editIconPreview" class="d-inline-block rounded-circle bg-primary text-white" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-building fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Atualizar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação para Excluir Categoria -->
+<div class="modal fade" id="deleteCategoryModal" tabindex="-1" aria-labelledby="deleteCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteCategoryModalLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir a categoria <span id="deleteCategoryName" class="fw-bold"></span>?</p>
+                <div class="alert alert-warning" role="alert">
+                  <i class="fas fa-exclamation-triangle me-2"></i> Excluir uma categoria que possui despesas não é permitido. Primeiro edite as despesas para usar outra categoria.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <a href="#" id="confirmDeleteCategoryBtn" class="btn btn-danger">Excluir</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Formatação de entradas monetárias
+        const moneyInputs = document.querySelectorAll('.money-input');
+        moneyInputs.forEach(input => {
+            input.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                
+                if (value === '') {
+                    e.target.value = '';
+                    return;
+                }
+                
+                // Converte para número e divide por 100 para obter o valor com centavos
+                value = parseFloat(value) / 100;
+                
+                // Formata para o padrão brasileiro (1.234,56)
+                e.target.value = value.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            });
+        });
+        
+        // Converter de volta para formato de backend no envio do formulário
+        const expenseForms = document.querySelectorAll('form');
+        expenseForms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const moneyInputs = form.querySelectorAll('.money-input');
+                moneyInputs.forEach(input => {
+                    if (input.value) {
+                        // Converter de formato brasileiro para o backend
+                        const rawValue = input.value
+                            .replace(/\./g, '')  // Remove separadores de milhar
+                            .replace(',', '.');  // Substitui vírgula decimal por ponto
+                        
+                        input.value = rawValue;
+                    }
+                });
+            });
+        });
+        
+        // Mostrar/ocultar opções de recorrência
+        const isRecurringCheckboxes = document.querySelectorAll('[id$="is_recurring"]');
+        isRecurringCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const idPrefix = this.id.replace('is_recurring', '');
+                const recurrenceOptions = document.getElementById(idPrefix + 'recurrenceOptions');
+                
+                if (recurrenceOptions) {
+                    recurrenceOptions.style.display = this.checked ? 'block' : 'none';
+                }
+            });
+            
+            // Verificar estado inicial
+            if (checkbox.checked) {
+                const idPrefix = checkbox.id.replace('is_recurring', '');
+                const recurrenceOptions = document.getElementById(idPrefix + 'recurrenceOptions');
+                if (recurrenceOptions) {
+                    recurrenceOptions.style.display = 'block';
+                }
+            }
+        });
+        
+        // Função para atualizar preview de ícone
+        function updateIconPreview() {
+            const icon = document.getElementById('categoryIcon').value;
+            const color = document.getElementById('categoryColor').value;
+            const preview = document.getElementById('iconPreview');
+            
+            preview.className = `d-inline-block rounded-circle bg-${color} text-white`;
+            preview.querySelector('i').className = `fas ${icon} fa-2x`;
+        }
+        
+        // Inicializar os previews de ícones
+        if (document.getElementById('categoryIcon')) {
+            document.getElementById('categoryIcon').addEventListener('change', updateIconPreview);
+            document.getElementById('categoryColor').addEventListener('change', updateIconPreview);
+        }
+
+        // Adicionar código para o modal de edição de categoria
+        if (document.getElementById('editCategoryIcon')) {
+            document.getElementById('editCategoryIcon').addEventListener('change', updateEditIconPreview);
+            document.getElementById('editCategoryColor').addEventListener('change', updateEditIconPreview);
+        }
+    });
+    
+    // Função para pré-selecionar categoria
+    function preSelectCategory(categoryId, categoryName) {
+        document.getElementById('category').value = categoryId;
+    }
+    
+    // Função para editar despesa
+    function editExpense(expenseId) {
+        document.getElementById('editExpenseForm').action = `/dashboard/despesas/editar/${expenseId}/`;
+        
+        // Carregar os dados da despesa usando fetch API
+        fetch(`/dashboard/despesas/editar/${expenseId}/?format=json`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao buscar dados da despesa');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Preencher o formulário com os dados recebidos
+            document.getElementById('edit_category').value = data.category_id;
+            document.getElementById('edit_description').value = data.description || '';
+            
+            // Formatar o valor para exibição em formato brasileiro
+            const amount = parseFloat(data.amount);
+            document.getElementById('edit_amount').value = new Intl.NumberFormat('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+            
+            document.getElementById('edit_date').value = data.date;
+            document.getElementById('edit_is_recurring').checked = data.is_recurring;
+            if (data.is_recurring) {
+                document.getElementById('edit_recurrence_period').value = data.recurrence_period;
+                document.getElementById('edit_recurrenceOptions').style.display = 'block';
+            } else {
+                document.getElementById('edit_recurrenceOptions').style.display = 'none';
+            }
+            
+            // Abrir o modal
+            const editModal = new bootstrap.Modal(document.getElementById('editExpenseModal'));
+            editModal.show();
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            
+            // Mesmo em caso de erro, abrimos o modal para o usuário editar
+            const editModal = new bootstrap.Modal(document.getElementById('editExpenseModal'));
+            editModal.show();
+            
+            // Notificar o usuário do erro
+            alert('Não foi possível carregar os dados da despesa. Por favor, preencha manualmente.');
+        });
+    }
+    
+    // Função para excluir despesa
+    function deleteExpense(expenseId, expenseName) {
+        document.getElementById('deleteExpenseName').textContent = expenseName;
+        document.getElementById('confirmDeleteBtn').href = `/dashboard/despesas/excluir/${expenseId}/`;
+        
+        // Abrir o modal
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteExpenseModal'));
+        deleteModal.show();
+    }
+    
+    // Função para mostrar despesas de uma categoria
+    function showCategoryExpenses(categoryId) {
+        // Rolar até a seção de despesas detalhadas
+        const detailsSection = document.querySelector('.card-header:contains("Despesas Detalhadas")');
+        if (detailsSection) {
+            const card = detailsSection.closest('.card');
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    }
+
+    function editCategory(categoryId, categoryName, categoryIcon, categoryColor) {
+        document.getElementById('editCategoryName').value = categoryName;
+        document.getElementById('editCategoryIcon').value = categoryIcon;
+        document.getElementById('editCategoryColor').value = categoryColor;
+        
+        // Atualizar o preview
+        updateEditIconPreview();
+        
+        // Atualizar a action do formulário
+        document.getElementById('editCategoryForm').action = `/dashboard/despesas/categorias/editar/${categoryId}/`;
+    }
+
+    function deleteCategory(categoryId, categoryName) {
+        document.getElementById('deleteCategoryName').textContent = categoryName;
+        document.getElementById('confirmDeleteCategoryBtn').href = `/dashboard/despesas/categorias/excluir/${categoryId}/`;
+        
+        // Abrir o modal
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteCategoryModal'));
+        deleteModal.show();
+    }
+
+    function updateEditIconPreview() {
+        const icon = document.getElementById('editCategoryIcon').value;
+        const color = document.getElementById('editCategoryColor').value;
+        const preview = document.getElementById('editIconPreview');
+        
+        preview.className = `d-inline-block rounded-circle bg-${color} text-white`;
+        preview.querySelector('i').className = `fas ${icon} fa-2x`;
+    }
+</script>
+{% endblock %} 

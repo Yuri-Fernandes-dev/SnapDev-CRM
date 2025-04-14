@@ -334,85 +334,56 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 // Função para formatar data
-function formatDate(dateStr) {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('pt-BR');
+function formatDate(date) {
+    const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
+    return new Date(date).toLocaleDateString('pt-BR', options);
 }
 
-// Função para formatar número como moeda
-function formatCurrency(value) {
-    return parseFloat(value).toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-    });
-}
-
-// Função para formatar número como porcentagem
-function formatPercent(value) {
-    return parseFloat(value).toLocaleString('pt-BR', {
-        style: 'percent',
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1
-    });
-}
-
-// Função para exportar tabelas para CSV
-function exportTableToCSV(tableId) {
+// Função para exportar tabela para CSV
+function exportTableToCSV(tableId, filename = '') {
     const table = document.getElementById(tableId);
-    let csv = [];
+    if (!table) return;
     
-    // BOM para Excel reconhecer caracteres especiais
-    const BOM = "\uFEFF";
+    const rows = Array.from(table.querySelectorAll('tr'));
     
-    // Header
-    const header = [];
-    const headerCells = table.querySelectorAll('thead th');
-    headerCells.forEach(cell => header.push(cell.textContent.trim()));
-    csv.push(header.join(';'));
+    // Extrair cabeçalho
+    const header = Array.from(rows[0].querySelectorAll('th')).map(th => th.textContent.trim());
     
-    // Rows
-    const rows = table.querySelectorAll('tbody tr');
-    rows.forEach(row => {
-        const rowData = [];
-        const cells = row.querySelectorAll('td');
-        cells.forEach((cell, index) => {
-            let value = cell.textContent.trim();
-            
-            // Remover símbolos de moeda e porcentagem
-            value = value.replace('R$', '').replace('%', '').trim();
-            
-            // Converter vírgula para ponto em números
-            if (!isNaN(value.replace(',', '.'))) {
-                value = value.replace(',', '.');
+    // Extrair dados
+    const csvData = [header];
+    for (let i = 1; i < rows.length; i++) {
+        const row = Array.from(rows[i].querySelectorAll('td')).map(td => {
+            // Remove formatação de moeda e porcentagem
+            let text = td.textContent.trim();
+            if (text.startsWith('R$')) {
+                text = text.replace('R$', '').trim().replace('.', '').replace(',', '.');
             }
-            
-            rowData.push(value);
+            if (text.endsWith('%')) {
+                text = text.replace('%', '').trim().replace(',', '.');
+            }
+            return `"${text}"`;
         });
-        csv.push(rowData.join(';'));
-    });
+        csvData.push(row);
+    }
     
-    // Download
-    const csvContent = BOM + csv.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
+    // Converter para CSV
+    const csv = csvData.map(row => row.join(',')).join('\n');
     
-    // Nome do arquivo baseado na data atual
-    const now = new Date();
-    const fileName = `relatorio_${tableId}_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}.csv`;
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', fileName);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Criar arquivo e fazer download
+    const csvFile = new Blob([csv], { type: 'text/csv' });
+    const downloadLink = document.createElement('a');
+    downloadLink.download = filename || `tabela_${tableId}_${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadLink.href = window.URL.createObjectURL(csvFile);
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
 }
 
-// Função para exportar gráficos como PNG
+// Função para exportar gráfico como imagem
 function exportChart(chartId) {
     const canvas = document.getElementById(chartId);
     const link = document.createElement('a');
@@ -426,105 +397,124 @@ function exportChart(chartId) {
 
 // Configuração dos gráficos
 document.addEventListener('DOMContentLoaded', function() {
-    // Configuração do gráfico de vendas
-    const ctx = document.getElementById('salesChart').getContext('2d');
-    const chartData = JSON.parse('{{ sales_chart_data|escapejs }}');
+    try {
+        // Configuração do gráfico de vendas
+        const ctx = document.getElementById('salesChart');
+        if (!ctx) {
+            console.error("Elemento 'salesChart' não encontrado");
+            return;
+        }
+        
+        let chartData;
+        try {
+            chartData = JSON.parse('{{ sales_chart_data|escapejs }}');
+            console.log("Chart data:", chartData); // Log para debug
+        } catch (error) {
+            console.error("Erro ao analisar dados do gráfico:", error);
+            chartData = {labels: [], values: []};
+        }
 
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: chartData.labels,
-            datasets: [{
-                label: 'Receita Diária',
-                data: chartData.values,
-                backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 0,
-                borderRadius: 0,
-                barPercentage: 0.2,
-                categoryPercentage: 0.8
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            });
-                        }
-                    }
-                }
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: chartData.labels || [],
+                datasets: [{
+                    label: 'Receita Diária',
+                    data: chartData.values || [],
+                    backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 0,
+                    borderRadius: 0,
+                    barPercentage: 0.2,
+                    categoryPercentage: 0.8
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.1)',
-                        drawBorder: false
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
                     },
-                    ticks: {
-                        callback: function(value) {
-                            return 'R$ ' + value.toLocaleString('pt-BR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            });
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                            }
                         }
                     }
                 },
-                x: {
-                    grid: {
-                        display: false,
-                        drawBorder: false
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value.toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                            }
+                        }
                     },
-                    offset: false,
-                    distribution: 'linear',
-                    ticks: {
-                        maxRotation: 0,
-                        autoSkip: false
+                    x: {
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        offset: false,
+                        distribution: 'linear',
+                        ticks: {
+                            maxRotation: 0,
+                            autoSkip: false
+                        }
                     }
                 }
             }
-        }
-    });
+        });
 
-    // Dados para o gráfico de produtos
-    const productsData = {
-        labels: [{% for product in top_products|slice:":5" %}'{{ product.name }}',{% endfor %}],
-        datasets: [{
-            data: [{% for product in top_products|slice:":5" %}{{ product.quantity }},{% endfor %}],
-            backgroundColor: [
-                '#5e72e4',
-                '#2dce89',
-                '#fb6340',
-                '#11cdef',
-                '#f5365c'
-            ]
-        }]
-    };
+        // Dados para o gráfico de produtos
+        const productsChart = document.getElementById('productsChart');
+        if (productsChart) {
+            const productsData = {
+                labels: [{% for product in top_products|slice:":5" %}'{{ product.name }}',{% endfor %}],
+                datasets: [{
+                    data: [{% for product in top_products|slice:":5" %}{{ product.quantity }},{% endfor %}],
+                    backgroundColor: [
+                        '#5e72e4',
+                        '#2dce89',
+                        '#fb6340',
+                        '#11cdef',
+                        '#f5365c'
+                    ]
+                }]
+            };
 
-    // Configuração do gráfico de produtos
-    new Chart(document.getElementById('productsChart'), {
-        type: 'doughnut',
-        data: productsData,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'right'
+            // Configuração do gráfico de produtos
+            new Chart(productsChart, {
+                type: 'doughnut',
+                data: productsData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
                 }
-            }
+            });
         }
-    });
+    } catch (error) {
+        console.error("Erro ao inicializar gráficos:", error);
+    }
 
     // Configuração dos botões de filtro
     document.querySelectorAll('.btn-filter').forEach(button => {

@@ -140,17 +140,22 @@
                 </li>
                 <li class="sidebar-menu-item">
                     <a href="{% url 'products:product_list' %}" class="sidebar-menu-link {% if '/produtos/' in request.path %}active{% endif %}">
-                        <i class="fas fa-box"></i> Produtos
+                        <i class="fas fa-box"></i> Estoque
                     </a>
                 </li>
                 <li class="sidebar-menu-item">
                     <a href="{% url 'sales:sale_list' %}" class="sidebar-menu-link {% if '/vendas/' in request.path and not '/vendas/pdv/' in request.path %}active{% endif %}">
-                        <i class="fas fa-shopping-cart"></i> Vendas
+                        <i class="fas fa-shopping-cart"></i> Historico de Vendas
                     </a>
                 </li>
                 <li class="sidebar-menu-item">
                     <a href="{% url 'customers:customer_list' %}" class="sidebar-menu-link {% if '/clientes/' in request.path %}active{% endif %}">
                         <i class="fas fa-users"></i> Clientes
+                    </a>
+                </li>
+                <li class="sidebar-menu-item">
+                    <a href="{% url 'dashboard:expenses' %}" class="sidebar-menu-link {% if '/dashboard/despesas/' in request.path %}active{% endif %}">
+                        <i class="fas fa-money-bill-wave"></i> Despesas
                     </a>
                 </li>
                 <li class="sidebar-menu-item mt-4">
