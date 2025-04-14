@@ -306,15 +306,6 @@
     </div>
 </div>
 
-{% if not weasyprint_available %}
-<div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
-    <i class="fas fa-exclamation-triangle me-2"></i>
-    <strong>Atenção:</strong> A geração de PDF está desativada porque as bibliotecas necessárias não estão instaladas. 
-    Os recibos estarão disponíveis apenas no navegador.
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
-{% endif %}
-
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h2 mb-0">Ponto de Venda (PDV)</h1>
     <a href="{% url 'sales:sale_list' %}" class="btn btn-outline-primary">

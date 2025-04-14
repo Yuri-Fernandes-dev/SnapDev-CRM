@@ -146,7 +146,7 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = 'bootstrap5'
 CRISPY_TEMPLATE_PACK = 'bootstrap5'
 
 # Login URLs
-LOGIN_REDIRECT_URL = 'dashboard'
+LOGIN_REDIRECT_URL = 'dashboard:dashboard'
 LOGIN_URL = 'login'
 
 # Configurações de CSRF

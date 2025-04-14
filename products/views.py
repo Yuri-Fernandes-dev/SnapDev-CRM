@@ -145,13 +145,6 @@ def product_create(request):
     sizes = Size.objects.filter(company=request.user.company)
     colors = Color.objects.filter(company=request.user.company)
     
-    # Verificar se existem tamanhos e cores cadastrados
-    if not sizes.exists():
-        messages.warning(request, 'Não existem tamanhos cadastrados. É necessário cadastrar tamanhos antes de adicionar variações.')
-    
-    if not colors.exists():
-        messages.warning(request, 'Não existem cores cadastradas. É necessário cadastrar cores antes de adicionar variações.')
-    
     return render(request, 'products/product_form.html', {
         'form': form,
         'sizes': sizes,
@@ -237,13 +230,6 @@ def product_update(request, pk):
         
         size_value = ", ".join(product_sizes)
         color_value = ", ".join(product_colors)
-    
-    # Verificar se existem tamanhos e cores cadastrados
-    if not sizes.exists():
-        messages.warning(request, 'Não existem tamanhos cadastrados. É necessário cadastrar tamanhos antes de adicionar variações.')
-    
-    if not colors.exists():
-        messages.warning(request, 'Não existem cores cadastradas. É necessário cadastrar cores antes de adicionar variações.')
     
     return render(request, 'products/product_form.html', {
         'form': form, 

@@ -19,13 +19,28 @@ class CompanyRegistrationForm(forms.ModelForm):
     class Meta:
         model = Company
         fields = ['name', 'email', 'phone']
+        widgets = {
+            'name': forms.TextInput(attrs={'placeholder': 'Nome da sua empresa'}),
+            'email': forms.EmailInput(attrs={'placeholder': 'contato@suaempresa.com.br'}),
+            'phone': forms.TextInput(attrs={'placeholder': '(00) 00000-0000'}),
+        }
 
 class ExtendedUserCreationForm(UserCreationForm):
-    email = forms.EmailField(required=True)
+    email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={'placeholder': 'exemplo@email.com'}))
+    first_name = forms.CharField(max_length=30, required=True, label='Nome', widget=forms.TextInput(attrs={'placeholder': 'Seu primeiro nome'}))
+    last_name = forms.CharField(max_length=30, required=True, label='Sobrenome', widget=forms.TextInput(attrs={'placeholder': 'Seu sobrenome'}))
     
     class Meta:
         model = User
-        fields = ('username', 'email', 'password1', 'password2')
+        fields = ('username', 'first_name', 'last_name', 'email', 'password1', 'password2')
+        widgets = {
+            'username': forms.TextInput(attrs={'placeholder': 'Nome de usuário para login'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['password1'].widget = forms.PasswordInput(attrs={'placeholder': 'Mínimo de 8 caracteres'})
+        self.fields['password2'].widget = forms.PasswordInput(attrs={'placeholder': 'Confirme sua senha'})
 
 def home(request):
     """
@@ -67,6 +82,8 @@ def register(request):
                 # Criar usuário
                 user = user_form.save()
                 user.email = user_form.cleaned_data['email']
+                user.first_name = user_form.cleaned_data['first_name']
+                user.last_name = user_form.cleaned_data['last_name']
                 user.save()
                 
                 # Verificar se o usuário já tem uma empresa
