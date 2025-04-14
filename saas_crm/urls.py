@@ -21,6 +21,13 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.views.decorators.csrf import ensure_csrf_cookie
 from core import views as core_views
+from sales.views import public_receipt
+
+# Definir URL patterns públicos que não precisam de autenticação
+public_receipt_patterns = [
+    path('recibo/<str:token>/', public_receipt, name='public_receipt'),
+    path('r/<str:token>/', public_receipt, name='public_receipt_short'),
+]
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -31,6 +38,9 @@ urlpatterns = [
     path('produtos/', include('products.urls')),
     path('vendas/', include('sales.urls')),
     path('clientes/', include('customers.urls')),
+    
+    # URLs públicas (não exigem login, incluso diretamente na raiz)
+    path('', include('sales.public_urls')),
     
     # Autenticação
     path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),

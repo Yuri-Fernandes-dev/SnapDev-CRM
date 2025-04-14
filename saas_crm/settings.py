@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'core.middleware.AuthenticationExemptMiddleware',  # Middleware para isenção de login (deve vir antes do auth middleware)
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -148,6 +149,7 @@ CRISPY_TEMPLATE_PACK = 'bootstrap5'
 # Login URLs
 LOGIN_REDIRECT_URL = 'dashboard:dashboard'
 LOGIN_URL = 'login'
+LOGIN_EXEMPT_URLS = ['vendas/recibo/', 'vendas/r/']  # URLs que não exigem login
 
 # Configurações de CSRF
 CSRF_COOKIE_HTTPONLY = False  # Permite que JavaScript acesse o cookie CSRF

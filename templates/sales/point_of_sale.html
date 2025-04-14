@@ -567,8 +567,8 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <a href="{% url 'sales:sale_list' %}" class="btn btn-outline-primary" style="display: none;" id="view-sales-history">
-                    <i class="fas fa-list me-1"></i> Ver Histórico
+                <a class="btn btn-outline-primary" style="display: none;" id="view-sales-history" data-bs-dismiss="modal">
+                    <i class="fas fa-check me-1"></i> Fechar
                 </a>
                 <button type="button" class="btn btn-primary" id="confirm-sale">Confirmar Venda</button>
             </div>
@@ -638,6 +638,12 @@
             confirmSaleBtn.innerHTML = 'Confirmar Venda';
             confirmSaleBtn.style.display = 'block';
             viewSalesHistoryBtn.style.display = 'none';
+        });
+        
+        // Garantir que o checkbox de WhatsApp esteja sempre desmarcado inicialmente
+        document.getElementById('confirmationModal').addEventListener('show.bs.modal', function () {
+            const whatsappCheck = document.querySelector('#send-whatsapp-receipt');
+            whatsappCheck.checked = false;
         });
         
         // Estado do carrinho
@@ -890,8 +896,8 @@
                 const hasPhone = document.querySelector('#customer-search').getAttribute('data-has-phone') === 'true';
                 const whatsappCheck = document.querySelector('#send-whatsapp-receipt');
                 whatsappCheck.disabled = !hasPhone;
+                whatsappCheck.checked = false; // Sempre desmarcado por padrão
                 if (!hasPhone) {
-                    whatsappCheck.checked = false;
                     whatsappCheck.parentElement.classList.add('text-muted');
                 } else {
                     whatsappCheck.parentElement.classList.remove('text-muted');
@@ -901,12 +907,15 @@
                 // Desabilitar WhatsApp se não tem cliente
                 const whatsappCheck = document.querySelector('#send-whatsapp-receipt');
                 whatsappCheck.disabled = true;
-                whatsappCheck.checked = false;
+                whatsappCheck.checked = false; // Sempre desmarcado por padrão
                 whatsappCheck.parentElement.classList.add('text-muted');
             }
             
             // Mostrar modal de confirmação
             confirmationModal.show();
+            
+            // Sempre garantir que o checkbox esteja desmarcado
+            document.querySelector('#send-whatsapp-receipt').checked = false;
         });
         
         // Confirmação final da venda
@@ -972,7 +981,7 @@
                 // Verificar se deve enviar por WhatsApp
                 const sendWhatsapp = document.getElementById('send-whatsapp-receipt').checked;
                 
-                // Mostrar botão para ver histórico de vendas
+                // Mostrar botão para fechar o modal
                 document.getElementById('view-sales-history').style.display = 'block';
                 
                 // Ocultar o botão de confirmar venda
@@ -1000,13 +1009,11 @@
                 // Verificar opção de WhatsApp
                 if (sendWhatsapp && data.receipt_url) {
                     try {
-                        // Abrir WhatsApp em nova aba em vez de redirecionar
-                        const whatsappUrl = data.receipt_url.replace('/recibo/', '/recibo-pdf/') + '?whatsapp=true';
+                        // Usar a nova função de envio de WhatsApp
+                        const whatsappUrl = '/vendas/' + data.sale_id + '/whatsapp/';
                         window.open(whatsappUrl, '_blank');
                     } catch (e) {
                         console.error('Erro ao abrir WhatsApp:', e);
-                        // Tenta com a URL direta em nova aba
-                        window.open('/vendas/' + data.sale_id + '/recibo-pdf/?whatsapp=true', '_blank');
                     }
                 } else {
                     // Apenas mostrar mensagem de sucesso sem abrir o recibo

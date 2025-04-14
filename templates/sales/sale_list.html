@@ -189,7 +189,7 @@
                                     </a>
                                     {% endif %}
                                     {% if sale.customer and sale.customer.phone %}
-                                    <a href="{% url 'sales:sale_pdf' sale.id %}?whatsapp=true" class="btn btn-sm btn-outline-success" title="Enviar por WhatsApp">
+                                    <a href="{% url 'sales:send_whatsapp' sale.id %}" class="btn btn-sm btn-outline-success" title="Enviar agradecimento por WhatsApp">
                                         <i class="fab fa-whatsapp"></i>
                                     </a>
                                     {% endif %}

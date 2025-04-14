@@ -620,3 +620,86 @@ def sale_pdf(request, pk):
         print(f"Erro ao gerar PDF/WhatsApp: {str(e)}")
         messages.error(request, "Não foi possível gerar o PDF ou enviar por WhatsApp.")
         return redirect('sales:sale_receipt', pk=pk)
+
+@login_required
+def send_whatsapp_message(request, pk):
+    """
+    Envia uma mensagem de agradecimento para o WhatsApp do cliente
+    """
+    try:
+        sale = get_object_or_404(Sale, pk=pk, company=request.user.company)
+        
+        # Verificar se o cliente tem telefone
+        if not sale.customer or not sale.customer.phone:
+            messages.warning(request, "O cliente não possui número de telefone cadastrado.")
+            return redirect('sales:sale_receipt', pk=pk)
+        
+        # Preparar número de telefone para WhatsApp
+        phone = ''.join(filter(str.isdigit, sale.customer.phone))
+        if not phone.startswith('55'):
+            phone = '55' + phone
+        
+        # Obter o domínio completo da aplicação
+        protocol = 'https' if request.is_secure() else 'http'
+        domain = request.get_host()
+        
+        # Criar URL absoluta do recibo público
+        receipt_url = f"{protocol}://{domain}/r/{sale.access_token}/"
+        
+        # Criar mensagem personalizada de agradecimento
+        company_name = request.user.company.name
+        
+        # Formatar a lista de produtos
+        items_text = ""
+        for i, item in enumerate(sale.items.all()[:3], 1):
+            items_text += f"\n{i}. {item.product.name} x{item.quantity}"
+        
+        if sale.items.count() > 3:
+            items_text += f"\n... e mais {sale.items.count() - 3} item(ns)"
+            
+        # Montar mensagem completa
+        message = (
+            f"Olá {sale.customer.name}! 😊\n\n"
+            f"Obrigado pela sua compra no valor de *R$ {sale.total:.2f}* em *{company_name}*.\n\n"
+            f"*Resumo do pedido:*{items_text}\n\n"
+            f"Seu recibo está disponível em:\n{receipt_url}\n\n"
+            f"Agradecemos a preferência! - {company_name} 👋"
+        )
+        
+        # Montar URL do WhatsApp
+        whatsapp_url = f"https://wa.me/{phone}?text={quote(message)}"
+        
+        # Redirecionar para o WhatsApp
+        return redirect(whatsapp_url)
+        
+    except Exception as e:
+        messages.error(request, f"Erro ao enviar mensagem: {str(e)}")
+        return redirect('sales:sale_receipt', pk=pk)
+
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+
+def public_receipt(request, token):
+    """
+    View para recibo público, acessível sem login
+    """
+    # Encontrar a venda pelo token de acesso
+    try:
+        sale = Sale.objects.get(access_token=token)
+        items = sale.items.all().select_related('product')
+        
+        context = {
+            'sale': sale,
+            'items': items,
+            'is_public': True,
+            'company': sale.company
+        }
+        
+        return render(request, 'sales/public_receipt.html', context)
+    except Sale.DoesNotExist:
+        # Se o token for inválido, mostrar uma página de erro
+        context = {
+            'error_message': 'O recibo solicitado não foi encontrado ou expirou.'
+        }
+        return render(request, 'sales/receipt_error.html', context)
