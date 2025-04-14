@@ -101,7 +101,7 @@ class SaleItem(models.Model):
     
     def save(self, *args, **kwargs):
         # Capturar o custo do produto no momento da venda
-        if not self.id:  # Apenas na criação
+        if not self.id or not self.cost_price:  # Verificar na criação ou se cost_price estiver vazio
             self.cost_price = self.product.cost
             
         # Calcular subtotal

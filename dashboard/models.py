@@ -29,12 +29,16 @@ class Expense(models.Model):
         ('quarterly', 'Trimestral'),
         ('yearly', 'Anual')
     ])
+    is_paid = models.BooleanField(default=False, verbose_name="Pago")
     company = models.ForeignKey("core.Company", on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
         return f"{self.category.name}: R${self.amount}"
+    
+    def get_status_display(self):
+        return "Pago" if self.is_paid else "Pendente"
     
     class Meta:
         verbose_name = "Despesa"

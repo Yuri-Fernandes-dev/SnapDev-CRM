@@ -1,23 +1,296 @@
 {% extends 'core/base.html' %}
 {% load humanize %}
+{% load dashboard_extras %}
 
 {% block title %}Gerenciamento de Despesas - SaaS CRM{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Estilos para cards */
+    .card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        overflow: hidden;
+        height: 100%;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+    
+    .card-header {
+        background: #ffffff !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        padding: 1.25rem;
+    }
+    
+    .icon-box {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+    
+    .table th {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #495057;
+        border-bottom: 2px solid #e9ecef;
+        padding: 0.75rem 1rem;
+    }
+    
+    .table td {
+        vertical-align: middle;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f2f2f2;
+    }
+    
+    @media (max-width: 768px) {
+        .table th, .table td {
+            padding: 0.5rem 0.75rem;
+        }
+    }
+    
+    .table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.03);
+    }
+    
+    .badge-status {
+        padding: 0.5rem 0.75rem;
+        font-weight: 500;
+        font-size: 0.75rem;
+        border-radius: 30px;
+        position: relative;
+    }
+    
+    .badge-status:after {
+        content: '';
+        position: absolute;
+        bottom: -3px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: currentColor;
+        opacity: 0.5;
+    }
+    
+    .badge-paid {
+        background-color: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+    }
+    
+    .badge-pending {
+        background-color: rgba(255, 193, 7, 0.1);
+        color: #ffc107;
+    }
+    
+    .summary-card {
+        border-radius: 12px;
+        padding: 1.5rem;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .summary-card.primary {
+        background: linear-gradient(45deg, #5a73cd, #4060c0);
+        color: #fff;
+    }
+    
+    .summary-card.success {
+        background: linear-gradient(45deg, #4a9d4a, #3d8b3d);
+        color: #fff;
+    }
+    
+    .summary-card.warning {
+        background: linear-gradient(45deg, #e09a3e, #d9912c);
+        color: #fff;
+    }
+    
+    .summary-card.danger {
+        background: linear-gradient(45deg, #d66773, #c55561);
+        color: #fff;
+    }
+    
+    .summary-card h3 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    @media (min-width: 1600px) {
+        .summary-card h3 {
+            font-size: 1.75rem;
+        }
+    }
+    
+    @media (max-width: 1200px) {
+        .summary-card h3 {
+            font-size: 1.25rem;
+        }
+    }
+    
+    .summary-card p {
+        opacity: 0.9;
+        margin-bottom: 0;
+        font-size: 0.9rem;
+    }
+    
+    .summary-icon {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+        opacity: 0.8;
+    }
+    
+    @media (min-width: 1600px) {
+        .summary-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+    }
+    
+    .month-selector {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.04);
+        padding: 0.5rem;
+        width: 100%;
+        max-width: 400px;
+        position: relative;
+    }
+    
+    .btn-month {
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s;
+        border: none;
+        background: transparent;
+        color: #495057;
+    }
+    
+    .btn-month:hover {
+        background-color: rgba(0, 123, 255, 0.1);
+        color: #4a6cf7;
+    }
+    
+    .btn-month.active {
+        background-color: #4a6cf7;
+        color: #fff;
+        border-radius: 8px;
+    }
+    
+    /* Formatação de valores monetários */
+    .money {
+        font-family: 'Roboto Mono', monospace;
+        font-weight: 600;
+    }
+    
+    /* Botão para alternar status de pagamento */
+    .payment-toggle {
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+    }
+    
+    .payment-toggle:hover {
+        transform: scale(1.1);
+    }
+    
+    .payment-toggle:hover .click-hint {
+        opacity: 1;
+    }
+    
+    .badge-status:after {
+        content: '';
+        position: absolute;
+        bottom: -3px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: currentColor;
+        opacity: 0.5;
+    }
+    
+    /* Ajustes responsivos */
+    @media (max-width: 992px) {
+        .container-fluid {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        
+        .card-body {
+            padding: 1rem;
+        }
+    }
+    
+    @media (min-width: 1600px) {
+        .container-fluid {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+    }
+
+    .progress {
+        height: 8px !important;
+        border-radius: 4px;
+        overflow: hidden;
+        background-color: rgba(255, 255, 255, 0.2);
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .progress-bar {
+        border-radius: 4px;
+        opacity: 1 !important;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-3 py-md-4">
     <!-- Cabeçalho e filtros -->
-    <div class="row mb-4">
+    <div class="row mb-3 mb-md-4">
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Gerenciamento de Despesas - {{ month_year }}</h5>
-                        <div>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <div class="d-flex align-items-center mb-3 mb-md-0">
+                            <i class="fas fa-chart-pie text-primary me-2 me-md-3" style="font-size: 1.5rem; font-size: min(2rem, 8vw);"></i>
+                            <div>
+                                <h5 class="mb-0 fw-bold">Despesas de {{ month_year }}</h5>
+                                <p class="text-muted mb-0">Controle financeiro de gastos mensais</p>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <div class="dropdown">
+                                <button class="btn btn-outline-primary dropdown-toggle" type="button" id="monthSelector" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-calendar-alt me-2"></i> {{ month_year }}
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="monthSelector" style="max-height: 300px; overflow-y: auto;">
+                                    {% for month in months_list %}
+                                    <li>
+                                        <a class="dropdown-item {% if month.is_current %}active{% endif %}" 
+                                           href="{% url 'dashboard:expenses' %}?month_year={{ month.value }}">
+                                            {{ month.display }}
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
                             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
-                                <i class="fas fa-plus me-1"></i> Nova Despesa
+                                <i class="fas fa-plus me-2"></i> Nova Despesa
                             </button>
-                            <button type="button" class="btn btn-outline-primary ms-2" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
-                                <i class="fas fa-folder-plus me-1"></i> Nova Categoria
+                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                                <i class="fas fa-folder-plus me-md-2 d-none d-md-inline"></i> Nova Categoria
                             </button>
                         </div>
                     </div>
@@ -36,75 +309,105 @@
         {% endfor %}
     {% endif %}
 
-    <!-- Resumo de despesas -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header pb-0">
-                    <h6>Resumo de Despesas</h6>
+    <!-- Cards de resumo -->
+    <div class="row mb-3 mb-md-4">
+        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
+            <div class="summary-card danger">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <p class="mb-2">Total de Despesas</p>
+                        <h3 class="mb-0">R$ {{ total_expenses|floatformat:2|intcomma }}</h3>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="row mb-4">
-                        <div class="col-md-4">
-                            <div class="p-3 border rounded bg-light mb-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0">Total de Despesas</h6>
-                                    <span class="badge bg-danger fs-6">R$ {{ total_expenses|floatformat:2 }}</span>
-                                </div>
-                                <div class="progress mb-2" style="height: 8px;">
-                                    <div class="progress-bar bg-danger" role="progressbar" style="width: 100%"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="p-3 border rounded bg-light mb-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0">Receita Mensal</h6>
-                                    <span class="badge bg-success fs-6">R$ {{ total_revenue|floatformat:2 }}</span>
-                                </div>
-                                <div class="progress mb-2" style="height: 8px;">
-                                    <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="p-3 border rounded bg-light mb-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0">Lucro Total</h6>
-                                    {% if total_profit >= 0 %}
-                                        <span class="badge bg-success fs-6">R$ {{ total_profit|floatformat:2 }}</span>
-                                    {% else %}
-                                        <span class="badge bg-danger fs-6">R$ {{ total_profit|floatformat:2 }}</span>
-                                    {% endif %}
-                                </div>
-                                <div class="progress mb-2" style="height: 8px;">
-                                    {% if total_profit >= 0 %}
-                                        <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
-                                    {% else %}
-                                        <div class="progress-bar bg-danger" role="progressbar" style="width: 100%"></div>
-                                    {% endif %}
-                                </div>
-                                <small class="text-muted d-block mt-1">
-                                    {% if total_profit >= 0 %}
-                                        Margem de lucro: <span class="text-success">{{ profit_margin|floatformat:1 }}%</span>
-                                    {% else %}
-                                        Prejuízo de <span class="text-danger">{{ profit_margin_abs|floatformat:1 }}%</span> da receita
-                                    {% endif %}
-                                </small>
-                            </div>
-                        </div>
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Status de Pagamento</span>
+                        <span>{{ payment_percentage|floatformat:0 }}%</span>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-white" role="progressbar" style="width: {{ payment_percentage }}%; opacity: 1;" aria-valuenow="{{ payment_percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
+            <div class="summary-card warning">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <p class="mb-2">Margem de Lucro</p>
+                        <h3 class="mb-0">R$ {{ products_profit|default:0|floatformat:2|intcomma }}</h3>
+                        <small class="text-white-50">Itens vendidos: {{ items_count|default:0 }}</small>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Lucro Bruto</span>
+                        <span>{{ products_profit_percentage|default:0|floatformat:0 }}%</span>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-white" role="progressbar" style="width: {{ products_profit_percentage|default:0|floatformat:0 }}%; opacity: 1;" aria-valuenow="{{ products_profit_percentage|default:0|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
+            <div class="summary-card primary">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <p class="mb-2">Receita Bruta</p>
+                        <h3 class="mb-0">R$ {{ total_revenue|floatformat:2|intcomma }}</h3>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fas fa-cash-register"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Faturamento</span>
+                        <span>{{ items_count }} itens vendidos</span>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-white" role="progressbar" style="width: 100%; opacity: 1;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
+            <div class="summary-card success">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <p class="mb-2">Lucro Total</p>
+                        <h3 class="mb-0">R$ {{ total_profit|floatformat:2|intcomma }}</h3>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Margem de Lucro</span>
+                        <span>{{ profit_margin|floatformat:0 }}%</span>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-white" role="progressbar" style="width: {{ profit_margin_abs|floatformat:0 }}%; opacity: 1;" aria-valuenow="{{ profit_margin_abs|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Lista de despesas -->
-    <div class="row">
+    <!-- Resumo de despesas -->
+    <div class="row mb-4">
         <div class="col-12">
             <div class="card">
-                <div class="card-header pb-0">
-                    <h6>Despesas por Categoria</h6>
+                <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold">Despesas por Categoria</h6>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -112,10 +415,10 @@
                             <thead>
                                 <tr>
                                     <th>Categoria</th>
-                                    <th>Valor</th>
+                                    <th class="text-end">Valor</th>
                                     <th>% do Total</th>
                                     <th>Quantidade</th>
-                                    <th>Ações</th>
+                                    <th class="text-end">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -123,45 +426,41 @@
                                 <tr>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <div class="icon-box me-3 rounded-circle bg-{{ category.color }} text-white" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                            <div class="icon-box bg-{{ category.color }} text-white" style="width: 40px; height: 40px; border-radius: 10px;">
                                                 <i class="fas {{ category.icon }}"></i>
                                             </div>
-                                            <div>
-                                                <h6 class="mb-0">{{ category.name }}</h6>
-                                            </div>
+                                            <span class="ms-3 fw-semibold">{{ category.name }}</span>
                                         </div>
                                     </td>
                                     <td class="text-end">
-                                        {% if category.total_amount %}
-                                            R$ {{ category.total_amount|floatformat:2|stringformat:'s'|slice:':-3' }}{{ category.total_amount|floatformat:2|stringformat:'s'|slice:'-3:'|default:',00' }}
-                                        {% else %}
-                                            R$ 0,00
-                                        {% endif %}
+                                        <span class="money fw-semibold">R$ {{ category.amount|floatformat:2|intcomma }}</span>
                                     </td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <span class="me-2">{{ category.percentage }}%</span>
-                                            <div class="progress" style="width: 100px; height: 5px;">
-                                                <div class="progress-bar bg-{{ category.color }}" role="progressbar" style="width: {{ category.percentage }}%"></div>
+                                            <div class="progress me-3" style="flex-grow: 1; height: 10px;">
+                                                <div class="progress-bar bg-{{ category.color }}" role="progressbar" style="width: {{ category.percentage }}%; box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);"></div>
                                             </div>
+                                            <span class="fw-semibold" style="min-width: 50px;">{{ category.percentage }}%</span>
                                         </div>
                                     </td>
                                     <td>{{ category.expenses_count }} despesa{{ category.expenses_count|pluralize }}</td>
-                                    <td>
-                                        <button class="btn btn-sm btn-primary" onclick="showCategoryExpenses('{{ category.id }}')">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addExpenseModal" 
-                                                onclick="preSelectCategory('{{ category.id }}', '{{ category.name }}')">
-                                            <i class="fas fa-plus"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editCategoryModal" 
-                                                onclick="editCategory('{{ category.id }}', '{{ category.name }}', '{{ category.icon }}', '{{ category.color }}')">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="deleteCategory('{{ category.id }}', '{{ category.name }}')">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                    <td class="text-end">
+                                        <div class="d-flex justify-content-end gap-1">
+                                            <button class="btn btn-sm btn-outline-primary" onclick="showCategoryExpenses('{{ category.id }}')" title="Ver despesas">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#addExpenseModal" 
+                                                    onclick="preSelectCategory('{{ category.id }}', '{{ category.name }}')" title="Adicionar despesa">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editCategoryModal" 
+                                                    onclick="editCategory('{{ category.id }}', '{{ category.name }}', '{{ category.icon }}', '{{ category.color }}')" title="Editar categoria">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory('{{ category.id }}', '{{ category.name }}')" title="Excluir categoria">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -177,21 +476,25 @@
     <div class="row mt-4">
         <div class="col-12">
             <div class="card">
-                <div class="card-header pb-0">
-                    <h6>Despesas Detalhadas</h6>
+                <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold">Despesas Detalhadas</h6>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                        <i class="fas fa-plus me-2"></i> Adicionar
+                    </button>
                 </div>
                 <div class="card-body">
                     {% if expenses %}
                         <div class="table-responsive">
-                            <table class="table align-items-center">
+                            <table class="table align-items-center table-hover">
                                 <thead>
                                     <tr>
                                         <th>Data</th>
                                         <th>Categoria</th>
                                         <th>Descrição</th>
-                                        <th>Valor</th>
-                                        <th>Recorrente</th>
-                                        <th>Ações</th>
+                                        <th class="text-end">Valor</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-center">Recorrente</th>
+                                        <th class="text-end">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -200,34 +503,46 @@
                                         <td>{{ expense.date|date:"d/m/Y" }}</td>
                                         <td>
                                             <div class="d-flex align-items-center">
-                                                <div class="icon-box me-2 rounded-circle bg-{{ expense.category.color }} text-white" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">
+                                                <div class="icon-box me-2 bg-{{ expense.category.color }} text-white" style="width: 30px; height: 30px; border-radius: 8px; font-size: 0.8rem;">
                                                     <i class="fas {{ expense.category.icon }}"></i>
                                                 </div>
-                                                {{ expense.category.name }}
+                                                <span>{{ expense.category.name }}</span>
                                             </div>
                                         </td>
                                         <td>{{ expense.description|default:"--" }}</td>
-                                        <td>
-                                            {% with amount_str=expense.amount|floatformat:2 %}
-                                                {% with integer_part=amount_str|stringformat:'s'|slice:':-3'|default:'0' decimal_part=amount_str|stringformat:'s'|slice:'-2:'|default:'00' %}
-                                                    R$ {{ integer_part|intcomma }},{{ decimal_part }}
-                                                {% endwith %}
-                                            {% endwith %}
+                                        <td class="text-end">
+                                            <span class="money fw-semibold">R$ {{ expense.amount|floatformat:2|intcomma }}</span>
                                         </td>
-                                        <td>
+                                        <td class="text-center">
+                                            <span class="payment-toggle" onclick="togglePaymentStatus('{{ expense.id }}', this)" data-expense-id="{{ expense.id }}" data-is-paid="{{ expense.is_paid|yesno:'true,false' }}" style="position: relative; display: inline-block;">
+                                                {% if expense.is_paid %}
+                                                    <span class="badge-status badge-paid">
+                                                        <i class="fas fa-check-circle me-1"></i> Pago
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge-status badge-pending">
+                                                        <i class="fas fa-clock me-1"></i> Pendente
+                                                    </span>
+                                                {% endif %}
+                                                <span class="click-hint" style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; opacity: 0; transition: opacity 0.3s; white-space: nowrap;">Clique para alterar</span>
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
                                             {% if expense.is_recurring %}
                                                 <span class="badge bg-info">{{ expense.get_recurrence_period_display }}</span>
                                             {% else %}
                                                 <span class="badge bg-secondary">Não</span>
                                             {% endif %}
                                         </td>
-                                        <td>
-                                            <button class="btn btn-sm btn-primary" onclick="editExpense('{{ expense.id }}')">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-danger" onclick="deleteExpense('{{ expense.id }}', '{{ expense.description|default:expense.category.name }}')">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+                                        <td class="text-end">
+                                            <div class="d-flex justify-content-end gap-1">
+                                                <button class="btn btn-sm btn-outline-warning" onclick="editExpense('{{ expense.id }}')" title="Editar despesa">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteExpense('{{ expense.id }}', '{{ expense.description|default:expense.category.name }}')" title="Excluir despesa">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -235,10 +550,14 @@
                             </table>
                         </div>
                     {% else %}
-                        <div class="text-center p-4">
-                            <p class="mb-3">Nenhuma despesa registrada neste mês.</p>
+                        <div class="text-center p-5">
+                            <div class="mb-4">
+                                <i class="fas fa-receipt text-muted" style="font-size: 4rem;"></i>
+                            </div>
+                            <h5 class="mb-3">Nenhuma despesa registrada neste mês</h5>
+                            <p class="mb-4 text-muted">Registre suas despesas para acompanhar seus gastos</p>
                             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
-                                <i class="fas fa-plus me-1"></i> Adicionar Despesa
+                                <i class="fas fa-plus me-2"></i> Adicionar Despesa
                             </button>
                         </div>
                     {% endif %}
@@ -662,6 +981,128 @@
             
             // Notificar o usuário do erro
             alert('Não foi possível carregar os dados da despesa. Por favor, preencha manualmente.');
+        });
+    }
+    
+    // Função para alternar o status de pagamento da despesa
+    function togglePaymentStatus(expenseId, element) {
+        // Obter o estado atual
+        const isPaid = element.getAttribute('data-is-paid') === 'true';
+        
+        // Enviar solicitação AJAX para alternar o status
+        fetch(`/dashboard/despesas/toggle-payment/${expenseId}/`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao alternar status de pagamento');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Atualizar o elemento visual
+                const badgeElement = element.querySelector('span');
+                
+                if (data.is_paid) {
+                    // Atualizar para pago
+                    badgeElement.className = 'badge-status badge-paid';
+                    badgeElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> Pago';
+                } else {
+                    // Atualizar para pendente
+                    badgeElement.className = 'badge-status badge-pending';
+                    badgeElement.innerHTML = '<i class="fas fa-clock me-1"></i> Pendente';
+                }
+                
+                // Atualizar o atributo de dados
+                element.setAttribute('data-is-paid', data.is_paid);
+                
+                // Atualizar a barra de progresso e os valores no card de Total de Despesas
+                if (data.payment_percentage !== undefined) {
+                    // Atualizar a porcentagem mostrada no texto
+                    const paymentPercentText = document.querySelector('.summary-card.danger .d-flex.justify-content-between.align-items-center span:last-child');
+                    if (paymentPercentText) {
+                        paymentPercentText.textContent = `${Math.round(data.payment_percentage)}%`;
+                    }
+                    
+                    // Atualizar a largura da barra de progresso
+                    const progressBar = document.querySelector('.summary-card.danger .progress-bar');
+                    if (progressBar) {
+                        progressBar.style.width = `${data.payment_percentage}%`;
+                        progressBar.setAttribute('aria-valuenow', data.payment_percentage);
+                    }
+                    
+                    // Atualizar os valores no card de Receita Bruta (Antiga Despesas Pagas)
+                    if (data.paid_expenses !== undefined) {
+                        const paidExpensesValue = document.querySelector('.summary-card.primary h3');
+                        if (paidExpensesValue) {
+                            paidExpensesValue.textContent = `R$ ${new Intl.NumberFormat('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            }).format(data.total_revenue)}`;
+                        }
+                    }
+                    
+                    // Atualizar os valores no card de Total de Despesas
+                    if (data.total_expenses !== undefined) {
+                        const totalExpensesValue = document.querySelector('.summary-card.danger h3');
+                        if (totalExpensesValue) {
+                            totalExpensesValue.textContent = `R$ ${new Intl.NumberFormat('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            }).format(data.total_expenses)}`;
+                        }
+                    }
+                    
+                    // Atualizar valores no card de Lucro Total, se disponíveis
+                    if (data.total_profit !== undefined && data.profit_margin !== undefined) {
+                        const totalProfitValue = document.querySelector('.summary-card.success h3');
+                        if (totalProfitValue) {
+                            totalProfitValue.textContent = `R$ ${new Intl.NumberFormat('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            }).format(data.total_profit)}`;
+                        }
+                        
+                        const profitMarginText = document.querySelector('.summary-card.success .d-flex.justify-content-between.align-items-center span:last-child');
+                        if (profitMarginText) {
+                            profitMarginText.textContent = `${Math.round(data.profit_margin)}%`;
+                        }
+                        
+                        const profitProgressBar = document.querySelector('.summary-card.success .progress-bar');
+                        if (profitProgressBar) {
+                            const absMargin = Math.abs(data.profit_margin);
+                            profitProgressBar.style.width = `${absMargin}%`;
+                            profitProgressBar.setAttribute('aria-valuenow', absMargin);
+                        }
+                    }
+                }
+                
+                // Opcional: mostrar mensagem de sucesso temporária
+                const alertElement = document.createElement('div');
+                alertElement.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+                alertElement.setAttribute('role', 'alert');
+                alertElement.style.zIndex = '9999';
+                alertElement.innerHTML = `Status da despesa alterado para <strong>${data.status_display}</strong> com sucesso.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+                
+                document.body.appendChild(alertElement);
+                
+                // Remover automaticamente após 3 segundos
+                setTimeout(() => {
+                    alertElement.remove();
+                }, 3000);
+            } else {
+                console.error('Erro retornado pelo servidor:', data.error);
+                alert('Ocorreu um erro ao alterar o status da despesa.');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Ocorreu um erro ao comunicar com o servidor.');
         });
     }
     

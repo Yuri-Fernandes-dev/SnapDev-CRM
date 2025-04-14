@@ -124,13 +124,14 @@ def dashboard(request):
     profit_data = (
         SaleItem.objects
         .filter(
+            sale__company=request.user.company,
             sale__status='paid', 
             sale__created_at__date__gte=start_date,
             sale__created_at__date__lte=end_date
         )
         .annotate(
             profit=ExpressionWrapper(
-                (F('price') - F('product__cost')) * F('quantity'),
+                (F('price') - F('cost_price')) * F('quantity'),
                 output_field=DecimalField()
             )
         )
@@ -299,9 +300,23 @@ def expenses_dashboard(request):
     """
     View para dashboard de gerenciamento de despesas
     """
-    # Obter dados das despesas do banco de dados
-    current_month = timezone.now().month
-    current_year = timezone.now().year
+    # Obter filtro de mês e ano da URL
+    month_year = request.GET.get('month_year', None)
+    
+    # Se o mês/ano for especificado no formato "MM-YYYY", usar esses valores
+    if month_year and '-' in month_year:
+        try:
+            month, year = month_year.split('-')
+            current_month = int(month)
+            current_year = int(year)
+        except (ValueError, IndexError):
+            # Em caso de erro, usar o mês/ano atual
+            current_month = timezone.now().month
+            current_year = timezone.now().year
+    else:
+        # Usar mês e ano atuais por padrão
+        current_month = timezone.now().month
+        current_year = timezone.now().year
     
     # Buscar categorias de despesas da empresa
     categories = ExpenseCategory.objects.filter(company=request.user.company)
@@ -326,7 +341,7 @@ def expenses_dashboard(request):
         # Recarregar categorias
         categories = ExpenseCategory.objects.filter(company=request.user.company)
     
-    # Filtrar despesas do mês atual
+    # Filtrar despesas do mês selecionado
     expenses = Expense.objects.filter(
         company=request.user.company,
         date__month=current_month,
@@ -354,9 +369,44 @@ def expenses_dashboard(request):
         })
     
     # Formato do mês e ano para exibição
-    month_year = timezone.now().strftime('%B %Y')
+    month_names = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    month_name = month_names[current_month - 1]
+    month_year_display = f"{month_name} {current_year}"
     
-    # Buscar receitas do mês atual
+    # Gerar lista de meses para o seletor (6 meses anteriores, atual e 6 meses futuros)
+    months_list = []
+    # Mês atual
+    current_date = timezone.datetime(current_year, current_month, 1)
+    
+    # 6 meses anteriores
+    for i in range(6, 0, -1):
+        past_date = current_date - timezone.timedelta(days=30 * i)
+        months_list.append({
+            'value': f"{past_date.month}-{past_date.year}",
+            'display': f"{month_names[past_date.month - 1]} {past_date.year}",
+            'is_current': False
+        })
+    
+    # Mês selecionado
+    months_list.append({
+        'value': f"{current_month}-{current_year}",
+        'display': month_year_display,
+        'is_current': True
+    })
+    
+    # 6 meses futuros
+    for i in range(1, 7):
+        future_date = current_date + timezone.timedelta(days=30 * i)
+        months_list.append({
+            'value': f"{future_date.month}-{future_date.year}",
+            'display': f"{month_names[future_date.month - 1]} {future_date.year}",
+            'is_current': False
+        })
+    
+    # Buscar receitas do mês selecionado
     total_revenue = Sale.objects.filter(
         company=request.user.company,
         status='paid',
@@ -364,12 +414,55 @@ def expenses_dashboard(request):
         created_at__year=current_year
     ).aggregate(total=Sum('total'))['total'] or 0
     
-    # Calcular lucro total (receitas - despesas)
-    total_profit = float(total_revenue) - float(total_expenses)
+    # Calcular margem de lucro bruta dos produtos vendidos
+    products_profit_data = (
+        SaleItem.objects
+        .filter(
+            sale__company=request.user.company,
+            sale__status='paid',
+            sale__created_at__month=current_month,
+            sale__created_at__year=current_year
+        )
+        .annotate(
+            profit=ExpressionWrapper(
+                (F('price') - F('cost_price')) * F('quantity'),
+                output_field=DecimalField()
+            )
+        )
+        .aggregate(total_profit=Sum('profit'))
+    )
+    
+    # Margem de lucro dos produtos
+    products_profit = float(products_profit_data['total_profit'] or 0)
+    
+    # Informações de diagnóstico
+    print(f"Debug - products_profit_data: {products_profit_data}")
+    print(f"Debug - products_profit (float): {products_profit}")
+    
+    # Verificar se há produtos vendidos no mês
+    items_count = SaleItem.objects.filter(
+        sale__company=request.user.company,
+        sale__status='paid',
+        sale__created_at__month=current_month,
+        sale__created_at__year=current_year
+    ).count()
+    
+    # Calculando a porcentagem da margem de lucro em relação à receita
+    products_profit_percentage = (products_profit / float(total_revenue) * 100) if total_revenue > 0 else 0
+    
+    # Calcular lucro total (margem de lucro dos produtos - despesas)
+    total_profit = products_profit - float(total_expenses)
     profit_margin = (total_profit / float(total_revenue) * 100) if total_revenue > 0 else 0
     
     # Adicionar o valor absoluto da margem para usar quando negativa
     profit_margin_abs = abs(profit_margin)
+    
+    # Total de despesas pagas e pendentes
+    paid_expenses = expenses.filter(is_paid=True).aggregate(total=Sum('amount'))['total'] or 0
+    pending_expenses = expenses.filter(is_paid=False).aggregate(total=Sum('amount'))['total'] or 0
+    
+    # Percentual de despesas pagas
+    payment_percentage = (paid_expenses / total_expenses * 100) if total_expenses > 0 else 0
     
     context = {
         'expenses_categories': expenses_categories,
@@ -378,8 +471,18 @@ def expenses_dashboard(request):
         'total_profit': total_profit,
         'profit_margin': profit_margin,
         'profit_margin_abs': profit_margin_abs,
-        'month_year': month_year,
+        'month_year': month_year_display,
+        'current_month': current_month,
+        'current_year': current_year,
+        'month_year_param': f"{current_month}-{current_year}",
+        'months_list': months_list,
         'expenses': expenses,
+        'paid_expenses': paid_expenses,
+        'pending_expenses': pending_expenses,
+        'payment_percentage': payment_percentage,
+        'products_profit_percentage': products_profit_percentage,
+        'products_profit': products_profit,
+        'items_count': items_count,
     }
     
     return render(request, 'dashboard/expenses_dashboard.html', context)
@@ -423,6 +526,7 @@ def add_expense(request):
                 amount=amount,
                 description=description,
                 date=date,
+                is_paid=is_paid,
                 is_recurring=is_recurring,
                 recurrence_period=recurrence_period if is_recurring else '',
                 company=request.user.company
@@ -468,6 +572,7 @@ def edit_expense(request, expense_id):
             expense.category = ExpenseCategory.objects.get(id=category_id, company=request.user.company)
             expense.amount = amount
             expense.description = description
+            expense.is_paid = is_paid
             
             if date:
                 expense.date = timezone.datetime.strptime(date, '%Y-%m-%d').date()
@@ -489,12 +594,94 @@ def edit_expense(request, expense_id):
             'description': expense.description,
             'amount': float(expense.amount),
             'date': expense.date.strftime('%Y-%m-%d'),
+            'is_paid': expense.is_paid,
             'is_recurring': expense.is_recurring,
             'recurrence_period': expense.recurrence_period
         }
         return JsonResponse(data)
     
     return redirect('dashboard:expenses')
+
+@login_required
+def toggle_expense_payment(request, expense_id):
+    """
+    View para alternar o status de pagamento de uma despesa
+    """
+    expense = get_object_or_404(Expense, id=expense_id, company=request.user.company)
+    
+    try:
+        # Alternar o status
+        expense.is_paid = not expense.is_paid
+        expense.save()
+        
+        # Obter dados atualizados para retornar ao front-end
+        current_month = expense.date.month
+        current_year = expense.date.year
+        
+        # Total de despesas do mês
+        expenses = Expense.objects.filter(
+            company=request.user.company,
+            date__month=current_month,
+            date__year=current_year
+        )
+        total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Total de despesas pagas e pendentes
+        paid_expenses = expenses.filter(is_paid=True).aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Percentual de despesas pagas
+        payment_percentage = (paid_expenses / total_expenses * 100) if total_expenses > 0 else 0
+        
+        # Receita total
+        total_revenue = Sale.objects.filter(
+            company=request.user.company,
+            status='paid',
+            created_at__month=current_month,
+            created_at__year=current_year
+        ).aggregate(total=Sum('total'))['total'] or 0
+        
+        # Margem de lucro dos produtos vendidos
+        products_profit_data = (
+            SaleItem.objects
+            .filter(
+                sale__company=request.user.company,
+                sale__status='paid',
+                sale__created_at__month=current_month,
+                sale__created_at__year=current_year
+            )
+            .annotate(
+                profit=ExpressionWrapper(
+                    (F('price') - F('cost_price')) * F('quantity'),
+                    output_field=DecimalField()
+                )
+            )
+            .aggregate(total_profit=Sum('profit'))
+        )
+        
+        products_profit = float(products_profit_data['total_profit'] or 0)
+        
+        # Lucro total e margem
+        total_profit = products_profit - float(total_expenses)
+        profit_margin = (total_profit / float(total_revenue) * 100) if total_revenue > 0 else 0
+        
+        # Retornar resposta JSON com todos os dados atualizados
+        return JsonResponse({
+            'success': True,
+            'is_paid': expense.is_paid,
+            'status_display': expense.get_status_display(),
+            'payment_percentage': payment_percentage,
+            'total_expenses': float(total_expenses),
+            'paid_expenses': float(paid_expenses),
+            'total_revenue': float(total_revenue),
+            'products_profit': products_profit,
+            'total_profit': total_profit,
+            'profit_margin': profit_margin
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
 
 @login_required
 def delete_expense(request, expense_id):
