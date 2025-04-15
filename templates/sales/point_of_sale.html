@@ -290,20 +290,55 @@
         font-weight: 600;
         color: #495057;
     }
+
+    /* Destaque para produtos selecionados pelo código */
+    .product-item.selected {
+        background-color: rgba(25, 135, 84, 0.15) !important;
+        outline: 2px solid #198754 !important;
+        outline-offset: -2px;
+        position: relative;
+    }
+
+    .product-item.selected::after {
+        content: "✓";
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: #198754;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+
+    /* Fade para outros produtos quando um é selecionado */
+    .product-item.not-selected {
+        opacity: 0.5;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
-    <div id="successToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div id="successToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
         <div class="d-flex">
             <div class="toast-body">
                 <i class="fas fa-check-circle me-2"></i>
-                Venda realizada com sucesso!
+                <strong>Sucesso!</strong> Venda realizada com sucesso!
             </div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
     </div>
+</div>
+
+<!-- Alerta de notificação na parte superior -->
+<div id="saleAlert" class="alert alert-success alert-dismissible fade show d-none" role="alert" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1050; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+    <i class="fas fa-check-circle me-2"></i> <strong>Venda finalizada!</strong> A venda foi registrada com sucesso.
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -649,827 +684,301 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Format product codes for better display
-        document.querySelectorAll('.product-code').forEach(codeSpan => {
-            const code = codeSpan.textContent;
-            if (code && code !== '-') {
-                // Ensure proper display by trimming if needed
-                if (code.length > 10) {
-                    codeSpan.setAttribute('title', code);
-                    codeSpan.textContent = code.substring(0, 10) + '...';
-                }
-            }
-        });
+    // Função para inicializar os eventos de teclado específicos para o campo de busca
+    function setupSearchFieldKeyEvents() {
+        const searchInput = document.getElementById('product-search');
         
-        // Elementos
-        const productsGrid = document.getElementById('products-grid');
-        const productSearch = document.getElementById('product-search');
-        const categoryFilter = document.getElementById('category-filter');
-        const cartItems = document.getElementById('cart-items');
-        const emptyCartMessage = document.getElementById('empty-cart-message');
-        const subtotalEl = document.getElementById('subtotal');
-        const discountEl = document.getElementById('discount');
-        const totalEl = document.getElementById('total');
-        const paymentMethodEl = document.getElementById('payment-method');
-        const customerSearch = document.getElementById('customer-search');
-        const customerId = document.getElementById('customer-id');
-        const notesEl = document.getElementById('notes');
-        const finalizeSaleBtn = document.getElementById('finish-sale');
-        const successToast = new bootstrap.Toast(document.getElementById('successToast'), {
-            delay: 3000
-        });
+        // Garantir que o manipulador seja adicionado apenas uma vez
+        searchInput.removeEventListener('keydown', searchKeydownHandler);
         
-        // Modal de quantidade
-        const quantityModal = new bootstrap.Modal(document.getElementById('quantityModal'));
-        const modalProductName = document.getElementById('modal-product-name');
-        const modalProductPrice = document.getElementById('modal-product-price');
-        const modalProductStock = document.getElementById('modal-product-stock');
-        const productQuantity = document.getElementById('product-quantity');
-        const decreaseQtyBtn = document.getElementById('decrease-qty');
-        const increaseQtyBtn = document.getElementById('increase-qty');
-        const addToCartBtn = document.getElementById('add-to-cart');
-        
-        // Modal de confirmação
-        const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
-        const confirmTotal = document.getElementById('confirm-total');
-        const confirmPaymentMethod = document.getElementById('confirm-payment-method');
-        const confirmCustomerContainer = document.getElementById('confirm-customer-container');
-        const confirmCustomer = document.getElementById('confirm-customer');
-        const confirmSaleBtn = document.getElementById('confirm-sale');
-        const saleSuccessMessage = document.getElementById('sale-success-message');
-        const viewSalesHistoryBtn = document.getElementById('view-sales-history');
-        
-        // Reset do modal quando fechado
-        document.getElementById('confirmationModal').addEventListener('hidden.bs.modal', function () {
-            saleSuccessMessage.style.display = 'none';
-            saleSuccessMessage.innerHTML = '<i class="fas fa-check-circle me-2"></i> Venda realizada com sucesso!';
-            confirmSaleBtn.disabled = false;
-            confirmSaleBtn.innerHTML = 'Confirmar Venda';
-            confirmSaleBtn.style.display = 'block';
-            viewSalesHistoryBtn.style.display = 'none';
-        });
-        
-        // Garantir que o checkbox de WhatsApp esteja sempre desmarcado inicialmente
-        document.getElementById('confirmationModal').addEventListener('show.bs.modal', function () {
-            const whatsappCheck = document.querySelector('#send-whatsapp-receipt');
-            whatsappCheck.checked = false;
-        });
-        
-        // Estado do carrinho
-        const cart = [];
-        
-        // Atualizar totais
-        function updateTotals() {
-            const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-            const discount = parseFloat(discountEl.value) || 0;
-            const total = subtotal - discount;
+        // Adicionar manipulador específico para o campo de busca com máxima prioridade
+        searchInput.addEventListener('keydown', searchKeydownHandler, { capture: true });
+    }
+    
+    // Função específica para tratar teclas no campo de busca
+    function searchKeydownHandler(e) {
+        // Se a tecla for Enter, seleciona o produto
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
             
-            subtotalEl.textContent = `R$ ${subtotal.toFixed(2)}`;
-            totalEl.textContent = `R$ ${total.toFixed(2)}`;
-        }
-        
-        // Evento de clique nos produtos
-        productsGrid.addEventListener('click', function(e) {
-            const productCard = e.target.closest('.product-item');
-            if (!productCard) return;
-            
-            const product = {
-                id: productCard.dataset.id,
-                name: productCard.dataset.name,
-                price: parseFloat(productCard.dataset.price),
-                stock: parseInt(productCard.dataset.stock, 10)
-            };
-            
-            // Preencher modal com dados do produto
-            document.getElementById('modal-product-name').textContent = product.name;
-            document.getElementById('modal-product-price').textContent = `R$ ${product.price.toFixed(2)}`;
-            document.getElementById('modal-product-stock').textContent = product.stock;
-            document.getElementById('product-quantity').value = 1;
-            
-            // Configurar botões de aumentar/diminuir quantidade
-            const quantityInput = document.getElementById('product-quantity');
-            const increaseBtn = document.getElementById('increase-qty');
-            const decreaseBtn = document.getElementById('decrease-qty');
-            
-            increaseBtn.onclick = function() {
-                const currentQty = parseInt(quantityInput.value, 10);
-                if (currentQty < product.stock) {
-                    quantityInput.value = currentQty + 1;
-                }
-            };
-            
-            decreaseBtn.onclick = function() {
-                const currentQty = parseInt(quantityInput.value, 10);
-                if (currentQty > 1) {
-                    quantityInput.value = currentQty - 1;
-                }
-            };
-            
-            // Configurar botão de adicionar ao carrinho
-            document.getElementById('add-to-cart').onclick = function() {
-                const quantity = parseInt(quantityInput.value, 10);
-                
-                if (isNaN(quantity) || quantity <= 0) {
-                    alert('Por favor, informe uma quantidade válida.');
-                    return;
-                }
-                
-                if (quantity > product.stock) {
-                    alert('Quantidade solicitada maior que o estoque disponível.');
-                    return;
-                }
-                
-                // Adicionar ao carrinho
-                addToCart(product, quantity);
-                
-                // Fechar modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('quantityModal'));
-                modal.hide();
-                
-                // Permitir fechar com Enter após adicionar (registra evento temporário)
-                setTimeout(() => {
-                    const enterHandler = function(e) {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            document.removeEventListener('keydown', enterHandler);
-                        }
-                    };
-                    document.addEventListener('keydown', enterHandler);
-                }, 100);
-            };
-            
-            // Abrir modal de quantidade
-            new bootstrap.Modal(document.getElementById('quantityModal')).show();
-        });
-        
-        // Evento de alteração de desconto
-        discountEl.addEventListener('input', function() {
-            updateTotals();
-        });
-        
-        // Evento de cálculo de troco
-        paymentMethodEl.addEventListener('change', function() {
-            const selectedMethod = this.options[this.selectedIndex].textContent;
-            const changeContainer = document.getElementById('change-container');
-            
-            if (selectedMethod.includes('Dinheiro')) {
-                changeContainer.style.display = 'block';
-                
-                const paymentAmountInput = document.getElementById('payment-amount');
-                paymentAmountInput.value = '';
-                document.getElementById('change-amount').textContent = 'R$ 0,00';
-                
-                paymentAmountInput.addEventListener('input', function() {
-                    const paymentAmount = parseFloat(this.value) || 0;
-                    const total = parseFloat(totalEl.textContent.replace('R$', '').trim()) || 0;
-                    const change = paymentAmount - total;
-                    
-                    document.getElementById('change-amount').textContent = change >= 0 ? `R$ ${change.toFixed(2)}` : 'R$ 0,00';
-                });
-            } else {
-                changeContainer.style.display = 'none';
-            }
-        });
-        
-        // Inicializar
-        renderCartItems();
-        updateTotals();
-
-        // Busca de produtos
-        productSearch.addEventListener('input', filterProducts);
-        categoryFilter.addEventListener('change', filterProducts);
-        
-        function filterProducts() {
-            const searchTerm = productSearch.value.toLowerCase().trim();
-            const categoryTerm = categoryFilter.value.toLowerCase();
-            
-            document.querySelectorAll('.product-item').forEach(item => {
-                // Get full data for search, including hidden code values
-                const name = item.dataset.name.toLowerCase();
-                const code = (item.dataset.code || '').toLowerCase();
-                const barcode = (item.dataset.barcode || '').toLowerCase();
-                const category = item.dataset.category.toLowerCase();
-                
-                // Match by category
-                const categoryMatch = !categoryTerm || category === categoryTerm;
-                
-                // Match by search term - check exact code match first for efficiency
-                let searchMatch = false;
-                if (!searchTerm) {
-                    searchMatch = true;
-                } else if (code === searchTerm || barcode === searchTerm) {
-                    searchMatch = true;
-                } else {
-                    searchMatch = name.includes(searchTerm) || 
-                                 code.includes(searchTerm) || 
-                                 barcode.includes(searchTerm);
-                }
-                
-                // Show or hide the item
-                if (categoryMatch && searchMatch) {
-                    item.style.display = '';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        }
-
-        // Busca por código do produto com Enter
-        productSearch.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const searchTerm = this.value.trim().toLowerCase();
-                
-                // Primeiro tenta encontrar por código exato
-                let productItem = Array.from(document.querySelectorAll('.product-item')).find(item => {
-                    const code = (item.dataset.code || '').toLowerCase();
-                    return code === searchTerm;
-                });
-                
-                if (productItem) {
-                    // Simulate click on the product item to show quantity modal
-                    productItem.click();
-                    this.value = '';
-                }
-                
-                filterProducts();
-            }
-        });
-
-        // Busca de clientes
-        const customerSuggestions = document.getElementById('customer-suggestions');
-        customerSearch.addEventListener('input', function() {
-            const query = this.value.trim();
-            if (query.length < 2) {
-                customerSuggestions.style.display = 'none';
-                customerId.value = '';
-                return;
-            }
-            
-            // Converter o JSON do Django para objeto JS adequadamente
-            const customersJson = JSON.parse('{{ customers_json|escapejs }}');
-            const filteredCustomers = customersJson.filter(customer => 
-                customer.name.toLowerCase().includes(query.toLowerCase())
+            // Buscar produtos visíveis
+            const visibleProducts = Array.from(document.querySelectorAll('.product-item')).filter(
+                item => item.style.display !== 'none'
             );
             
-            if (filteredCustomers.length > 0) {
-                customerSuggestions.innerHTML = '';
-                
-                filteredCustomers.forEach(customer => {
-                    const div = document.createElement('div');
-                    div.className = 'customer-suggestion';
-                    div.dataset.id = customer.id;
-                    div.dataset.name = customer.name;
-                    div.dataset.hasPhone = customer.phone ? 'true' : 'false';
-                    div.textContent = customer.name;
-                    
-                    div.addEventListener('click', function() {
-                        customerSearch.value = this.dataset.name;
-                        customerId.value = this.dataset.id;
-                        customerSearch.setAttribute('data-has-phone', this.dataset.hasPhone);
-                        customerSuggestions.style.display = 'none';
-                    });
-                    
-                    customerSuggestions.appendChild(div);
-                });
-                
-                customerSuggestions.style.display = 'block';
-            } else {
-                customerSuggestions.style.display = 'none';
+            // Se tiver um produto selecionado, usa ele
+            const selectedProduct = document.querySelector('.product-item.selected');
+            
+            if (selectedProduct) {
+                console.log("Produto selecionado pelo Enter:", selectedProduct);
+                selecionarProduto(selectedProduct);
+            } else if (visibleProducts.length > 0) {
+                // Se não tiver seleção mas tiver produtos visíveis, usa o primeiro
+                console.log("Selecionando primeiro produto visível");
+                selecionarProduto(visibleProducts[0]);
+            }
+            
+            return false;
+        }
+    }
+    
+    // Inicializar os eventos de teclado do campo de busca imediatamente
+    setupSearchFieldKeyEvents();
+
+    // Função para selecionar um produto e abrir o modal
+    function selecionarProduto(item) {
+        // Limpa qualquer estado anterior
+        document.querySelectorAll('.product-item').forEach(p => {
+            if (p !== item) {
+                p.classList.remove('selected');
             }
         });
         
-        // Fechar sugestões ao clicar fora
-        document.addEventListener('click', function(e) {
-            if (!customerSearch.contains(e.target) && !customerSuggestions.contains(e.target)) {
-                customerSuggestions.style.display = 'none';
-            }
-        });
-
-        // Finalizar venda
-        finalizeSaleBtn.addEventListener('click', function() {
-            // Verificar se há itens no carrinho
-            if (cart.length === 0) {
-                alert('Adicione pelo menos um produto ao carrinho para finalizar a venda.');
-                return;
-            }
-            
-            // Verificar se um método de pagamento foi selecionado
-            if (!paymentMethodEl.value) {
-                alert('Selecione um método de pagamento.');
-                return;
-            }
-            
-            // Preencher modal de confirmação
-            const total = parseFloat(totalEl.textContent.replace('R$', '').trim());
-            confirmTotal.textContent = totalEl.textContent;
-            
-            // Método de pagamento
-            const paymentMethodText = paymentMethodEl.options[paymentMethodEl.selectedIndex].textContent;
-            confirmPaymentMethod.textContent = paymentMethodText;
-            
-            // Cliente
-            if (customerId.value && customerSearch.value) {
-                confirmCustomerContainer.style.display = 'block';
-                confirmCustomer.textContent = customerSearch.value;
-                
-                // Habilitar ou desabilitar opção de WhatsApp
-                const hasPhone = document.querySelector('#customer-search').getAttribute('data-has-phone') === 'true';
-                const whatsappCheck = document.querySelector('#send-whatsapp-receipt');
-                whatsappCheck.disabled = !hasPhone;
-                whatsappCheck.checked = false; // Sempre desmarcado por padrão
-                if (!hasPhone) {
-                    whatsappCheck.parentElement.classList.add('text-muted');
-                } else {
-                    whatsappCheck.parentElement.classList.remove('text-muted');
-                }
-            } else {
-                confirmCustomerContainer.style.display = 'none';
-                // Desabilitar WhatsApp se não tem cliente
-                const whatsappCheck = document.querySelector('#send-whatsapp-receipt');
-                whatsappCheck.disabled = true;
-                whatsappCheck.checked = false; // Sempre desmarcado por padrão
-                whatsappCheck.parentElement.classList.add('text-muted');
-            }
-            
-            // Mostrar modal de confirmação
-            confirmationModal.show();
-            
-            // Sempre garantir que o checkbox esteja desmarcado
-            document.querySelector('#send-whatsapp-receipt').checked = false;
-        });
+        item.classList.add('selected');
         
-        // Confirmação final da venda
-        confirmSaleBtn.addEventListener('click', function() {
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processando...';
-            
-            // Preparar dados da venda
-            const saleData = {
-                items: cart.map(item => ({
-                    product_id: item.id,
-                    quantity: item.quantity,
-                    price: item.price
-                })),
-                payment_method: paymentMethodEl.value,
-                discount: parseFloat(discountEl.value) || 0,
-                notes: notesEl.value,
-                customer_id: customerId.value || null
-            };
-            
-            // Enviar dados para o servidor
-            fetch('{% url "sales:sale_create_api" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify(saleData)
-            })
-            .then(response => {
-                if (!response.ok) {
-                    // Log de debug para ajudar a identificar o problema
-                    console.error('Erro na resposta:', response.status, response.statusText);
-                    
-                    return response.json().then(data => {
-                        console.error('Detalhes do erro:', data);
-                        throw new Error(data.error || 'Erro ao processar venda');
-                    }).catch(err => {
-                        // Se não conseguir ler o JSON da resposta
-                        if (err.name === 'SyntaxError') {
-                            throw new Error(`Erro no servidor: ${response.status} ${response.statusText}`);
-                        }
-                        throw err;
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Limpar carrinho
-                cart.length = 0;
-                renderCartItems();
-                updateTotals();
-                
-                // Resetar formulário
-                discountEl.value = 0;
-                paymentMethodEl.selectedIndex = 0;
-                customerSearch.value = '';
-                customerId.value = '';
-                notesEl.value = '';
-                document.getElementById('change-container').style.display = 'none';
-                
-                // Mostrar mensagem de sucesso
-                saleSuccessMessage.style.display = 'block';
-                saleSuccessMessage.innerHTML = `
-                    <i class="fas fa-check-circle me-2"></i> 
-                    Venda #${data.sale_id} realizada com sucesso!
-                    <br>
-                    <small class="d-block mt-1">Para acessar o recibo, consulte o histórico de vendas.</small>
-                `;
-                
-                // Verificar se deve enviar por WhatsApp
-                const sendWhatsapp = document.getElementById('send-whatsapp-receipt').checked;
-                
-                // Mostrar botão para fechar o modal
-                document.getElementById('view-sales-history').style.display = 'block';
-                
-                // Ocultar o botão de confirmar venda
-                confirmSaleBtn.style.display = 'none';
-                
-                // Fechar modal após 5 segundos somente se não for WhatsApp
-                if (!sendWhatsapp) {
-                    setTimeout(() => {
-                        confirmationModal.hide();
-                        saleSuccessMessage.style.display = 'none';
-                        confirmSaleBtn.disabled = false;
-                        confirmSaleBtn.innerHTML = 'Confirmar Venda';
-                        confirmSaleBtn.style.display = 'block';
-                        document.getElementById('view-sales-history').style.display = 'none';
-                        
-                        // Mostrar toast
-                        successToast.show();
-                    }, 5000);
-                } else {
-                    // Se for WhatsApp, não fecha automaticamente
-                    confirmSaleBtn.disabled = false;
-                    confirmSaleBtn.innerHTML = 'Confirmar Venda';
-                }
-                
-                // Verificar opção de WhatsApp
-                if (sendWhatsapp && data.receipt_url) {
-                    try {
-                        // Usar a nova função de envio de WhatsApp
-                        const whatsappUrl = '/vendas/' + data.sale_id + '/whatsapp/';
-                        window.open(whatsappUrl, '_blank');
-                    } catch (e) {
-                        console.error('Erro ao abrir WhatsApp:', e);
-                    }
-                } else {
-                    // Apenas mostrar mensagem de sucesso sem abrir o recibo
-                    console.log('Venda concluída com sucesso! ID:', data.sale_id);
-                }
-            })
-            .catch(error => {
-                // Tratamento específico para erros de rede
-                let errorMessage = error.message;
-                
-                if (error.message === 'Failed to fetch') {
-                    errorMessage = 'Falha na conexão com o servidor. Verifique sua conexão com a internet e tente novamente.';
-                } else if (error.message.includes('NetworkError')) {
-                    errorMessage = 'Erro de rede ao conectar-se ao servidor. Verifique sua conexão com a internet.';
-                } else if (error.message.includes('400')) {
-                    errorMessage = 'Dados inválidos na requisição. Verifique os itens no carrinho, método de pagamento e tente novamente.';
-                }
-                
-                console.error('Erro completo:', error);
-                alert('Erro ao finalizar venda: ' + errorMessage);
-                confirmSaleBtn.disabled = false;
-                confirmSaleBtn.innerHTML = 'Confirmar Venda';
-            });
-        });
-
-        // Adicionar item ao carrinho
-        function addToCart(product, quantity) {
-            // Verificar se o produto já existe no carrinho
-            const existingItemIndex = cart.findIndex(item => item.id === product.id);
-            
-            if (existingItemIndex !== -1) {
-                // Atualizar quantidade se o produto já existe
-                cart[existingItemIndex].quantity += quantity;
-                cart[existingItemIndex].subtotal = cart[existingItemIndex].price * cart[existingItemIndex].quantity;
-            } else {
-                // Adicionar novo item
-                cart.push({
-                    id: product.id,
-                    name: product.name,
-                    price: parseFloat(product.price),
-                    quantity: quantity,
-                    subtotal: parseFloat(product.price) * quantity
-                });
-            }
-            
-            // Atualizar interface
-            renderCartItems();
-            updateTotals();
-        }
+        const productId = item.getAttribute('data-id');
+        const productName = item.querySelector('.fw-medium').textContent;
+        const productPrice = item.getAttribute('data-price');
+        const productStock = parseInt(item.getAttribute('data-stock'));
+        const productCode = item.getAttribute('data-code') || '';
         
-        // Editar quantidade de um item
-        function editCartItem(index) {
-            const item = cart[index];
-            
-            // Preencher o modal com os dados do produto
-            document.getElementById('modal-product-name').textContent = item.name;
-            document.getElementById('modal-product-price').textContent = `R$ ${item.price.toFixed(2)}`;
-            document.getElementById('modal-product-stock').textContent = '–'; // Não temos o estoque aqui
-            document.getElementById('product-quantity').value = item.quantity;
-            
-            // Configurar o botão de adicionar
-            const addButton = document.getElementById('add-to-cart');
-            const originalOnClick = addButton.onclick;
-            
-            addButton.onclick = function() {
-                const quantity = parseInt(document.getElementById('product-quantity').value, 10);
-                
-                if (quantity > 0) {
-                    // Atualizar quantidade
-                    cart[index].quantity = quantity;
-                    cart[index].subtotal = cart[index].price * quantity;
-                    
-                    // Atualizar interface
-                    renderCartItems();
-                    updateTotals();
-                    
-                    // Fechar modal
-                    bootstrap.Modal.getInstance(document.getElementById('quantityModal')).hide();
-                    
-                    // Restaurar evento original
-                    addButton.onclick = originalOnClick;
-                }
-            };
-            
-            // Mostrar modal
-            new bootstrap.Modal(document.getElementById('quantityModal')).show();
-        }
+        // Definir valores do produto no modal
+        document.getElementById('product-id').value = productId;
+        document.getElementById('product-name').innerText = productName;
+        document.getElementById('product-price').innerText = productPrice;
+        document.getElementById('product-stock').innerText = productStock;
+        document.getElementById('product-quantity').value = '1';
+        document.getElementById('product-quantity').setAttribute('max', productStock);
         
-        // Remover item do carrinho
-        function removeCartItem(index) {
-            cart.splice(index, 1);
-            renderCartItems();
-            updateTotals();
-        }
-
-        // Função para renderizar os itens do carrinho
-        function renderCartItems() {
-            if (cart.length === 0) {
-                cartItems.innerHTML = `
-                    <div class="text-center text-muted py-4" id="empty-cart-message">
-                        <i class="fas fa-shopping-cart fa-2x mb-2"></i>
-                        <p class="mb-0">Adicione produtos ao carrinho</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            let cartHtml = `
-                <table class="table table-sm mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Produto</th>
-                            <th style="width: 70px" class="text-center">Qtd</th>
-                            <th style="width: 100px" class="text-end">Preço</th>
-                            <th style="width: 120px" class="text-end">Subtotal</th>
-                            <th style="width: 80px" class="text-end">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            cart.forEach(function(item, index) {
-                cartHtml += `
-                    <tr class="cart-item" data-index="${index}">
-                        <td>${item.name}</td>
-                        <td class="text-center">${item.quantity}</td>
-                        <td class="text-end">R$ ${item.price.toFixed(2)}</td>
-                        <td class="text-end fw-medium">R$ ${(item.price * item.quantity).toFixed(2)}</td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-outline-secondary edit-quantity" data-index="${index}" title="Editar">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger remove-item" data-index="${index}" title="Remover">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-            
-            cartHtml += `
-                    </tbody>
-                </table>
-            `;
-            
-            cartItems.innerHTML = cartHtml;
-            
-            // Adicionar eventos aos botões de editar e remover
-            document.querySelectorAll('.edit-quantity').forEach(function(button) {
-                button.addEventListener('click', function() {
-                    const index = parseInt(this.getAttribute('data-index'));
-                    editCartItem(index);
-                });
-            });
-            
-            document.querySelectorAll('.remove-item').forEach(function(button) {
-                button.addEventListener('click', function() {
-                    const index = parseInt(this.getAttribute('data-index'));
-                    removeCartItem(index);
-                });
-            });
-        }
-
-        // Configurar navegação pelo teclado nos modais
-        document.getElementById('quantityModal').addEventListener('shown.bs.modal', function() {
-            // Focar automaticamente no campo de quantidade
-            document.getElementById('product-quantity').focus();
-            document.getElementById('product-quantity').select();
-
-            // Permitir confirmar com Enter
+        // Remover event listener global de atalhos temporariamente
+        document.removeEventListener('keydown', handleShortcutKeys);
+        
+        // Exibir modal
+        const quantityModal = new bootstrap.Modal(document.getElementById('quantityModal'));
+        quantityModal.show();
+        
+        // Focar no campo de quantidade
+        setTimeout(() => {
             const quantityInput = document.getElementById('product-quantity');
-            
-            // Remover qualquer event listener existente para evitar duplicações
-            quantityInput.removeEventListener('keydown', quantityKeydownHandler);
-            
-            // Adicionar novo event listener
-            quantityInput.addEventListener('keydown', quantityKeydownHandler);
-        });
+            quantityInput.focus();
+            quantityInput.select();
+        }, 300);
         
-        // Manipulador de eventos de teclado para o modal de quantidade
-        function quantityKeydownHandler(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('add-to-cart').click();
-            }
-            // Aumentar quantidade com seta para cima
-            else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                document.getElementById('increase-qty').click();
-            }
-            // Diminuir quantidade com seta para baixo
-            else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                document.getElementById('decrease-qty').click();
-            }
+        // Restaurar event listener quando o modal fechar
+        document.getElementById('quantityModal').addEventListener('hidden.bs.modal', function() {
+            document.addEventListener('keydown', handleShortcutKeys);
+            // Focar novamente no campo de busca e limpar
+            const searchInput = document.getElementById('product-search');
+            searchInput.value = '';
+            searchInput.focus();
+            
+            // Restaurar visibilidade dos produtos
+            document.querySelectorAll('.product-item').forEach(p => {
+                p.style.display = '';
+            });
+        });
+    }
+    
+    // Adicionar evento de clique em cada produto
+    document.querySelectorAll('.product-item').forEach(item => {
+        item.addEventListener('click', function() {
+            selecionarProduto(this);
+        });
+    });
+    
+    // Configurar o botão de adicionar ao carrinho
+    document.getElementById('add-to-cart').addEventListener('click', function() {
+        const productId = document.getElementById('product-id').value;
+        const productName = document.getElementById('product-name').innerText;
+        const productPrice = parseFloat(document.getElementById('product-price').innerText.replace('R$', '').trim());
+        const productStock = parseInt(document.getElementById('product-stock').innerText);
+        const quantity = parseInt(document.getElementById('product-quantity').value);
+        
+        // Obter o código do produto do elemento selecionado
+        const selectedItem = document.querySelector('.product-item.selected');
+        const productCode = selectedItem ? (selectedItem.getAttribute('data-code') || '') : '';
+        
+        // Validação da quantidade
+        if (quantity <= 0) {
+            alert('A quantidade deve ser maior que zero.');
+            return;
         }
         
-        // Após adicionar ao carrinho, focar automaticamente na busca
-        document.addEventListener('hidden.bs.modal', function(event) {
-            if (event.target.id === 'quantityModal' && productJustAdded) {
-                setTimeout(() => {
-                    productSearch.focus();
-                }, 100);
-            }
-        });
-
-        // Facilitar confirmação de venda com Enter no modal de confirmação
-        document.getElementById('confirmationModal').addEventListener('shown.bs.modal', function() {
-            // Remover qualquer event listener existente para evitar duplicações
-            document.removeEventListener('keydown', confirmationKeydownHandler);
-            
-            // Adicionar novo event listener
-            document.addEventListener('keydown', confirmationKeydownHandler);
-            
-            // Remover o event listener quando o modal for fechado
-            document.getElementById('confirmationModal').addEventListener('hidden.bs.modal', function() {
-                document.removeEventListener('keydown', confirmationKeydownHandler);
-            }, { once: true });
-        });
+        if (quantity > productStock) {
+            alert(`Estoque insuficiente. Disponível: ${productStock}`);
+            return;
+        }
         
-        // Manipulador de eventos de teclado para o modal de confirmação
-        function confirmationKeydownHandler(e) {
-            // Verificar se o modal está visível
-            if (!document.getElementById('confirmationModal').classList.contains('show')) {
+        // Verificar se o produto já está no carrinho
+        const existingItemIndex = cart.findIndex(item => item.id === productId);
+        
+        if (existingItemIndex !== -1) {
+            // Produto já existe no carrinho, atualizar quantidade
+            const newQuantity = cart[existingItemIndex].quantity + quantity;
+            
+            if (newQuantity > productStock) {
+                alert(`Estoque insuficiente. Você já tem ${cart[existingItemIndex].quantity} itens no carrinho. Disponível: ${productStock}`);
                 return;
             }
             
-            if (e.key === 'Enter') {
+            cart[existingItemIndex].quantity = newQuantity;
+        } else {
+            // Adicionar novo item ao carrinho
+            cart.push({
+                id: productId,
+                name: productName,
+                price: productPrice,
+                quantity: quantity,
+                code: productCode
+            });
+        }
+        
+        // Atualizar interface
+        renderCartItems();
+        updateTotals();
+        
+        // Limpar seleção de produto e restaurar visibilidade
+        document.querySelectorAll('.product-item').forEach(item => {
+            item.classList.remove('selected');
+            item.style.display = '';
+        });
+        
+        // Fechar o modal
+        bootstrap.Modal.getInstance(document.getElementById('quantityModal')).hide();
+        
+        // Limpar o campo de busca e focar novamente
+        const searchInput = document.getElementById('product-search');
+        searchInput.value = '';
+        searchInput.focus();
+    });
+    
+    // Função para gerenciar atalhos de teclado
+    function handleShortcutKeys(e) {
+        // Evitar atalhos se algum modal estiver aberto
+        if (document.querySelector('.modal.show')) {
+            // Caso especial: Enter no modal de quantidade deve adicionar ao carrinho
+            if (e.key === 'Enter' && document.querySelector('#quantityModal.show')) {
                 e.preventDefault();
-                
-                // Se o botão de sucesso está visível, clicar no botão para ver histórico/fechar
-                if (saleSuccessMessage.style.display === 'block') {
-                    viewSalesHistoryBtn.click();
-                } 
-                // Senão, se o botão de confirmar estiver habilitado, clicar nele
-                else if (!confirmSaleBtn.disabled && confirmSaleBtn.style.display !== 'none') {
-                    confirmSaleBtn.click();
-                }
-            } 
-            // Permitir fechar o modal com Escape também
-            else if (e.key === 'Escape') {
-                bootstrap.Modal.getInstance(document.getElementById('confirmationModal')).hide();
+                e.stopPropagation();
+                document.getElementById('add-to-cart').click();
+                return false;
             }
+            return;
         }
 
-        // Implementar atalhos de teclado para melhorar a usabilidade
-        let productJustAdded = false; // Indicador de produto recém adicionado
+        // F1 - Focar no campo de busca de produtos
+        if (e.key === 'F1') {
+            e.preventDefault();
+            const searchInput = document.getElementById('product-search');
+            searchInput.value = '';
+            searchInput.focus();
+            searchInput.select();
+            return false;
+        }
         
-        document.addEventListener('keydown', function(event) {
-            // F1 - Focar no campo de pesquisa de produtos
-            if (event.key === 'F1') {
-                event.preventDefault(); // Evitar o comportamento padrão do F1 (ajuda do navegador)
-                productSearch.focus();
-            }
-            // F2 - Focar no método de pagamento
-            else if (event.key === 'F2') {
-                event.preventDefault();
-                paymentMethodEl.focus();
-            }
-            // F3 - Focar no campo de desconto
-            else if (event.key === 'F3') {
-                event.preventDefault();
-                discountEl.focus();
-            }
-            // F4 - Finalizar venda (se houver itens no carrinho)
-            else if (event.key === 'F4') {
-                event.preventDefault();
-                if (cart.length > 0) {
-                    finalizeSaleBtn.click();
-                }
-            }
-            // Escape - Limpar campo de pesquisa quando estiver focado
-            else if (event.key === 'Escape' && document.activeElement === productSearch) {
-                productSearch.value = '';
-                productSearch.focus();
-            }
-            // Enter - Após adicionar produto ao carrinho, fechar qualquer toast ou notificação visível
-            else if (event.key === 'Enter' && productJustAdded) {
-                event.preventDefault();
-                productJustAdded = false;
-                
-                // Focar de volta na pesquisa para continuar adicionando produtos
-                setTimeout(() => {
-                    productSearch.focus();
-                }, 100);
-            }
-            // Enter - Adicionar primeiro produto da lista quando estiver pesquisando
-            else if (event.key === 'Enter' && document.activeElement === productSearch && productSearch.value.trim() !== '') {
-                const firstProduct = productsGrid.querySelector('.product-item');
-                if (firstProduct) {
-                    event.preventDefault();
-                    firstProduct.click();
-                }
-            }
-            // Navegação pelas setas (quando o foco estiver no campo de pesquisa)
-            else if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && 
-                    (document.activeElement === productSearch || document.activeElement.closest('.product-item'))) {
-                event.preventDefault();
-                
-                // Encontrar todos os produtos visíveis
-                const products = Array.from(productsGrid.querySelectorAll('.product-item'));
-                if (products.length === 0) return;
-                
-                // Encontrar o produto selecionado atualmente
-                let currentIndex = -1;
-                const highlightedProduct = document.querySelector('.product-item.selected');
-                
-                if (highlightedProduct) {
-                    currentIndex = products.indexOf(highlightedProduct);
-                    highlightedProduct.classList.remove('selected');
-                }
-                
-                // Calcular o próximo índice
-                let nextIndex;
-                if (event.key === 'ArrowDown') {
-                    nextIndex = (currentIndex < products.length - 1) ? currentIndex + 1 : 0;
-                } else {
-                    nextIndex = (currentIndex > 0) ? currentIndex - 1 : products.length - 1;
-                }
-                
-                // Destacar o próximo produto
-                const nextProduct = products[nextIndex];
-                nextProduct.classList.add('selected');
-                nextProduct.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-            // Enter para selecionar o produto destacado
-            else if (event.key === 'Enter' && document.querySelector('.product-item.selected')) {
-                event.preventDefault();
-                document.querySelector('.product-item.selected').click();
-            }
-            // Alt+X - Limpar carrinho (com confirmação)
-            else if (event.key === 'x' && event.altKey && cart.length > 0) {
-                event.preventDefault();
-                if (confirm('Deseja limpar o carrinho?')) {
-                    cart.length = 0;
+        // F2 - Limpar o carrinho
+        else if (e.key === 'F2') {
+            e.preventDefault();
+            if (cart.length > 0) {
+                if (confirm('Tem certeza que deseja limpar o carrinho?')) {
+                    cart = [];
                     renderCartItems();
                     updateTotals();
                 }
             }
-        });
+        }
         
-        // Modificar a função addToCart para definir o flag quando um produto é adicionado
-        const originalAddToCart = addToCart;
-        addToCart = function(product, quantity) {
-            originalAddToCart(product, quantity);
-            productJustAdded = true;
-            
-            // Resetar o flag após alguns segundos se o usuário não interagir
-            setTimeout(() => {
-                productJustAdded = false;
-            }, 5000);
-        };
-
-        // Adicionar estilo para o produto selecionado
-        const style = document.createElement('style');
-        style.textContent = `
-            .product-item.selected {
-                background-color: rgba(13, 110, 253, 0.1);
-                outline: 2px solid #0d6efd;
+        // F3 - Focar no campo de desconto
+        else if (e.key === 'F3') {
+            e.preventDefault();
+            document.getElementById('discount').focus();
+        }
+        
+        // F4 - Finalizar a venda (se houver produtos no carrinho)
+        else if (e.key === 'F4') {
+            e.preventDefault();
+            if (cart.length > 0) {
+                document.getElementById('finish-sale').click();
+            } else {
+                alert('Adicione produtos ao carrinho antes de finalizar a venda.');
             }
-        `;
-        document.head.appendChild(style);
+        }
+    }
+
+    // Garantir que o evento seja configurado quando o documento estiver totalmente carregado
+    document.addEventListener('DOMContentLoaded', function() {
+        // Remover event listener anterior se existir (com tratamento de erro)
+        try {
+            document.removeEventListener('keydown', handleShortcutKeys);
+        } catch (e) {
+            // Ignora o erro se o listener não existir
+        }
+        
+        // Adicionar event listener global para atalhos
+        document.addEventListener('keydown', handleShortcutKeys);
+        
+        // Aplicar o manipulador de teclas ao campo de busca
+        setupSearchFieldKeyEvents();
+        
+        // Focar no campo de busca ao carregar a página
+        const searchInput = document.getElementById('product-search');
+        searchInput.value = '';
+        searchInput.focus();
+    });
+
+    // Manipulador de eventos para o modal de quantidade
+    function quantityKeydownHandler(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            // Clicar no botão de adicionar ao carrinho
+            document.getElementById('add-to-cart').click();
+            return false;
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const qtyInput = document.getElementById('product-quantity');
+            let currentValue = parseInt(qtyInput.value) || 0;
+            qtyInput.value = currentValue + 1;
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const qtyInput = document.getElementById('product-quantity');
+            let currentValue = parseInt(qtyInput.value) || 0;
+            qtyInput.value = Math.max(1, currentValue - 1);
+        }
+    }
+    
+    // Aplicar manipulador ao modal de quantidade
+    document.getElementById('quantityModal').addEventListener('shown.bs.modal', function() {
+        // Focar no campo de quantidade
+        const quantityInput = document.getElementById('product-quantity');
+        quantityInput.focus();
+        quantityInput.select();
+        
+        // Remover e adicionar listener para garantir que não há duplicados
+        quantityInput.removeEventListener('keydown', quantityKeydownHandler);
+        quantityInput.addEventListener('keydown', quantityKeydownHandler);
+        
+        // Desativar temporariamente o event listener global de atalhos
+        document.removeEventListener('keydown', handleShortcutKeys);
+    });
+    
+    document.getElementById('quantityModal').addEventListener('hidden.bs.modal', function() {
+        // Reativar o event listener global de atalhos
+        document.addEventListener('keydown', handleShortcutKeys);
+    });
+    
+    // Adicionar manipulador para o Enter diretamente no modal
+    document.getElementById('quantityModal').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('add-to-cart').click();
+            return false;
+        }
     });
 </script>
+</div>
 {% endblock %} 

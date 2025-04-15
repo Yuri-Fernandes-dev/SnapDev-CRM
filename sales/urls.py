@@ -15,5 +15,6 @@ urlpatterns = [
     path('busca-produto/', views.product_search, name='product_search'),
     path('criar/', views.create_sale, name='create_sale'),
     path('api/criar-venda/', views.create_sale, name='sale_create_api'),
+    path('confirmar-venda/', views.create_sale, name='confirm_sale'),
     path('relatorio/', views.sales_report, name='sales_report'),
 ] 
