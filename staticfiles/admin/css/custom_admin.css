@@ -1,0 +1,67 @@
+/* Estilos para o Admin */
+
+/* Cabeçalhos de colunas ordenaveis */
+th.sortable {
+    cursor: pointer !important;
+    background-color: #f0f0f0 !important;
+    position: relative;
+    user-select: none;
+}
+
+/* Indicadores de ordenação */
+th.sortable::after {
+    content: "⇵";
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 16px;
+    color: #007bff;
+}
+
+th.sorted-asc::after {
+    content: "↑";
+}
+
+th.sorted-desc::after {
+    content: "↓";
+}
+
+/* Destacar cabeçalho ao passar o mouse */
+th.sortable:hover {
+    background-color: #e0e0e0 !important;
+}
+
+/* Valores negativos */
+.text-danger {
+    color: #dc3545 !important;
+}
+
+/* Estilo geral da tabela */
+#result_list {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+#result_list th,
+#result_list td {
+    padding: 8px 12px;
+    border: 1px solid #dee2e6;
+}
+
+#result_list th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    text-align: left;
+}
+
+/* Linhas alternadas */
+#result_list tr.row1 {
+    background-color: #ffffff;
+}
+
+#result_list tr.row2 {
+    background-color: #f9f9f9;
+}
+
+#result_list tr:hover {
+    background-color: #f0f0f0;
+} 

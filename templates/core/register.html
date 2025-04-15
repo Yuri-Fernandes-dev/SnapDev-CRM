@@ -401,23 +401,23 @@
                     <h3 class="section-title">Crie sua conta SnapDev</h3>
                     
                     <form method="post" action="{% url 'register' %}" id="registerForm">
-                        {% csrf_token %}
-                        
-                        {% if messages %}
+                    {% csrf_token %}
+                    
+                    {% if messages %}
                         <div class="alert alert-danger rounded-3">
-                            {% for message in messages %}
+                        {% for message in messages %}
                             <p class="mb-0"><i class="fas fa-exclamation-circle me-2"></i>{{ message }}</p>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                        
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
                         <div class="row field-group">
                             <div class="col-md-6 pe-md-3">
                                 <div class="form-section-title">
                                     <i class="fas fa-user-circle me-2 text-primary"></i>Dados do Usuário
                                 </div>
                                 <div id="user-fields" class="user-form-section p-4 rounded-3">
-                                    {{ user_form|crispy }}
+                            {{ user_form|crispy }}
                                 </div>
                             </div>
                             
@@ -435,17 +435,17 @@
                             <button type="submit" class="btn btn-primary" id="registerButton">
                                 <i class="fas fa-check-circle me-2"></i>Criar Conta
                             </button>
-                        </div>
-                        
+                    </div>
+                    
                         <div class="mt-5 text-center">
                             <small class="text-muted d-block mb-3">
-                                Ao criar sua conta, você concorda com nossos 
+                            Ao criar sua conta, você concorda com nossos 
                                 <a href="#" class="link-primary">Termos de Serviço</a> e 
                                 <a href="#" class="link-primary">Política de Privacidade</a>
                             </small>
                             <p class="mb-0">Já tem uma conta? <a href="{% url 'login' %}" class="link-primary">Faça login</a></p>
-                        </div>
-                    </form>
+                    </div>
+                </form>
                 </div>
             </div>
         </div>

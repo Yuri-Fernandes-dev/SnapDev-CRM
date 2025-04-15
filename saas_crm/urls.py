@@ -22,6 +22,42 @@ from django.contrib.auth import views as auth_views
 from django.views.decorators.csrf import ensure_csrf_cookie
 from core import views as core_views
 from sales.views import public_receipt
+from django.contrib.auth.models import User
+from django.shortcuts import redirect
+
+# Middleware para suporte à impersonificação de usuários
+class ImpersonateMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Verificar se há uma sessão de impersonificação
+        if request.user.is_authenticated and request.user.is_superuser and 'impersonate_user_id' in request.session:
+            user_id = request.session['impersonate_user_id']
+            try:
+                # Substituir o usuário da request temporariamente
+                request.real_user = request.user
+                request.user = User.objects.get(pk=user_id)
+                # Adicionar indicador de impersonificação
+                request.is_impersonating = True
+            except User.DoesNotExist:
+                # Remover ID inválido da sessão
+                del request.session['impersonate_user_id']
+
+        # Continuar com o fluxo normal
+        response = self.get_response(request)
+        return response
+
+# Adicionar o middleware ao settings.py
+if 'saas_crm.urls.ImpersonateMiddleware' not in settings.MIDDLEWARE:
+    settings.MIDDLEWARE.append('saas_crm.urls.ImpersonateMiddleware')
+
+# View para parar a impersonificação
+def stop_impersonating(request):
+    if hasattr(request, 'real_user'):
+        request.user = request.real_user
+        del request.session['impersonate_user_id']
+    return redirect('/')
 
 # Definir URL patterns públicos que não precisam de autenticação
 public_receipt_patterns = [
@@ -31,6 +67,7 @@ public_receipt_patterns = [
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('stop-impersonating/', stop_impersonating, name='stop-impersonating'),
     path('', core_views.home, name='home'),
     path('sobre/', core_views.about, name='about'),
     path('precos/', core_views.pricing, name='pricing'),
@@ -65,7 +102,9 @@ urlpatterns = [
     
     # Perfil e Configurações
     path('perfil/', core_views.profile, name='profile'),
-    path('configuracoes/', core_views.company_settings, name='company_settings'),
+    path('empresa/', core_views.company_settings, name='company_settings'),
+    path('plano/', core_views.subscription, name='subscription'),
+    path('suporte/', core_views.support, name='support'),
     
     # Assinaturas
     path('planos/', core_views.subscription_plans, name='subscription_plans'),

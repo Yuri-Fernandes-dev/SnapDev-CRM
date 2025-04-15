@@ -32,6 +32,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',  # Tema para o Django Admin
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -158,3 +159,130 @@ CSRF_COOKIE_SAMESITE = 'Lax'  # Relaxa a política SameSite
 CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000']  # Origens confiáveis
 SESSION_COOKIE_SECURE = False # True em produção com HTTPS
 SESSION_COOKIE_SAMESITE = 'Lax'  # Relaxa a política SameSite
+
+# Configurações do Jazzmin (tema do Admin)
+JAZZMIN_SETTINGS = {
+    # título mostrado na aba do navegador
+    "site_title": "SnapDev CRM Admin",
+    
+    # Título no cabeçalho do admin
+    "site_header": "SnapDev CRM",
+    
+    # Título na página inicial do admin
+    "site_brand": "SnapDev CRM",
+    
+    # Link da logo no cabeçalho
+    "site_logo": None,
+    
+    # CSS classes para o site brand
+    "site_logo_classes": "fas fa-store",
+    
+    # Link de boas-vindas no topo do menu
+    "welcome_sign": "Administração do SaaS",
+    
+    # Ícone de copyright (ex: "fas fa-copyright")
+    "copyright": "SnapDev CRM",
+    
+    # Lista de apps a serem mostrados no menu (com ordem específica)
+    "order_with_respect_to": ["auth", "core"],
+    
+    # Links personalizados para mostrar na barra lateral
+    "custom_links": {
+        "admin": [{
+            # Django Admin
+            "name": "Dashboard SaaS",
+            "url": "admin:saas_dashboard",
+            "icon": "fas fa-tachometer-alt",
+        }],
+    },
+    
+    # Ícones para as aplicações/models no menu (usando FontAwesome)
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "core.company": "fas fa-building",
+        "core.subscription": "fas fa-credit-card",
+    },
+    
+    # Apps que não serão exibidas no menu do admin
+    "hide_apps": ["dashboard", "products", "sales", "customers"],
+    
+    # Models que não serão exibidas no menu do admin
+    "hide_models": ["products.product", "products.category", "dashboard.expense", "dashboard.expensecategory", "sales.sale", "customers.customer"],
+    
+    # Mostra interface do usuário para escolher permissões
+    "show_ui_builder": False,
+    
+    # Links relacionados, pra cada model
+    "related_modal_active": True,
+}
+
+# Interface customizada para o usuário
+JAZZMIN_UI_TWEAKS = {
+    "navbar_small_text": False,
+    "footer_small_text": False,
+    "body_small_text": False,
+    "brand_small_text": False,
+    "brand_colour": "navbar-primary",
+    "accent": "accent-primary",
+    "navbar": "navbar-primary navbar-dark",
+    "no_navbar_border": False,
+    "navbar_fixed": True,
+    "layout_boxed": False,
+    "footer_fixed": False,
+    "sidebar_fixed": True,
+    "sidebar": "sidebar-dark-primary",
+    "sidebar_nav_small_text": False,
+    "sidebar_disable_expand": False,
+    "sidebar_nav_child_indent": True,
+    "sidebar_nav_compact_style": False,
+    "sidebar_nav_legacy_style": False,
+    "sidebar_nav_flat_style": False,
+    "theme": "default",
+    "dark_mode_theme": None,
+    "button_classes": {
+        "primary": "btn-primary",
+        "secondary": "btn-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success"
+    }
+}
+
+# Planos de assinatura com preços
+SUBSCRIPTION_PLANS = {
+    'basic': {
+        'name': 'Básico',
+        'price': 0,
+        'features': [
+            'Até 7 produtos',
+            'Gerenciamento de vendas',
+            'Relatórios básicos',
+        ],
+    },
+    'standard': {
+        'name': 'Padrão',
+        'price': 29.90,
+        'features': [
+            'Até 30 produtos',
+            'Gerenciamento de vendas completo',
+            'Relatórios avançados',
+            'Controle de estoque',
+            'Suporte por e-mail',
+        ],
+    },
+    'premium': {
+        'name': 'Premium',
+        'price': 49.00,
+        'features': [
+            'Produtos ilimitados',
+            'Todas as funcionalidades do plano Padrão',
+            'Painel de controle avançado',
+            'Suporte prioritário',
+            'Backup diário',
+            'Personalização de relatórios',
+        ],
+    },
+}

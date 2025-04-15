@@ -10,4 +10,8 @@ urlpatterns = [
     path('perfil/', views.profile, name='profile'),
     path('empresa/', views.company_settings, name='company_settings'),
     path('relatorios/', sales_report, name='reports'),
+    path('assinatura/', views.subscription, name='subscription'),
+    path('planos/', views.subscription_plans, name='subscription_plans'),
+    path('atualizar-assinatura/<str:plan>/', views.update_subscription, name='update_subscription'),
+    path('suporte/', views.support, name='support'),
 ] 

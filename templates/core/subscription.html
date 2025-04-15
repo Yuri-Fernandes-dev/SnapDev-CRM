@@ -1,0 +1,133 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Meu Plano{% endblock %}
+
+{% block extra_css %}
+<style>
+    .plan-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        height: 100%;
+        transition: transform 0.3s;
+    }
+    
+    .plan-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .plan-card.active {
+        border: 2px solid #007bff;
+    }
+    
+    .plan-header {
+        border-radius: 10px 10px 0 0;
+        padding: 20px;
+        color: white;
+    }
+    
+    .plan-basic .plan-header {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    }
+    
+    .plan-standard .plan-header {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    }
+    
+    .plan-premium .plan-header {
+        background: linear-gradient(135deg, #6f42c1 0%, #4e2a84 100%);
+    }
+    
+    .plan-price {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    
+    .plan-features {
+        padding: 20px;
+    }
+    
+    .plan-features li {
+        margin-bottom: 10px;
+    }
+    
+    .subscription-info {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">Meu Plano</h1>
+
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="subscription-info">
+        <h4>Assinatura Atual</h4>
+        {% if subscription %}
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>Plano:</strong> {{ current_plan.name }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Valor Mensal:</strong> R$ {{ current_plan.price|floatformat:2 }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Status:</strong> <span class="badge bg-success">Ativo</span></p>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-4">
+                    <p><strong>Data de Início:</strong> {{ subscription.start_date|date:"d/m/Y" }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Próxima Cobrança:</strong> {{ subscription.end_date|date:"d/m/Y" }}</p>
+                </div>
+            </div>
+        {% else %}
+            <p>Você não possui uma assinatura ativa.</p>
+        {% endif %}
+    </div>
+
+    <h4 class="mb-4">Planos Disponíveis</h4>
+    <div class="row">
+        {% for plan_id, plan_data in plans.items %}
+        <div class="col-md-4 mb-4">
+            <div class="plan-card plan-{{ plan_id }} {% if subscription and subscription.plan == plan_id %}active{% endif %}">
+                <div class="plan-header text-center">
+                    <h3>{{ plan_data.name }}</h3>
+                    <div class="plan-price">R$ {{ plan_data.price|floatformat:2 }}</div>
+                    <small>por mês</small>
+                </div>
+                <div class="plan-features">
+                    <ul class="list-unstyled">
+                        {% for feature in plan_data.features %}
+                        <li><i class="fas fa-check text-success me-2"></i> {{ feature }}</li>
+                        {% endfor %}
+                    </ul>
+                    
+                    {% if subscription and subscription.plan == plan_id %}
+                    <button class="btn btn-outline-primary btn-block w-100" disabled>Plano Atual</button>
+                    {% else %}
+                    <button class="btn btn-secondary btn-block w-100" disabled title="Funcionalidade temporariamente indisponível">
+                        <i class="fas fa-clock me-1"></i> Em breve
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %} 

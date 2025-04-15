@@ -578,8 +578,8 @@
                         <div class="col-md-7">
                             <div class="chart-container" style="height: 460px; position: relative; width: 100%; margin: 0 auto;">
                                 <canvas id="topProductsChart"></canvas>
-                            </div>
-                        </div>
+                                    </div>
+                                </div>
                         <div class="col-md-5">
                             <h6 class="text-muted mb-3 text-uppercase" style="font-size: 0.75rem; font-weight: 600;">Detalhes dos Produtos</h6>
                             <div class="list-group list-group-flush products-scroll" style="max-height: 430px; overflow-y: auto;">
@@ -598,11 +598,11 @@
                                 </div>
                                 {% endfor %}
                             </div>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
         <!-- Produtos com Estoque Baixo -->
         <div class="col-xl-6 col-lg-6 mb-4">
@@ -743,9 +743,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const topProductsConfig = {
                 type: 'pie',
                 data: topProductsData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
                     layout: {
                         padding: {
                             top: 20,
@@ -753,12 +753,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             left: 20,
                             right: 20
                         }
-                    },
-                    plugins: {
-                        legend: {
+            },
+            plugins: {
+                legend: {
                             display: true,
                             position: 'bottom',
-                            labels: {
+                    labels: {
                                 boxWidth: 15,
                                 padding: 15,
                                 font: {
@@ -784,9 +784,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                     }
                                     return [];
                                 }
-                            }
-                        },
-                        tooltip: {
+                    }
+                },
+                tooltip: {
                             backgroundColor: 'rgba(255, 255, 255, 0.9)',
                             titleColor: '#495057',
                             bodyColor: '#495057',
@@ -795,8 +795,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             padding: 12,
                             boxPadding: 6,
                             usePointStyle: true,
-                            callbacks: {
-                                label: function(context) {
+                    callbacks: {
+                        label: function(context) {
                                     let label = context.label || '';
                                     let value = context.raw || 0;
                                     let total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);

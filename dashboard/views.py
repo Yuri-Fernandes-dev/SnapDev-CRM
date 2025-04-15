@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Sum, Count, Avg, F, ExpressionWrapper, DecimalField
 from django.db.models.functions import TruncDate, TruncMonth
 from django.utils import timezone
@@ -11,6 +11,7 @@ from customers.models import Customer
 from .models import ExpenseCategory, Expense
 from datetime import timedelta
 import json
+import logging
 
 @login_required
 def dashboard(request):
@@ -775,3 +776,85 @@ def delete_expense_category(request, category_id):
         messages.error(request, f'Erro ao excluir categoria: {str(e)}')
     
     return redirect('dashboard:expenses')
+
+# Add this new function for SaaS owner
+@user_passes_test(lambda u: u.is_superuser)
+def add_saas_expense(request):
+    """
+    View para adicionar despesas da plataforma SaaS (apenas superusuários)
+    """
+    # Get existing platform expense categories or create default ones
+    categories = ExpenseCategory.objects.filter(company__isnull=True)
+    
+    # If no categories exist, create default ones for the platform
+    if not categories.exists():
+        default_categories = [
+            {'name': 'Infraestrutura', 'icon': 'fa-server', 'color': 'primary'},
+            {'name': 'Marketing', 'icon': 'fa-bullhorn', 'color': 'info'},
+            {'name': 'Desenvolvimento', 'icon': 'fa-code', 'color': 'success'},
+            {'name': 'Salários', 'icon': 'fa-money-bill-wave', 'color': 'warning'},
+            {'name': 'Administrativo', 'icon': 'fa-building', 'color': 'danger'},
+        ]
+        
+        for cat in default_categories:
+            ExpenseCategory.objects.create(
+                name=cat['name'],
+                icon=cat['icon'],
+                color=cat['color'],
+                company=None  # None indicates this is a platform-level category
+            )
+        
+        # Reload categories
+        categories = ExpenseCategory.objects.filter(company__isnull=True)
+    
+    if request.method == 'POST':
+        try:
+            category_id = request.POST.get('category')
+            description = request.POST.get('description')
+            amount = request.POST.get('amount')
+            
+            # Process the amount (may come in different formats)
+            if amount:
+                # Check if it's in Brazilian format or direct number
+                if ',' in amount:
+                    # Brazilian format: first remove dots, then replace comma
+                    amount = amount.replace('.', '').replace(',', '.')
+                
+                amount = float(amount)
+            
+            date = request.POST.get('date')
+            is_paid = 'is_paid' in request.POST
+            is_recurring = 'is_recurring' in request.POST
+            recurrence_period = request.POST.get('recurrence_period')
+            
+            if not category_id:
+                messages.error(request, "A categoria é obrigatória")
+                return redirect('admin:dashboard_expense_changelist')
+            
+            category = ExpenseCategory.objects.get(id=category_id, company__isnull=True)
+            date = timezone.datetime.strptime(date, '%Y-%m-%d').date() if date else timezone.now().date()
+            
+            # Create the expense without a company (platform expense)
+            expense = Expense.objects.create(
+                category=category,
+                amount=amount,
+                description=description,
+                date=date,
+                is_paid=is_paid,
+                is_recurring=is_recurring,
+                recurrence_period=recurrence_period if is_recurring else '',
+                company=None
+            )
+            
+            messages.success(request, 'Despesa da plataforma adicionada com sucesso!')
+            return redirect('admin:dashboard_expense_changelist')
+            
+        except Exception as e:
+            messages.error(request, f'Erro ao adicionar despesa da plataforma: {str(e)}')
+    
+    context = {
+        'categories': categories,
+        'today': timezone.now()
+    }
+    
+    return render(request, 'admin/add_saas_expense.html', context)

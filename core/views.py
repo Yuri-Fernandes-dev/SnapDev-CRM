@@ -19,28 +19,13 @@ class CompanyRegistrationForm(forms.ModelForm):
     class Meta:
         model = Company
         fields = ['name', 'email', 'phone']
-        widgets = {
-            'name': forms.TextInput(attrs={'placeholder': 'Nome da sua empresa'}),
-            'email': forms.EmailInput(attrs={'placeholder': 'contato@suaempresa.com.br'}),
-            'phone': forms.TextInput(attrs={'placeholder': '(00) 00000-0000'}),
-        }
 
 class ExtendedUserCreationForm(UserCreationForm):
-    email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={'placeholder': 'exemplo@email.com'}))
-    first_name = forms.CharField(max_length=30, required=True, label='Nome', widget=forms.TextInput(attrs={'placeholder': 'Seu primeiro nome'}))
-    last_name = forms.CharField(max_length=30, required=True, label='Sobrenome', widget=forms.TextInput(attrs={'placeholder': 'Seu sobrenome'}))
+    email = forms.EmailField(required=True)
     
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'last_name', 'email', 'password1', 'password2')
-        widgets = {
-            'username': forms.TextInput(attrs={'placeholder': 'Nome de usuário para login'}),
-        }
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['password1'].widget = forms.PasswordInput(attrs={'placeholder': 'Mínimo de 8 caracteres'})
-        self.fields['password2'].widget = forms.PasswordInput(attrs={'placeholder': 'Confirme sua senha'})
+        fields = ('username', 'email', 'password1', 'password2')
 
 def home(request):
     """
@@ -68,55 +53,31 @@ def register(request):
         user_form = ExtendedUserCreationForm(request.POST)
         company_form = CompanyRegistrationForm(request.POST)
         
-        # Verificar se o nome de usuário já existe
-        username = request.POST.get('username')
-        if User.objects.filter(username=username).exists():
-            messages.error(request, f'O nome de usuário "{username}" já está em uso. Por favor, escolha outro.')
-            return render(request, 'core/register.html', {
-                'user_form': user_form,
-                'company_form': company_form
-            })
-        
         if user_form.is_valid() and company_form.is_valid():
-            try:
-                # Criar usuário
-                user = user_form.save()
-                user.email = user_form.cleaned_data['email']
-                user.first_name = user_form.cleaned_data['first_name']
-                user.last_name = user_form.cleaned_data['last_name']
-                user.save()
-                
-                # Verificar se o usuário já tem uma empresa
-                company_exists = Company.objects.filter(owner=user).exists()
-                
-                if not company_exists:
-                    # Criar empresa
-                    company = company_form.save(commit=False)
-                    company.owner = user
-                    company.save()
-                    
-                    # Criar assinatura básica
-                    subscription = Subscription.objects.create(
-                        company=company,
-                        plan='basic',
-                        status='active',
-                        start_date=timezone.now().date(),
-                        end_date=timezone.now().date() + timedelta(days=30),
-                        price=0  # Trial gratuito de 30 dias
-                    )
-                else:
-                    # O usuário já possui uma empresa, usar a existente
-                    company = Company.objects.get(owner=user)
-                
-                # Fazer login
-                login(request, user)
-                messages.success(request, 'Conta criada com sucesso! Você tem 30 dias gratuitos para testar o sistema.')
-                return redirect('dashboard:dashboard')
-            except Exception as e:
-                # Se ocorrer algum erro, desfazer a criação do usuário para evitar problemas
-                if 'user' in locals():
-                    User.objects.filter(id=user.id).delete()
-                messages.error(request, f'Erro ao criar conta: {str(e)}')
+            # Criar usuário
+            user = user_form.save()
+            user.email = user_form.cleaned_data['email']
+            user.save()
+            
+            # Criar empresa
+            company = company_form.save(commit=False)
+            company.owner = user
+            company.save()
+            
+            # Criar assinatura básica
+            subscription = Subscription.objects.create(
+                company=company,
+                plan='basic',
+                status='active',
+                start_date=timezone.now().date(),
+                end_date=timezone.now().date() + timedelta(days=30),
+                price=0  # Trial gratuito de 30 dias
+            )
+            
+            # Fazer login
+            login(request, user)
+            messages.success(request, 'Conta criada com sucesso! Você tem 30 dias gratuitos para testar o sistema.')
+            return redirect('dashboard')
         else:
             messages.error(request, 'Por favor, corrija os erros abaixo.')
     else:
@@ -362,3 +323,77 @@ def update_subscription(request, plan):
     subscription.save()
     messages.success(request, f'Assinatura atualizada para o plano {subscription.get_plan_display()}!')
     return redirect('dashboard')
+
+@login_required
+def subscription(request):
+    """
+    View para mostrar detalhes da assinatura atual
+    """
+    # Obter a assinatura atual do usuário
+    subscription = Subscription.objects.filter(
+        company=request.user.company,
+        status='active'
+    ).first()
+    
+    # Definir detalhes dos planos disponíveis
+    plans = {
+        'basic': {
+            'name': 'Básico',
+            'price': 49.90,
+            'features': [
+                'Acesso ao sistema básico',
+                'Até 100 produtos cadastrados',
+                'Até 500 vendas por mês',
+                'Relatórios básicos',
+                'Suporte por email'
+            ]
+        },
+        'standard': {
+            'name': 'Padrão',
+            'price': 99.90,
+            'features': [
+                'Tudo do plano Básico',
+                'Até 500 produtos cadastrados',
+                'Vendas ilimitadas',
+                'Relatórios avançados',
+                'Suporte prioritário'
+            ]
+        },
+        'premium': {
+            'name': 'Premium',
+            'price': 199.90,
+            'features': [
+                'Tudo do plano Padrão',
+                'Produtos ilimitados',
+                'Vendas ilimitadas',
+                'Múltiplos usuários',
+                'Integrações com outros sistemas',
+                'Suporte 24/7'
+            ]
+        }
+    }
+    
+    context = {
+        'subscription': subscription,
+        'plans': plans,
+        'current_plan': plans.get(subscription.plan if subscription else 'basic')
+    }
+    
+    return render(request, 'core/subscription.html', context)
+
+@login_required
+def support(request):
+    """
+    View para a página de suporte ao usuário
+    """
+    if request.method == 'POST':
+        subject = request.POST.get('subject')
+        message = request.POST.get('message')
+        
+        # Aqui você pode adicionar lógica para enviar o e-mail ou salvar a mensagem no banco de dados
+        # Por enquanto, apenas mostramos uma mensagem de sucesso
+        
+        messages.success(request, 'Sua mensagem foi enviada com sucesso! Em breve entraremos em contato.')
+        return redirect('support')
+    
+    return render(request, 'core/support.html')

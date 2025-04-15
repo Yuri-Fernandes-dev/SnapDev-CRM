@@ -1,0 +1,13 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block content %}
+<div style="margin: 20px; border: 1px solid #eee; padding: 20px; border-radius: 5px; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <h4><i class="fas fa-tachometer-alt"></i> Dashboard SaaS</h4>
+    <p>Acesse o Dashboard SaaS para ver métricas de desempenho da plataforma, incluindo receita, despesas, lucro e usuários.</p>
+    <a href="{% url 'admin:saas_dashboard' %}" class="btn btn-success btn-lg">
+        <i class="fas fa-chart-line"></i> Acessar Dashboard SaaS
+    </a>
+</div>
+{{ block.super }}
+{% endblock %} 

@@ -1,0 +1,120 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Adicionar Despesa do SaaS</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        
+                        <div class="form-group">
+                            <label for="category">Categoria:</label>
+                            <select name="category" id="category" class="form-control" required>
+                                <option value="">Selecione uma categoria</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="description">Descrição:</label>
+                            <textarea name="description" id="description" class="form-control" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="amount">Valor (R$):</label>
+                            <input type="text" name="amount" id="amount" class="form-control money" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="date">Data:</label>
+                            <input type="date" name="date" id="date" class="form-control" value="{{ today|date:'Y-m-d' }}" required>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="is_paid" id="is_paid" class="form-check-input">
+                            <label for="is_paid" class="form-check-label">Despesa paga</label>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="is_recurring" id="is_recurring" class="form-check-input">
+                            <label for="is_recurring" class="form-check-label">Despesa recorrente</label>
+                        </div>
+                        
+                        <div id="recurrence_options" style="display: none;">
+                            <div class="form-group">
+                                <label for="recurrence_period">Período de recorrência:</label>
+                                <select name="recurrence_period" id="recurrence_period" class="form-control">
+                                    <option value="monthly">Mensal</option>
+                                    <option value="quarterly">Trimestral</option>
+                                    <option value="yearly">Anual</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-primary">Adicionar Despesa</button>
+                            <a href="{% url 'admin:dashboard_expense_changelist' %}" class="btn btn-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        // Função para formatar valores monetários no formato brasileiro
+        function formatMoney(input) {
+            let value = input.value.replace(/\D/g, '');
+            value = (parseInt(value) / 100).toFixed(2);
+            value = value.replace(".", ",");
+            value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            input.value = "R$ " + value;
+        }
+        
+        // Configurar campo de valor monetário
+        const moneyInput = document.getElementById('amount');
+        if (moneyInput) {
+            moneyInput.addEventListener('input', function() {
+                const value = this.value.replace(/\D/g, '');
+                if (value === '') {
+                    this.value = '';
+                    return;
+                }
+                
+                const formattedValue = (parseInt(value) / 100).toLocaleString('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                });
+                
+                this.value = formattedValue;
+            });
+            
+            // Quando o formulário for enviado, converte para formato adequado
+            moneyInput.form.addEventListener('submit', function() {
+                const value = moneyInput.value.replace('R$', '').trim().replace('.', '').replace(',', '.');
+                moneyInput.value = value;
+            });
+        }
+        
+        // Mostrar/esconder opções de recorrência
+        const isRecurringCheckbox = document.getElementById('is_recurring');
+        const recurrenceOptions = document.getElementById('recurrence_options');
+        
+        if (isRecurringCheckbox && recurrenceOptions) {
+            isRecurringCheckbox.addEventListener('change', function() {
+                recurrenceOptions.style.display = this.checked ? 'block' : 'none';
+            });
+        }
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,9 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block welcome-msg %}
+    {{ block.super }}
+    <a href="{% url 'admin:saas_dashboard' %}" class="btn btn-outline-light ml-2" style="margin-left: 15px;">
+        <i class="fas fa-tachometer-alt"></i> Dashboard SaaS
+    </a>
+{% endblock %} 

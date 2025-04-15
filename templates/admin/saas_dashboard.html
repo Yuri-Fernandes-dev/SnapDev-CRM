@@ -1,0 +1,761 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block extrahead %}
+{{ block.super }}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .saas-dashboard {
+        padding: 20px;
+    }
+    
+    .metrics-card {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .metrics-card h3 {
+        margin-top: 0;
+        font-size: 16px;
+        color: #666;
+        font-weight: 500;
+    }
+    
+    .metrics-card .metric-value {
+        font-size: 28px;
+        font-weight: 700;
+        margin: 15px 0 5px;
+    }
+    
+    .metrics-card .metric-subtitle {
+        font-size: 13px;
+        color: #999;
+    }
+    
+    .metrics-card.revenue {
+        border-top: 4px solid #28a745;
+    }
+    
+    .metrics-card.expenses {
+        border-top: 4px solid #dc3545;
+    }
+    
+    .metrics-card.profit {
+        border-top: 4px solid #17a2b8;
+    }
+    
+    .metrics-card.users {
+        border-top: 4px solid #6f42c1;
+    }
+    
+    .metrics-row {
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0 -10px;
+    }
+    
+    .metrics-col {
+        flex: 1;
+        padding: 0 10px;
+        min-width: 200px;
+    }
+    
+    .chart-container {
+        height: 300px;
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+    
+    .plan-distribution {
+        height: 30px;
+        background: #f0f0f0;
+        border-radius: 4px;
+        overflow: hidden;
+        display: flex;
+        margin-bottom: 5px;
+    }
+    
+    .plan-bar {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 40px;
+        padding: 0 5px;
+    }
+    
+    .plan-basic { background-color: #5c636a; }
+    .plan-standard { background-color: #0d6efd; }
+    .plan-premium { background-color: #6f42c1; }
+    
+    .progress-label {
+        font-size: 0.8rem;
+        display: flex;
+        justify-content: space-between;
+        margin-top: 5px;
+    }
+    
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .kpi-item {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        padding: 1rem;
+        text-align: center;
+    }
+    
+    .kpi-value {
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin: 0.5rem 0;
+    }
+    
+    .kpi-label {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .kpi-trend {
+        font-size: 0.8rem;
+    }
+    
+    .trend-up { color: green; }
+    .trend-down { color: red; }
+    .trend-neutral { color: orange; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="saas-dashboard">
+    <h1>{{ title }}</h1>
+    <p class="help">
+        Visão geral das métricas financeiras e de usuários da plataforma SaaS.
+        Este dashboard é atualizado em tempo real com dados do sistema.
+    </p>
+    
+    <!-- Seletor de período para visualização histórica -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row align-items-center">
+                <div class="col-md-2">
+                    <label class="mb-1"><strong>Período de Análise:</strong></label>
+                </div>
+                <div class="col-md-3">
+                    <select name="month" class="form-control">
+                        <option value="1" {% if selected_month == 1 %}selected{% endif %}>Janeiro</option>
+                        <option value="2" {% if selected_month == 2 %}selected{% endif %}>Fevereiro</option>
+                        <option value="3" {% if selected_month == 3 %}selected{% endif %}>Março</option>
+                        <option value="4" {% if selected_month == 4 %}selected{% endif %}>Abril</option>
+                        <option value="5" {% if selected_month == 5 %}selected{% endif %}>Maio</option>
+                        <option value="6" {% if selected_month == 6 %}selected{% endif %}>Junho</option>
+                        <option value="7" {% if selected_month == 7 %}selected{% endif %}>Julho</option>
+                        <option value="8" {% if selected_month == 8 %}selected{% endif %}>Agosto</option>
+                        <option value="9" {% if selected_month == 9 %}selected{% endif %}>Setembro</option>
+                        <option value="10" {% if selected_month == 10 %}selected{% endif %}>Outubro</option>
+                        <option value="11" {% if selected_month == 11 %}selected{% endif %}>Novembro</option>
+                        <option value="12" {% if selected_month == 12 %}selected{% endif %}>Dezembro</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="year" class="form-control">
+                        {% for year in available_years %}
+                            <option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Filtrar
+                    </button>
+                    <a href="{% url 'admin:saas_dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-sync-alt"></i> Mês Atual
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="metrics-row">
+        <div class="metrics-col">
+            <div class="metrics-card revenue">
+                <h3>Receita Mensal</h3>
+                <div class="metric-value">R$ {{ total_revenue|floatformat:2|intcomma }}</div>
+                <div class="metric-subtitle">
+                    Taxa de conversão: {{ conversion_rate|floatformat:1 }}% 
+                </div>
+            </div>
+        </div>
+        
+        <div class="metrics-col">
+            <div class="metrics-card expenses">
+                <h3>Despesas</h3>
+                <div class="metric-value">R$ {{ total_expenses|floatformat:2|intcomma }}</div>
+                <div class="metric-subtitle">
+                    Despesas operacionais da plataforma
+                </div>
+            </div>
+        </div>
+        
+        <div class="metrics-col">
+            <div class="metrics-card profit">
+                <h3>Lucro</h3>
+                <div class="metric-value">R$ {{ profit|floatformat:2|intcomma }}</div>
+                <div class="metric-subtitle">
+                    Margem: {{ profit_margin|floatformat:1 }}%
+                </div>
+            </div>
+        </div>
+        
+        <div class="metrics-col">
+            <div class="metrics-card users">
+                <h3>Usuários</h3>
+                <div class="metric-value">{{ total_users }}</div>
+                <div class="metric-subtitle">
+                    {{ active_users }} ativos ({{ new_users_month }} novos este mês)
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Card independente para distribuição de planos -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5>Distribuição de Planos</h5>
+            <div class="plan-distribution" style="height: 35px;">
+                {% if total_subscribers > 0 %}
+                    {% with basic_percent=basic_count|default:0|floatformat:0 standard_percent=standard_count|default:0|floatformat:0 premium_percent=premium_count|default:0|floatformat:0 %}
+                    <div class="plan-bar plan-basic" style="width: {% widthratio basic_count|default:0 total_subscribers 100 %}%;">
+                        {% if basic_count > 0 %}{{ basic_count }} Básico{% endif %}
+                    </div>
+                    <div class="plan-bar plan-standard" style="width: {% widthratio standard_count|default:0 total_subscribers 100 %}%;">
+                        {% if standard_count > 0 %}{{ standard_count }} Padrão{% endif %}
+                    </div>
+                    <div class="plan-bar plan-premium" style="width: {% widthratio premium_count|default:0 total_subscribers 100 %}%;">
+                        {% if premium_count > 0 %}{{ premium_count }} Premium{% endif %}
+                    </div>
+                    {% endwith %}
+                {% else %}
+                    <div class="plan-bar plan-basic" style="width: 100%;">
+                        Sem assinaturas
+                    </div>
+                {% endif %}
+            </div>
+            <div class="small text-muted mt-1">
+                Básico: {{ basic_count }} | Padrão: {{ standard_count }} | Premium: {{ premium_count }}
+            </div>
+        </div>
+    </div>
+    
+    <!-- KPIs cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="small text-muted">MRR</div>
+                    <div class="h3 mt-2 mb-1">R$ {{ total_revenue|floatformat:2 }}</div>
+                    <div class="small text-success">↑ 12%</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="small text-muted">CAC</div>
+                    <div class="h3 mt-2 mb-1">R$ {% if new_users_month > 0 %}{{ total_expenses|floatformat:2 }}{% else %}0.00{% endif %}</div>
+                    <div class="small text-danger">↓ 5%</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="small text-muted">Taxa de Conversão</div>
+                    <div class="h3 mt-2 mb-1">{{ conversion_rate|floatformat:1 }}%</div>
+                    <div class="small text-warning">→</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="small text-muted">LTV</div>
+                    <div class="h3 mt-2 mb-1">R$ {% if active_users > 0 %}{{ total_revenue|floatformat:2 }}{% else %}0.00{% endif %}</div>
+                    <div class="small text-success">↑ 8%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="metrics-row">
+        <div class="metrics-col" style="flex: 3;">
+            <div class="metrics-card">
+                <h3><i class="fas fa-cogs"></i> Gerenciamento Rápido</h3>
+                
+                <!-- Abas para diferentes opções de gerenciamento -->
+                <ul class="nav nav-tabs" role="tablist" style="margin-bottom: 15px;">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-toggle="tab" href="#expense-tab" role="tab">Adicionar Despesa</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-toggle="tab" href="#actions-tab" role="tab">Ações</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-toggle="tab" href="#projections-tab" role="tab">Projeções</a>
+                    </li>
+                </ul>
+                
+                <!-- Conteúdo das abas -->
+                <div class="tab-content">
+                    <!-- Tab de Despesas -->
+                    <div class="tab-pane fade show active" id="expense-tab" role="tabpanel">
+                        <h5>Nova Despesa da Plataforma</h5>
+                        <form method="post" action="{% url 'admin:add_saas_expense' %}" class="row">
+                            {% csrf_token %}
+                            <div class="col-md-4 mb-3">
+                                <label>Categoria</label>
+                                <div class="input-group">
+                                    <select name="category" id="expense-category" class="form-control" required>
+                                        <option value="" disabled selected>Selecione uma categoria</option>
+                                        {% for category in expense_categories %}
+                                        <option value="{{ category.id }}">{{ category.name }}</option>
+                                        {% endfor %}
+                                        <option value="new">+ Criar nova categoria</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Campos para nova categoria (inicialmente ocultos) -->
+                            <div id="new-category-fields" class="col-md-12 mb-3" style="display: none;">
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">Nova Categoria</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-12 mb-2">
+                                                <label>Nome da Categoria</label>
+                                                <input type="text" name="new_category" class="form-control" placeholder="Ex: Marketing, Hospedagem, Salários...">
+                                            </div>
+                                            <div class="col-md-6 mb-2">
+                                                <label>Cor</label>
+                                                <input type="color" name="category_color" class="form-control" value="#007bff">
+                                            </div>
+                                            <div class="col-md-6 mb-2">
+                                                <label>Ícone</label>
+                                                <select name="category_icon" class="form-control">
+                                                    <option value="fas fa-tag">Tag</option>
+                                                    <option value="fas fa-credit-card">Cartão de Crédito</option>
+                                                    <option value="fas fa-building">Empresa</option>
+                                                    <option value="fas fa-user">Funcionário</option>
+                                                    <option value="fas fa-tools">Manutenção</option>
+                                                    <option value="fas fa-globe">Internet</option>
+                                                    <option value="fas fa-shopping-cart">Compras</option>
+                                                    <option value="fas fa-chart-line">Investimentos</option>
+                                                    <option value="fas fa-file-invoice">Impostos</option>
+                                                    <option value="fas fa-lightbulb">Utilidades</option>
+                                                    <option value="fas fa-coffee">Alimentação</option>
+                                                    <option value="fas fa-truck">Transporte</option>
+                                                    <option value="fas fa-mobile-alt">Telefonia</option>
+                                                    <option value="fas fa-server">Hospedagem</option>
+                                                    <option value="fas fa-dollar-sign">Financeiro</option>
+                                                    <option value="fas fa-ad">Marketing</option>
+                                                    <option value="fas fa-box">Produtos</option>
+                                                    <option value="fas fa-home">Aluguel</option>
+                                                    <option value="fas fa-graduation-cap">Educação</option>
+                                                    <option value="fas fa-bullhorn">Publicidade</option>
+                                                    <option value="fas fa-ellipsis-h">Outros</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label>Valor (R$)</label>
+                                <input type="number" step="0.01" name="amount" class="form-control" required placeholder="Valor">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label>Data</label>
+                                <input type="date" name="date" class="form-control" required value="{{ today|date:'Y-m-d' }}">
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label>Descrição (opcional)</label>
+                                <textarea name="description" class="form-control" rows="2" placeholder="Descrição da despesa"></textarea>
+                            </div>
+                            
+                            <!-- Opções de recorrência -->
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="is_recurring" name="is_recurring">
+                                    <label class="form-check-label" for="is_recurring">Despesa Recorrente (Mensal)</label>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3" id="recurrence-options" style="display: none;">
+                                <label>Periodicidade</label>
+                                <select name="recurrence_period" class="form-control">
+                                    <option value="monthly">Mensal</option>
+                                    <option value="quarterly">Trimestral</option>
+                                    <option value="semiannual">Semestral</option>
+                                    <option value="annual">Anual</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-plus-circle"></i> Adicionar Despesa
+                                </button>
+                            </div>
+                        </form>
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function() {
+                                const categorySelect = document.getElementById('expense-category');
+                                const newCategoryFields = document.getElementById('new-category-fields');
+                                const isRecurringCheckbox = document.getElementById('is_recurring');
+                                const recurrenceOptions = document.getElementById('recurrence-options');
+                                
+                                categorySelect.addEventListener('change', function() {
+                                    if (this.value === 'new') {
+                                        newCategoryFields.style.display = 'block';
+                                    } else {
+                                        newCategoryFields.style.display = 'none';
+                                    }
+                                });
+                                
+                                isRecurringCheckbox.addEventListener('change', function() {
+                                    recurrenceOptions.style.display = this.checked ? 'block' : 'none';
+                                });
+                            });
+                        </script>
+                    </div>
+                    
+                    <!-- Tab de Ações Rápidas -->
+                    <div class="tab-pane fade" id="actions-tab" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light">Usuários</div>
+                                    <div class="card-body">
+                                        <a href="{% url 'admin:auth_user_changelist' %}" class="btn btn-outline-primary btn-sm mb-2 w-100">
+                                            <i class="fas fa-users"></i> Ver Todos os Usuários
+                                        </a>
+                                        <a href="{% url 'admin:auth_user_add' %}" class="btn btn-outline-success btn-sm mb-2 w-100">
+                                            <i class="fas fa-user-plus"></i> Adicionar Novo Usuário
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light">Despesas</div>
+                                    <div class="card-body">
+                                        <a href="{% url 'admin:dashboard_expense_changelist' %}?company__name__exact=Sistema" class="btn btn-outline-primary btn-sm mb-2 w-100">
+                                            <i class="fas fa-money-bill"></i> Despesas do Sistema
+                                        </a>
+                                        <a href="{% url 'admin:dashboard_expensecategory_changelist' %}?company__name__exact=Sistema" class="btn btn-outline-info btn-sm mb-2 w-100">
+                                            <i class="fas fa-tags"></i> Categorias do Sistema
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light">Administração</div>
+                                    <div class="card-body">
+                                        <a href="/admin/" class="btn btn-outline-secondary btn-sm mb-2 w-100">
+                                            <i class="fas fa-cog"></i> Painel de Administração
+                                        </a>
+                                        <a href="{% url 'admin:index' %}" class="btn btn-outline-dark btn-sm mb-2 w-100">
+                                            <i class="fas fa-sitemap"></i> Lista de Modelos
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab de Projeções Financeiras -->
+                    <div class="tab-pane fade" id="projections-tab" role="tabpanel">
+                        <h5>Projeções Financeiras para 12 Meses</h5>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Estas projeções são baseadas nas tendências atuais de crescimento e na média de receita por usuário.
+                        </div>
+                        <div class="chart-container" style="height: 250px;">
+                            <canvas id="projectionsChart"></canvas>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light">Receita Projetada (12 meses)</div>
+                                    <div class="card-body text-center">
+                                        <h3 class="text-success">R$ {{ total_revenue|floatformat:2 }}</h3>
+                                        <small class="text-muted">Considerando crescimento de 20% ao ano</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light">Usuários Projetados</div>
+                                    <div class="card-body text-center">
+                                        <h3 class="text-primary">{{ total_users }}</h3>
+                                        <small class="text-muted">Considerando crescimento de 30% ao ano</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light">LTV/CAC Projetado</div>
+                                    <div class="card-body text-center">
+                                        <h3 class="text-info">3.5x</h3>
+                                        <small class="text-muted">Meta recomendada: 3x ou mais</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Seção de despesas por categoria -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Despesas da Plataforma</h5>
+            <div>
+                <a href="{% url 'admin:dashboard_expense_changelist' %}?company__name__exact=Sistema" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-list"></i> Listar Despesas do SaaS
+                </a>
+                <a href="{% url 'admin:dashboard_expense_changelist' %}?company__name__exact=Sistema&is_recurring__exact=1" class="btn btn-sm btn-outline-info">
+                    <i class="fas fa-sync"></i> Despesas Recorrentes do SaaS
+                </a>
+                <a href="{% url 'admin:dashboard_expense_add' %}" class="btn btn-sm btn-outline-success">
+                    <i class="fas fa-plus"></i> Nova Despesa do Sistema
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="h3 mb-3">R$ {{ total_expenses|floatformat:2 }}</div>
+            
+            {% if expenses_by_category %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Categoria</th>
+                                <th>Valor</th>
+                                <th>%</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for expense in expenses_by_category %}
+                            <tr>
+                                <td>
+                                    <i class="{{ expense.icon }}"></i> {{ expense.category }}
+                                </td>
+                                <td>R$ {{ expense.amount|floatformat:2 }}</td>
+                                <td>{{ expense.percentage|floatformat:1 }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    Não há despesas registradas para o período selecionado.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Ativar navegação por abas
+        const tabButtons = document.querySelectorAll('[data-toggle="tab"]');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', function(event) {
+                event.preventDefault();
+                
+                // Remover classe active de todas as abas e painéis
+                document.querySelectorAll('.nav-link').forEach(tab => tab.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(pane => {
+                    pane.classList.remove('show');
+                    pane.classList.remove('active');
+                });
+                
+                // Adicionar classe active na aba clicada
+                this.classList.add('active');
+                
+                // Mostrar o painel correspondente
+                const targetId = this.getAttribute('href').substring(1);
+                const targetPane = document.getElementById(targetId);
+                targetPane.classList.add('show');
+                targetPane.classList.add('active');
+            });
+        });
+        
+        // Gráfico de distribuição de planos
+        const plansCtx = document.getElementById('plansChart').getContext('2d');
+        new Chart(plansCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Básico (Grátis)', 'Padrão (R$29,90)', 'Premium (R$49,00)'],
+                datasets: [{
+                    data: [{{ basic_count }}, {{ standard_count }}, {{ premium_count }}],
+                    backgroundColor: ['#6c757d', '#007bff', '#6f42c1'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Gráfico de projeções
+        const projectionsCtx = document.getElementById('projectionsChart').getContext('2d');
+        
+        // Projeções para os próximos 12 meses
+        const projectionLabels = [];
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(today);
+            d.setMonth(d.getMonth() + i);
+            projectionLabels.push(d.toLocaleString('default', { month: 'short', year: '2-digit' }));
+        }
+        
+        // Valores base atuais
+        const currentRevenue = {{ total_revenue|default:10 }};
+        const currentExpenses = {{ total_expenses|default:5 }};
+        const currentUsers = {{ total_users|default:10 }};
+        
+        // Taxas de crescimento mensais projetadas
+        const revenueGrowthRate = 1.05; // 5% ao mês
+        const expensesGrowthRate = 1.03; // 3% ao mês
+        const usersGrowthRate = 1.08; // 8% ao mês
+        
+        // Gerar dados de projeção
+        const projectedRevenue = [];
+        const projectedExpenses = [];
+        const projectedProfit = [];
+        const projectedUsers = [];
+        
+        let revenueForecast = currentRevenue;
+        let expensesForecast = currentExpenses;
+        let usersForecast = currentUsers;
+        
+        for (let i = 0; i < 12; i++) {
+            projectedRevenue.push(revenueForecast.toFixed(2));
+            projectedExpenses.push(expensesForecast.toFixed(2));
+            projectedProfit.push((revenueForecast - expensesForecast).toFixed(2));
+            projectedUsers.push(Math.round(usersForecast));
+            
+            revenueForecast *= revenueGrowthRate;
+            expensesForecast *= expensesGrowthRate;
+            usersForecast *= usersGrowthRate;
+        }
+        
+        new Chart(projectionsCtx, {
+            type: 'line',
+            data: {
+                labels: projectionLabels,
+                datasets: [{
+                    label: 'Receita Projetada',
+                    data: projectedRevenue,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    tension: 0.3,
+                    fill: true,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Lucro Projetado',
+                    data: projectedProfit,
+                    borderColor: '#17a2b8',
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    tension: 0.3,
+                    fill: true,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Usuários Projetados',
+                    data: projectedUsers,
+                    borderColor: '#6f42c1',
+                    borderDash: [5, 5],
+                    pointRadius: 3,
+                    fill: false,
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Valor (R$)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value;
+                            }
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Usuários'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %} 

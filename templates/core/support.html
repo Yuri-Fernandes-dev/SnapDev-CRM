@@ -1,0 +1,223 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Suporte{% endblock %}
+
+{% block extra_css %}
+<style>
+    .support-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+    
+    .contact-methods {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .contact-method {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .contact-icon {
+        width: 50px;
+        height: 50px;
+        background-color: #e9ecef;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        color: #007bff;
+        font-size: 20px;
+    }
+    
+    .faq-item {
+        margin-bottom: 20px;
+    }
+    
+    .faq-question {
+        cursor: pointer;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        position: relative;
+        font-weight: bold;
+    }
+    
+    .faq-answer {
+        padding: 15px;
+        display: none;
+        background-color: #ffffff;
+        border: 1px solid #e9ecef;
+        border-top: none;
+        border-radius: 0 0 5px 5px;
+    }
+    
+    .faq-question::after {
+        content: '+';
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    
+    .faq-question.active::after {
+        content: '-';
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">Suporte</h1>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="support-card p-4">
+                <h3>Entre em Contato</h3>
+                <p class="text-muted">Preencha o formulário abaixo para enviar uma mensagem ao nosso suporte.</p>
+                
+                <form method="post" action="{% url 'support' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="subject" class="form-label">Assunto</label>
+                        <select class="form-select" id="subject" name="subject" required>
+                            <option value="" selected disabled>Selecione o assunto</option>
+                            <option value="duvida">Dúvida sobre o Sistema</option>
+                            <option value="problema">Reportar um Problema</option>
+                            <option value="sugestao">Sugestão de Melhoria</option>
+                            <option value="faturamento">Dúvida sobre Faturamento</option>
+                            <option value="outro">Outro Assunto</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="message" class="form-label">Mensagem</label>
+                        <textarea class="form-control" id="message" name="message" rows="6" required placeholder="Descreva em detalhes como podemos ajudar..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Enviar Mensagem</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="contact-methods">
+                <h4 class="mb-3">Outras Formas de Contato</h4>
+                
+                <div class="contact-method">
+                    <div class="contact-icon">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div>
+                        <strong>Email</strong><br>
+                        <a href="mailto:suporte@saascrm.com.br">suporte@saascrm.com.br</a>
+                    </div>
+                </div>
+                
+                <div class="contact-method">
+                    <div class="contact-icon">
+                        <i class="fas fa-phone"></i>
+                    </div>
+                    <div>
+                        <strong>Telefone</strong><br>
+                        <a href="tel:+551140028922">(11) 4002-8922</a>
+                    </div>
+                </div>
+                
+                <div class="contact-method">
+                    <div class="contact-icon">
+                        <i class="fab fa-whatsapp"></i>
+                    </div>
+                    <div>
+                        <strong>WhatsApp</strong><br>
+                        <a href="https://wa.me/5511999999999" target="_blank">(11) 99999-9999</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="support-card p-3">
+                <h5>Horário de Atendimento</h5>
+                <p class="mb-2"><strong>Segunda a Sexta:</strong> 8h às 18h</p>
+                <p class="mb-0"><strong>Sábado:</strong> 9h às 13h</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="faq-section mt-5">
+        <h3 class="mb-4">Perguntas Frequentes</h3>
+        
+        <div class="faq-item">
+            <div class="faq-question">Como posso alterar meu plano de assinatura?</div>
+            <div class="faq-answer">
+                Você pode alterar seu plano de assinatura a qualquer momento através da página "Plano" no menu lateral. Basta selecionar o novo plano desejado e clicar em "Assinar Plano".
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">Posso ter mais de um usuário no sistema?</div>
+            <div class="faq-answer">
+                Sim! No plano Premium você pode adicionar múltiplos usuários para acessar sua conta da empresa. Para gerenciar usuários, acesse as Configurações da empresa.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">Como funciona o período de teste?</div>
+            <div class="faq-answer">
+                Todos os novos usuários têm direito a 30 dias de teste gratuito com todas as funcionalidades do plano Básico. Após esse período, você pode escolher um plano que melhor atenda às suas necessidades.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question">Posso cancelar minha assinatura a qualquer momento?</div>
+            <div class="faq-answer">
+                Sim, você pode cancelar sua assinatura a qualquer momento sem multa ou taxas adicionais. O acesso ao sistema permanecerá disponível até o final do período já pago.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Adicionar funcionalidade de acordeão para as perguntas frequentes
+        const questions = document.querySelectorAll('.faq-question');
+        
+        questions.forEach(question => {
+            question.addEventListener('click', function() {
+                const answer = this.nextElementSibling;
+                const isActive = this.classList.contains('active');
+                
+                // Fechar todas as respostas
+                document.querySelectorAll('.faq-answer').forEach(item => {
+                    item.style.display = 'none';
+                });
+                
+                document.querySelectorAll('.faq-question').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // Abrir a resposta atual se não estava ativa
+                if (!isActive) {
+                    answer.style.display = 'block';
+                    this.classList.add('active');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 

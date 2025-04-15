@@ -164,6 +164,16 @@
                     </a>
                 </li>
                 <li class="sidebar-menu-item">
+                    <a href="{% url 'subscription' %}" class="sidebar-menu-link {% if request.path == '/plano/' %}active{% endif %}">
+                        <i class="fas fa-credit-card"></i> Plano
+                    </a>
+                </li>
+                <li class="sidebar-menu-item">
+                    <a href="{% url 'support' %}" class="sidebar-menu-link {% if request.path == '/suporte/' %}active{% endif %}">
+                        <i class="fas fa-headset"></i> Falar com Suporte
+                    </a>
+                </li>
+                <li class="sidebar-menu-item">
                     <a href="{% url 'company_settings' %}" class="sidebar-menu-link {% if request.path == '/empresa/' %}active{% endif %}">
                         <i class="fas fa-cog"></i> Configurações
                     </a>

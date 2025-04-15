@@ -13,8 +13,8 @@
                 <i class="fas fa-eye me-1"></i> Ver Detalhes
             </a>
             <a href="{% url 'sales:sale_list' %}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Voltar
-            </a>
+                                <i class="fas fa-arrow-left me-1"></i> Voltar
+                            </a>
             {% if weasyprint_available %}
             <a href="{% url 'sales:sale_pdf' sale.id %}" class="btn btn-outline-danger">
                 <i class="fas fa-file-pdf me-1"></i> Baixar PDF
@@ -25,8 +25,8 @@
                 <i class="fab fa-whatsapp me-1"></i> Enviar WhatsApp
             </a>
             {% endif %}
-        </div>
-    </div>
+                        </div>
+                    </div>
 
     <div class="row justify-content-center">
         <div class="col-md-8">
@@ -61,7 +61,7 @@
                     <!-- Itens do Pedido -->
                     <div class="mb-4">
                         <h5 class="h6 border-bottom pb-2 mb-2">Itens</h5>
-                        <div class="table-responsive">
+                    <div class="table-responsive">
                             <table class="table table-sm table-bordered">
                                 <thead class="table-light">
                                     <tr>
@@ -69,35 +69,35 @@
                                         <th class="text-center">Qtd</th>
                                         <th class="text-end">Preço Unit.</th>
                                         <th class="text-end">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in items %}
-                                    <tr>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
                                         <td>{{ item.product.name }}</td>
                                         <td class="text-center">{{ item.quantity }}</td>
                                         <td class="text-end">R$ {{ item.price }}</td>
                                         <td class="text-end">R$ {{ item.subtotal }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
                                 <tfoot class="table-light">
-                                    <tr>
+                                <tr>
                                         <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
                                         <td class="text-end">R$ {{ sale.subtotal }}</td>
-                                    </tr>
+                                </tr>
                                     {% if sale.discount > 0 %}
-                                    <tr>
+                                <tr>
                                         <td colspan="3" class="text-end"><strong>Desconto:</strong></td>
                                         <td class="text-end">R$ {{ sale.discount }}</td>
-                                    </tr>
-                                    {% endif %}
-                                    <tr>
+                                </tr>
+                                {% endif %}
+                                <tr>
                                         <td colspan="3" class="text-end"><strong>Total:</strong></td>
                                         <td class="text-end fw-bold">R$ {{ sale.total }}</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                                </tr>
+                            </tfoot>
+                        </table>
                         </div>
                     </div>
 
