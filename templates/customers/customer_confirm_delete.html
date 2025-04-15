@@ -1,0 +1,80 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Excluir Cliente - SaaS CRM{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">Excluir Cliente</h1>
+    <a href="{% url 'customers:customer_detail' customer.pk %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Voltar
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <i class="fas fa-exclamation-triangle text-warning fa-3x mb-3"></i>
+                    <h4>Confirmação de Exclusão</h4>
+                </div>
+                
+                <p class="text-center mb-4">
+                    Você tem certeza que deseja excluir o cliente <strong>{{ customer.name }}</strong>?<br>
+                    Esta ação não pode ser desfeita.
+                </p>
+                
+                <form method="post" class="text-center">
+                    {% csrf_token %}
+                    <a href="{% url 'customers:customer_detail' customer.pk %}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash-alt me-1"></i> Confirmar Exclusão
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0">Informações do Cliente</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <span class="fw-medium">Nome:</span>
+                    <p>{{ customer.name }}</p>
+                </div>
+                
+                {% if customer.email %}
+                <div class="mb-3">
+                    <span class="fw-medium">E-mail:</span>
+                    <p>{{ customer.email }}</p>
+                </div>
+                {% endif %}
+                
+                {% if customer.phone %}
+                <div class="mb-3">
+                    <span class="fw-medium">Telefone:</span>
+                    <p>{{ customer.phone }}</p>
+                </div>
+                {% endif %}
+                
+                {% if customer.get_full_address %}
+                <div class="mb-3">
+                    <span class="fw-medium">Endereço:</span>
+                    <p>{{ customer.get_full_address }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <small>A exclusão do cliente removerá também todo seu histórico de compras do sistema.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

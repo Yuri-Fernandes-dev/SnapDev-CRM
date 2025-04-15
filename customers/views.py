@@ -73,7 +73,7 @@ def customer_create(request):
     View para criar um cliente
     """
     if request.method == 'POST':
-        form = CustomerForm(request.POST)
+        form = CustomerForm(request.POST, company=request.user.company)
         if form.is_valid():
             customer = form.save(commit=False)
             customer.company = request.user.company
@@ -81,7 +81,7 @@ def customer_create(request):
             messages.success(request, 'Cliente criado com sucesso!')
             return redirect('customers:customer_list')
     else:
-        form = CustomerForm()
+        form = CustomerForm(company=request.user.company)
     
     return render(request, 'customers/customer_form.html', {'form': form})
 
@@ -93,13 +93,13 @@ def customer_update(request, pk):
     customer = get_object_or_404(Customer, pk=pk, company=request.user.company)
     
     if request.method == 'POST':
-        form = CustomerForm(request.POST, instance=customer)
+        form = CustomerForm(request.POST, instance=customer, company=request.user.company)
         if form.is_valid():
             form.save()
             messages.success(request, 'Cliente atualizado com sucesso!')
             return redirect('customers:customer_detail', pk=customer.pk)
     else:
-        form = CustomerForm(instance=customer)
+        form = CustomerForm(instance=customer, company=request.user.company)
     
     return render(request, 'customers/customer_form.html', {'form': form, 'object': customer})
 

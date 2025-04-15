@@ -730,7 +730,7 @@
     }
     
     // Função para calcular e atualizar os totais
-    function updateTotals() {
+        function updateTotals() {
         const subtotalEl = document.getElementById('subtotal');
         const totalEl = document.getElementById('total');
         const discountEl = document.getElementById('discount');
@@ -740,11 +740,11 @@
             subtotal += item.quantity * item.price;
         });
         
-        const discount = parseFloat(discountEl.value) || 0;
+            const discount = parseFloat(discountEl.value) || 0;
         const total = Math.max(0, subtotal - discount);
-        
-        subtotalEl.textContent = `R$ ${subtotal.toFixed(2)}`;
-        totalEl.textContent = `R$ ${total.toFixed(2)}`;
+            
+            subtotalEl.textContent = `R$ ${subtotal.toFixed(2)}`;
+            totalEl.textContent = `R$ ${total.toFixed(2)}`;
         
         // Atualizar o total no modal de confirmação
         if (document.getElementById('confirm-total')) {
@@ -806,7 +806,7 @@
             
             // F3 - Focar no campo de desconto
             else if (e.key === 'F3') {
-                e.preventDefault();
+                            e.preventDefault();
                 document.getElementById('discount').focus();
             }
             
@@ -815,7 +815,7 @@
                 e.preventDefault();
                 if (cart.length > 0) {
                     document.getElementById('finish-sale').click();
-                } else {
+            } else {
                     alert('Adicione produtos ao carrinho antes de finalizar a venda.');
                 }
             }
@@ -923,9 +923,9 @@
             products.forEach(item => {
                 item.style.display = '';
             });
-            return;
-        }
-        
+                return;
+            }
+            
         // Primeiro verificar se há um código exato
         let exactMatch = false;
         products.forEach(item => {
@@ -939,7 +939,7 @@
                 
                 // Rolar até o produto para que ele fique visível
                 item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            } else {
+                } else {
                 item.style.display = 'none';
             }
         });
@@ -1012,20 +1012,20 @@
             }
             
             cart[existingItemIndex].quantity = newQuantity;
-        } else {
+            } else {
             // Adicionar novo item ao carrinho
-            cart.push({
+                cart.push({
                 id: productId,
                 name: productName,
                 price: productPrice,
-                quantity: quantity,
+                    quantity: quantity,
                 code: productCode
-            });
-        }
-        
-        // Atualizar interface
-        renderCartItems();
-        updateTotals();
+                });
+            }
+            
+            // Atualizar interface
+            renderCartItems();
+            updateTotals();
         
         // Limpar seleção de produto e restaurar visibilidade
         document.querySelectorAll('.product-item').forEach(item => {
@@ -1132,15 +1132,15 @@
     }
     
     // Aplicar manipulador ao modal de quantidade
-    document.getElementById('quantityModal').addEventListener('shown.bs.modal', function() {
+        document.getElementById('quantityModal').addEventListener('shown.bs.modal', function() {
         // Focar no campo de quantidade
-        const quantityInput = document.getElementById('product-quantity');
+            const quantityInput = document.getElementById('product-quantity');
         quantityInput.focus();
         quantityInput.select();
-        
+            
         // Remover e adicionar listener para garantir que não há duplicados
-        quantityInput.removeEventListener('keydown', quantityKeydownHandler);
-        quantityInput.addEventListener('keydown', quantityKeydownHandler);
+            quantityInput.removeEventListener('keydown', quantityKeydownHandler);
+            quantityInput.addEventListener('keydown', quantityKeydownHandler);
         
         // Desativar temporariamente o event listener global de atalhos
         document.removeEventListener('keydown', handleShortcutKeys);
@@ -1153,10 +1153,10 @@
     
     // Adicionar manipulador para o Enter diretamente no modal
     document.getElementById('quantityModal').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
+            if (e.key === 'Enter') {
+                e.preventDefault();
             e.stopPropagation();
-            document.getElementById('add-to-cart').click();
+                document.getElementById('add-to-cart').click();
             return false;
         }
     });
@@ -1165,7 +1165,7 @@
     document.getElementById('finish-sale').addEventListener('click', function(e) {
         // Verificar se há itens no carrinho
         if (cart.length === 0) {
-            e.preventDefault();
+                e.preventDefault();
             alert('Adicione produtos ao carrinho antes de finalizar a venda.');
             return false;
         }
@@ -1174,7 +1174,7 @@
         const paymentMethodEl = document.getElementById('payment-method');
         const paymentMethod = paymentMethodEl.options[paymentMethodEl.selectedIndex];
         if (!paymentMethod || paymentMethod.value === '') {
-            e.preventDefault();
+                e.preventDefault();
             alert('Selecione um método de pagamento antes de finalizar.');
             paymentMethodEl.focus();
             return false;
