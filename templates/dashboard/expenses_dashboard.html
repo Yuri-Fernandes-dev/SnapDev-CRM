@@ -112,7 +112,7 @@
     }
     
     .summary-card.warning {
-        background: linear-gradient(135deg, #ffa600, #ffca3a);
+        background: #FFB81C;
         color: #fff;
     }
     
@@ -252,6 +252,16 @@
         opacity: 1 !important;
         box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
     }
+
+    .summary-card.warning .summary-icon {
+        background-color: rgba(0,0,0,0.2);
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 </style>
 {% endblock %}
 
@@ -334,29 +344,6 @@
             </div>
         </div>
         <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
-            <div class="summary-card warning">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <p class="mb-2">Margem de Lucro</p>
-                        <h3 class="mb-0">R$ {{ products_profit|default:0|floatformat:2|intcomma }}</h3>
-                        <small class="text-white-50">Itens vendidos: {{ items_count|default:0 }}</small>
-                    </div>
-                    <div class="summary-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                </div>
-                <div class="mt-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>Lucro Bruto</span>
-                        <span>{{ products_profit_percentage|default:0|floatformat:0 }}%</span>
-                    </div>
-                    <div class="progress mt-2" style="height: 8px;">
-                        <div class="progress-bar bg-white" role="progressbar" style="width: {{ products_profit_percentage|default:0|floatformat:0 }}%; opacity: 1;" aria-valuenow="{{ products_profit_percentage|default:0|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
             <div class="summary-card primary">
                 <div class="d-flex justify-content-between">
                     <div>
@@ -374,6 +361,29 @@
                     </div>
                     <div class="progress mt-2" style="height: 8px;">
                         <div class="progress-bar bg-white" role="progressbar" style="width: 100%; opacity: 1;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
+            <div class="summary-card warning">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <p class="mb-2">Margem de Lucro</p>
+                        <h3 class="mb-0">R$ {{ products_profit|default:0|floatformat:2|intcomma }}</h3>
+                        <small class="text-white">Itens vendidos: {{ items_count|default:0 }}</small>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Lucro Bruto</span>
+                        <span>{{ products_profit_percentage|default:0|floatformat:0 }}%</span>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-white" role="progressbar" style="width: {{ products_profit_percentage|default:0|floatformat:0 }}%; opacity: 1;" aria-valuenow="{{ products_profit_percentage|default:0|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
                 </div>
             </div>

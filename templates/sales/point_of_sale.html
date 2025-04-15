@@ -761,91 +761,6 @@
         }
     };
 
-    // Manipulador de eventos para teclas no campo de busca
-    function setupSearchFieldKeyEvents() {
-        const searchInput = document.getElementById('product-search');
-        
-        // Adicionar manipulador para o campo de busca
-        searchInput.addEventListener('keydown', function(e) {
-            // Enter - seleciona o primeiro produto visível
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Verificar se algum produto está selecionado
-                let selectedProduct = document.querySelector('.product-item.selected');
-                
-                // Se não houver produto selecionado, selecionar o primeiro visível
-                if (!selectedProduct) {
-                    selectedProduct = document.querySelector('.product-item[style="display: block;"], .product-item:not([style*="display: none"])');
-                }
-                
-                // Se encontrou um produto, abrir o modal para ele
-                if (selectedProduct) {
-                    selecionarProduto(selectedProduct);
-                }
-                
-                return false;
-            }
-            
-            // F1 - Focar no campo de busca de produtos
-            if (e.key === 'F1') {
-                e.preventDefault();
-                const searchInput = document.getElementById('product-search');
-                searchInput.value = '';
-                searchInput.focus();
-                searchInput.select();
-                return false;
-            }
-            
-            // F2 - Focar no método de pagamento
-            else if (e.key === 'F2') {
-                e.preventDefault();
-                document.getElementById('payment-method').focus();
-            }
-            
-            // F3 - Focar no campo de desconto
-            else if (e.key === 'F3') {
-                            e.preventDefault();
-                document.getElementById('discount').focus();
-            }
-            
-            // F4 - Finalizar a venda (se houver produtos no carrinho)
-            else if (e.key === 'F4') {
-                e.preventDefault();
-                if (cart.length > 0) {
-                    document.getElementById('finish-sale').click();
-            } else {
-                    alert('Adicione produtos ao carrinho antes de finalizar a venda.');
-                }
-            }
-        });
-    }
-
-    // Adicionar manipulador para o Enter diretamente no documento para quando o campo de busca estiver focado
-    document.addEventListener('keydown', function(e) {
-        // Verificar se o campo de busca está ativo e se a tecla pressionada é Enter
-        if (e.key === 'Enter' && document.activeElement === document.getElementById('product-search')) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Verificar se algum produto está selecionado
-            let selectedProduct = document.querySelector('.product-item.selected');
-            
-            // Se não houver produto selecionado, selecionar o primeiro visível
-            if (!selectedProduct) {
-                selectedProduct = document.querySelector('.product-item[style="display: block;"], .product-item:not([style*="display: none"])');
-            }
-            
-            // Se encontrou um produto, abrir o modal para ele
-            if (selectedProduct) {
-                selecionarProduto(selectedProduct);
-            }
-            
-            return false;
-        }
-    });
-
     // Função para selecionar um produto e abrir o modal
     function selecionarProduto(item) {
         // Limpa qualquer estado anterior
@@ -908,6 +823,34 @@
         });
     }
     
+    // Remover o event listener antigo do input de busca
+    const searchInput = document.getElementById('product-search');
+    const searchInputClone = searchInput.cloneNode(true);
+    searchInput.parentNode.replaceChild(searchInputClone, searchInput);
+
+    // Adicionar o novo event listener para o input de busca
+    searchInputClone.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            
+            // Se o modal de quantidade estiver aberto, não faz nada
+            if (document.getElementById('quantityModal').classList.contains('show')) {
+                return;
+            }
+            
+            // Buscar o primeiro produto visível
+            const visibleProducts = document.querySelectorAll('.product-item:not([style*="display: none"])');
+            if (visibleProducts.length > 0) {
+                // Selecionar o primeiro produto visível
+                selecionarProduto(visibleProducts[0]);
+            }
+        }
+    });
+
+    // Atualizar o handler de atalhos globais para evitar conflitos com o novo handler do Enter
+    document.removeEventListener('keydown', handleShortcutKeys);
+    document.addEventListener('keydown', handleShortcutKeys);
+
     // Adicionar evento de busca ao input de produtos
     document.getElementById('product-search').addEventListener('input', function() {
         const searchTerm = this.value.trim().toLowerCase();
@@ -1100,9 +1043,6 @@
         
         // Adicionar event listener global para atalhos
         document.addEventListener('keydown', handleShortcutKeys);
-        
-        // Aplicar o manipulador de teclas ao campo de busca
-        setupSearchFieldKeyEvents();
         
         // Focar no campo de busca ao carregar a página
         const searchInput = document.getElementById('product-search');
