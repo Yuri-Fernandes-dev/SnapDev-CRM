@@ -834,7 +834,7 @@
             <div class="modal-body">
                 <p>Tem certeza que deseja excluir a categoria <span id="deleteCategoryName" class="fw-bold"></span>?</p>
                 <div class="alert alert-warning" role="alert">
-                  <i class="fas fa-exclamation-triangle me-2"></i> Excluir uma categoria que possui despesas não é permitido. Primeiro edite as despesas para usar outra categoria.
+                  <i class="fas fa-exclamation-triangle me-2"></i> Atenção: Todas as despesas associadas a esta categoria também serão excluídas.
                 </div>
             </div>
             <div class="modal-footer">
@@ -941,10 +941,10 @@
     
     // Função para editar despesa
     function editExpense(expenseId) {
-        document.getElementById('editExpenseForm').action = `/dashboard/despesas/editar/${expenseId}/`;
+        document.getElementById('editExpenseForm').action = `/sistema/dashboard/despesas/editar/${expenseId}/`;
         
         // Carregar os dados da despesa usando fetch API
-        fetch(`/dashboard/despesas/editar/${expenseId}/?format=json`, {
+        fetch(`/sistema/dashboard/despesas/editar/${expenseId}/?format=json`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -1000,7 +1000,7 @@
         const isPaid = element.getAttribute('data-is-paid') === 'true';
         
         // Enviar solicitação AJAX para alternar o status
-        fetch(`/dashboard/despesas/toggle-payment/${expenseId}/`, {
+        fetch(`/sistema/dashboard/despesas/toggle-payment/${expenseId}/`, {
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
@@ -1119,7 +1119,7 @@
     // Função para excluir despesa
     function deleteExpense(expenseId, expenseName) {
         document.getElementById('deleteExpenseName').textContent = expenseName;
-        document.getElementById('confirmDeleteBtn').href = `/dashboard/despesas/excluir/${expenseId}/`;
+        document.getElementById('confirmDeleteBtn').href = `/sistema/dashboard/despesas/excluir/${expenseId}/`;
         
         // Abrir o modal
         const deleteModal = new bootstrap.Modal(document.getElementById('deleteExpenseModal'));
@@ -1147,12 +1147,12 @@
         updateEditIconPreview();
         
         // Atualizar a action do formulário
-        document.getElementById('editCategoryForm').action = `/dashboard/despesas/categorias/editar/${categoryId}/`;
+        document.getElementById('editCategoryForm').action = `/sistema/dashboard/despesas/categorias/editar/${categoryId}/`;
     }
 
     function deleteCategory(categoryId, categoryName) {
         document.getElementById('deleteCategoryName').textContent = categoryName;
-        document.getElementById('confirmDeleteCategoryBtn').href = `/dashboard/despesas/categorias/excluir/${categoryId}/`;
+        document.getElementById('confirmDeleteCategoryBtn').href = `/sistema/dashboard/despesas/categorias/excluir/${categoryId}/`;
         
         // Abrir o modal
         const deleteModal = new bootstrap.Modal(document.getElementById('deleteCategoryModal'));
@@ -1168,4 +1168,4 @@
         preview.querySelector('i').className = `fas ${icon} fa-2x`;
     }
 </script>
-{% endblock %} 
+{% endblock %}

@@ -59,25 +59,23 @@ def stop_impersonating(request):
         del request.session['impersonate_user_id']
     return redirect('/')
 
-# Definir URL patterns públicos que não precisam de autenticação
-public_receipt_patterns = [
-    path('recibo/<str:token>/', public_receipt, name='public_receipt'),
-    path('r/<str:token>/', public_receipt, name='public_receipt_short'),
-]
-
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('stop-impersonating/', stop_impersonating, name='stop-impersonating'),
+    
+    # URLs do site público
     path('', core_views.home, name='home'),
     path('sobre/', core_views.about, name='about'),
     path('precos/', core_views.pricing, name='pricing'),
-    path('dashboard/', include('dashboard.urls')),
-    path('produtos/', include('products.urls')),
-    path('vendas/', include('sales.urls')),
-    path('clientes/', include('customers.urls')),
     
-    # URLs públicas (não exigem login, incluso diretamente na raiz)
-    path('', include('sales.public_urls')),
+    # URLs do sistema (protegidas por login)
+    path('sistema/', include('core.urls')),  # URLs principais do sistema
+    path('sistema/dashboard/', include('dashboard.urls')),
+    path('sistema/produtos/', include('products.urls')),
+    path('sistema/vendas/', include('sales.urls')),
+    path('sistema/clientes/', include('customers.urls')),
+    
+    # URLs públicas de vendas (como recibos públicos)
+    path('vendas/publico/', include('sales.public_urls')),
     
     # Autenticação
     path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),

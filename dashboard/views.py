@@ -764,14 +764,13 @@ def delete_expense_category(request, category_id):
     """
     category = get_object_or_404(ExpenseCategory, id=category_id, company=request.user.company)
     
-    # Verificar se existem despesas nesta categoria
-    if Expense.objects.filter(category=category).exists():
-        messages.error(request, 'Não é possível excluir uma categoria que possui despesas.')
-        return redirect('dashboard:expenses')
-    
     try:
+        # Excluir todas as despesas associadas à categoria primeiro
+        Expense.objects.filter(category=category).delete()
+        
+        # Depois excluir a categoria
         category.delete()
-        messages.success(request, 'Categoria excluída com sucesso!')
+        messages.success(request, 'Categoria e suas despesas foram excluídas com sucesso!')
     except Exception as e:
         messages.error(request, f'Erro ao excluir categoria: {str(e)}')
     

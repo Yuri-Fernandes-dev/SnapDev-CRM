@@ -598,7 +598,7 @@
                 <p id="confirm-customer-container">Cliente: <span id="confirm-customer">-</span></p>
                 
                 <div class="mt-3 form-check">
-                    <input class="form-check-input" type="checkbox" id="send-whatsapp-receipt">
+                    <input class="form-check-input" type="checkbox" id="send-whatsapp-receipt" disabled>
                     <label class="form-check-label" for="send-whatsapp-receipt">
                         <i class="fab fa-whatsapp text-success me-1"></i> Enviar recibo por WhatsApp
                     </label>
@@ -761,230 +761,512 @@
         }
     };
 
-    // Função para selecionar um produto e abrir o modal
-    function selecionarProduto(item) {
-        // Limpa qualquer estado anterior
-        document.querySelectorAll('.product-item').forEach(p => {
-            if (p !== item) {
-                p.classList.remove('selected');
+    // Garantir que o evento seja configurado quando o documento estiver totalmente carregado
+    document.addEventListener('DOMContentLoaded', function() {
+        // Remover event listener anterior se existir (com tratamento de erro)
+        try {
+            document.removeEventListener('keydown', handleShortcutKeys);
+        } catch (e) {
+            // Ignora o erro se o listener não existir
+        }
+        
+        // Adicionar event listener global para atalhos
+        document.addEventListener('keydown', handleShortcutKeys);
+        
+        // Focar no campo de busca ao carregar a página
+        const searchInput = document.getElementById('product-search');
+        searchInput.value = '';
+        searchInput.focus();
+
+        // Configurar a busca de produtos
+        setupProductSearch();
+
+        // Configurar o método de pagamento para mostrar o campo de valor pago quando Dinheiro for selecionado
+        const paymentMethodSelect = document.getElementById('payment-method');
+        paymentMethodSelect.addEventListener('change', function() {
+            console.log('Método de pagamento alterado:', this.options[this.selectedIndex].textContent.trim());
+            const paymentMethod = this.options[this.selectedIndex].textContent.trim();
+            const changeContainer = document.getElementById('change-container');
+            
+            if (paymentMethod.includes('Dinheiro')) {
+                changeContainer.style.display = 'block';
+                document.getElementById('payment-amount').focus();
+            } else {
+                changeContainer.style.display = 'none';
             }
         });
         
-        item.classList.add('selected');
-        
-        const productId = item.getAttribute('data-id');
-        const productName = item.querySelector('.fw-medium').textContent;
-        const productPrice = item.getAttribute('data-price');
-        const productStock = parseInt(item.getAttribute('data-stock'));
-        const productCode = item.getAttribute('data-code') || '';
-        
-        // Hidden field para o ID do produto
-        const productIdInput = document.getElementById('product-id') || document.createElement('input');
-        if (!document.getElementById('product-id')) {
-            productIdInput.id = 'product-id';
-            productIdInput.type = 'hidden';
-            document.body.appendChild(productIdInput);
-        }
-        productIdInput.value = productId;
-        
-        // Definir valores do produto no modal
-        document.getElementById('modal-product-name').innerText = productName;
-        document.getElementById('modal-product-price').innerText = productPrice;
-        document.getElementById('modal-product-stock').innerText = productStock;
-        document.getElementById('product-quantity').value = '1';
-        document.getElementById('product-quantity').setAttribute('max', productStock);
-        
-        // Remover event listener global de atalhos temporariamente
-        document.removeEventListener('keydown', handleShortcutKeys);
-        
-        // Exibir modal
-        const quantityModal = new bootstrap.Modal(document.getElementById('quantityModal'));
-        quantityModal.show();
-        
-        // Focar no campo de quantidade
-        setTimeout(() => {
-            const quantityInput = document.getElementById('product-quantity');
-            quantityInput.focus();
-            quantityInput.select();
-        }, 300);
-        
-        // Restaurar event listener quando o modal fechar
-        document.getElementById('quantityModal').addEventListener('hidden.bs.modal', function() {
-            document.addEventListener('keydown', handleShortcutKeys);
-            // Focar novamente no campo de busca e limpar
-            const searchInput = document.getElementById('product-search');
-            searchInput.value = '';
-            searchInput.focus();
+        // Configurar o cálculo de troco
+        document.getElementById('payment-amount').addEventListener('input', function() {
+            const totalText = document.getElementById('total').textContent.trim();
+            const total = parseFloat(totalText.replace('R$', '').replace(',', '.')) || 0;
+            const paymentAmount = parseFloat(this.value) || 0;
+            const changeAmount = Math.max(0, paymentAmount - total);
             
-            // Restaurar visibilidade dos produtos
-            document.querySelectorAll('.product-item').forEach(p => {
-                p.style.display = '';
+            console.log('Calculando troco:', total, paymentAmount, changeAmount);
+            document.getElementById('change-amount').textContent = `R$ ${changeAmount.toFixed(2)}`;
+        });
+
+        // Configurar a busca de clientes por AJAX
+        const customerSearch = document.getElementById('customer-search');
+        const customerSuggestions = document.getElementById('customer-suggestions');
+        const customerId = document.getElementById('customer-id');
+        
+        // Estilização aprimorada para as sugestões de clientes
+        customerSuggestions.style.maxHeight = '200px';
+        customerSuggestions.style.overflowY = 'auto';
+        
+        customerSearch.addEventListener('input', function() {
+            const searchTerm = this.value.trim();
+            
+            if (searchTerm.length < 2) {
+                customerSuggestions.style.display = 'none';
+                customerId.value = '';
+                return;
+            }
+            
+            console.log('Buscando clientes com termo:', searchTerm);
+            
+            // Buscar clientes via AJAX
+            fetch(`/clientes/busca-ajax/?term=${encodeURIComponent(searchTerm)}`)
+                .then(response => {
+                    console.log('Status da resposta:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`Erro na busca: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Dados recebidos:', data);
+                    if (data.results && data.results.length > 0) {
+                        // Mostrar sugestões
+                        let suggestionsHtml = '';
+                        data.results.forEach(customer => {
+                            suggestionsHtml += `
+                                <div class="customer-suggestion p-2 border-bottom" data-id="${customer.id}" data-name="${customer.name}">
+                                    <div class="fw-medium">${customer.name}</div>
+                                    <div class="text-muted small">${customer.text.includes('-') ? customer.text.split('-')[1].trim() : ''}</div>
+                                </div>
+                            `;
+                        });
+                        
+                        // Adicionar opção para cadastrar novo cliente
+                        suggestionsHtml += `
+                            <div class="p-2 text-primary new-customer-option" style="cursor: pointer;">
+                                <i class="fas fa-plus-circle me-1"></i> Cadastrar novo cliente
+                            </div>
+                        `;
+                        
+                        customerSuggestions.innerHTML = suggestionsHtml;
+                        customerSuggestions.style.display = 'block';
+                        
+                        // Adicionar evento de clique às sugestões
+                        document.querySelectorAll('.customer-suggestion').forEach(suggestion => {
+                            suggestion.addEventListener('click', function() {
+                                const id = this.getAttribute('data-id');
+                                const name = this.getAttribute('data-name');
+                                
+                                customerSearch.value = name;
+                                customerId.value = id;
+                                customerSuggestions.style.display = 'none';
+                                
+                                // Feedback visual de cliente selecionado
+                                customerSearch.classList.add('is-valid');
+                                
+                                // Atualizar o nome do cliente no modal de confirmação
+                                if (document.getElementById('confirm-customer')) {
+                                    document.getElementById('confirm-customer').textContent = name;
+                                    document.getElementById('confirm-customer-container').style.display = 'block';
+                                }
+                                
+                                // Habilitar opção de envio de recibo por WhatsApp
+                                document.getElementById('send-whatsapp-receipt').disabled = false;
+                            });
+                        });
+                        
+                        // Adicionar evento para a opção de novo cliente
+                        document.querySelector('.new-customer-option')?.addEventListener('click', function() {
+                            // Abrir a página de cadastro de clientes em uma nova aba
+                            window.open('/clientes/novo/', '_blank');
+                        });
+                    } else {
+                        // Exibir opção para cadastrar um novo cliente
+                        customerSuggestions.innerHTML = `
+                            <div class="p-2 text-primary new-customer-option" style="cursor: pointer;">
+                                <i class="fas fa-plus-circle me-1"></i> Cadastrar novo cliente "${searchTerm}"
+                            </div>
+                        `;
+                        customerSuggestions.style.display = 'block';
+                        
+                        // Adicionar evento para a opção de novo cliente
+                        document.querySelector('.new-customer-option')?.addEventListener('click', function() {
+                            // Abrir a página de cadastro de clientes em uma nova aba
+                            window.open('/clientes/novo/?name=' + encodeURIComponent(searchTerm), '_blank');
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro na busca de clientes:', error);
+                    customerSuggestions.style.display = 'none';
+                });
+        });
+        
+        // Adicionar evento de teclado para navegação nas sugestões
+        customerSearch.addEventListener('keydown', function(e) {
+            const suggestions = Array.from(document.querySelectorAll('.customer-suggestion'));
+            if (suggestions.length === 0 || customerSuggestions.style.display === 'none') return;
+            
+            let currentIndex = -1;
+            suggestions.forEach((suggestion, index) => {
+                if (suggestion.classList.contains('active')) {
+                    currentIndex = index;
+                    suggestion.classList.remove('active');
+                }
+            });
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                currentIndex = (currentIndex + 1) % suggestions.length;
+                suggestions[currentIndex].classList.add('active');
+                suggestions[currentIndex].scrollIntoView({behavior: 'smooth', block: 'nearest'});
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                currentIndex = currentIndex <= 0 ? suggestions.length - 1 : currentIndex - 1;
+                suggestions[currentIndex].classList.add('active');
+                suggestions[currentIndex].scrollIntoView({behavior: 'smooth', block: 'nearest'});
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (currentIndex >= 0) {
+                    suggestions[currentIndex].click();
+                } else if (suggestions.length > 0) {
+                    suggestions[0].click();
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                customerSuggestions.style.display = 'none';
+            }
+        });
+        
+        // Adicionar botão para limpar a seleção de cliente
+        const customerField = document.querySelector('.position-relative');
+        const clearButton = document.createElement('button');
+        clearButton.className = 'btn btn-sm btn-link position-absolute top-50 end-0 translate-middle-y text-muted';
+        clearButton.innerHTML = '<i class="fas fa-times"></i>';
+        clearButton.style.display = 'none';
+        clearButton.style.zIndex = '1001';
+        clearButton.title = 'Limpar cliente selecionado';
+        
+        customerField.appendChild(clearButton);
+        
+        // Mostrar/esconder o botão limpar quando necessário
+        customerSearch.addEventListener('input', function() {
+            clearButton.style.display = this.value ? 'block' : 'none';
+        });
+        
+        // Limpar seleção ao clicar no botão
+        clearButton.addEventListener('click', function() {
+            customerSearch.value = '';
+            customerId.value = '';
+            customerSearch.classList.remove('is-valid');
+                customerSuggestions.style.display = 'none';
+            clearButton.style.display = 'none';
+            customerSearch.focus();
+            
+            // Atualizar modal de confirmação
+            if (document.getElementById('confirm-customer')) {
+                document.getElementById('confirm-customer').textContent = '-';
+            }
+            
+            // Desabilitar opção de WhatsApp
+            document.getElementById('send-whatsapp-receipt').disabled = true;
+            document.getElementById('send-whatsapp-receipt').checked = false;
+        });
+        
+        // Fechar sugestões ao clicar fora
+        document.addEventListener('click', function(e) {
+            if (!customerSearch.contains(e.target) && !customerSuggestions.contains(e.target)) {
+                customerSuggestions.style.display = 'none';
+            }
+        });
+
+        // Adicionar estilo CSS para a sugestão ativa
+        const style = document.createElement('style');
+        style.textContent = `
+            .customer-suggestion.active {
+                background-color: #f8f9fa;
+                border-left: 3px solid #198754;
+            }
+            .customer-suggestion:hover {
+                background-color: #f8f9fa;
+            }
+            #customer-search.is-valid {
+                background-color: #f8fff9;
+                border-color: #198754;
+            }
+        `;
+        document.head.appendChild(style);
+    });
+
+    // Função para configurar a busca de produtos
+    function setupProductSearch() {
+        const searchInput = document.getElementById('product-search');
+        const productsTable = document.getElementById('products-grid');
+        let selectedRow = null;
+
+        // Função para limpar todas as seleções
+        function clearAllSelections() {
+            const allRows = productsTable.querySelectorAll('tbody tr.product-item');
+            allRows.forEach(row => {
+                row.classList.remove('selected');
+                row.classList.remove('not-selected');
+                row.style.outline = '';
+            });
+            selectedRow = null;
+        }
+
+        // Função para resetar e mostrar todos os produtos
+        function resetProductDisplay() {
+            // Mostrar todos os produtos
+            const allRows = productsTable.querySelectorAll('tbody tr.product-item');
+            allRows.forEach(row => {
+                row.style.display = '';
+            });
+            
+            // Limpar seleções
+            clearAllSelections();
+            
+            // Limpar campo de busca
+            searchInput.value = '';
+        }
+
+        // Evento de input para filtrar produtos
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            
+            // Limpar seleção anterior e resetar exibição
+            clearAllSelections();
+            
+            // Reset completo se a busca estiver vazia
+            if (!searchTerm) {
+                resetProductDisplay();
+                return;
+            }
+            
+            // Filtrar produtos
+            const rows = productsTable.querySelectorAll('tbody tr.product-item');
+            let visibleRows = [];
+            let exactMatch = null;
+            
+            rows.forEach(row => {
+                const name = row.getAttribute('data-name').toLowerCase();
+                const code = row.getAttribute('data-code').toLowerCase();
+                const barcode = row.getAttribute('data-barcode')?.toLowerCase() || '';
+                
+                // Verificar correspondência exata com código
+                if (code === searchTerm) {
+                    exactMatch = row;
+                }
+                
+                if (name.includes(searchTerm) || code.includes(searchTerm) || barcode.includes(searchTerm)) {
+                    row.style.display = '';
+                    visibleRows.push(row);
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Se houver correspondência exata, selecionar esse produto
+            if (exactMatch) {
+                selectedRow = exactMatch;
+                selectedRow.classList.add('selected');
+                selectedRow.style.outline = '2px solid #198754';
+                selectedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                
+                // Se for uma correspondência exata, abrir o modal automaticamente
+                if (searchTerm.length > 2) {
+                    selectProduct(exactMatch);
+                }
+            }
+            // Caso contrário, destacar o primeiro produto visível se houver apenas um
+            else if (visibleRows.length === 1) {
+                selectedRow = visibleRows[0];
+                selectedRow.classList.add('selected');
+                selectedRow.style.outline = '2px solid #198754';
+                selectedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            
+            // Marcar outros produtos como não selecionados se houver seleção
+            if (selectedRow) {
+                visibleRows.forEach(row => {
+                    if (row !== selectedRow) {
+                        row.classList.add('not-selected');
+                    }
+                });
+            }
+        });
+        
+        // Evento de tecla para o campo de busca
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                
+                // Selecionar produto destacado ou primeiro visível
+                const rows = Array.from(productsTable.querySelectorAll('tbody tr.product-item')).filter(row => row.style.display !== 'none');
+                
+                if (rows.length > 0) {
+                    // Se não há produto selecionado, selecione o primeiro
+                    const selectedProduct = selectedRow || rows[0];
+                    selectProduct(selectedProduct);
+                    
+                    // Limpar campo após selecionar para a próxima busca
+                    this.value = '';
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                navigateProductList('down');
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigateProductList('up');
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                resetProductDisplay();
+            }
+        });
+        
+        // Adicionar eventos de clique aos produtos
+        const productItems = productsTable.querySelectorAll('tbody tr.product-item');
+        productItems.forEach(item => {
+            item.addEventListener('click', function() {
+                // Limpar seleções anteriores
+                clearAllSelections();
+                
+                // Selecionar o produto clicado
+                this.classList.add('selected');
+                this.style.outline = '2px solid #198754';
+                selectedRow = this;
+                
+                // Selecionar o produto
+                selectProduct(this);
             });
         });
     }
     
-    // Remover o event listener antigo do input de busca
-    const searchInput = document.getElementById('product-search');
-    const searchInputClone = searchInput.cloneNode(true);
-    searchInput.parentNode.replaceChild(searchInputClone, searchInput);
-
-    // Adicionar o novo event listener para o input de busca
-    searchInputClone.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            
-            // Se o modal de quantidade estiver aberto, não faz nada
-            if (document.getElementById('quantityModal').classList.contains('show')) {
-                return;
+    // Função para navegar na lista de produtos com as setas
+    function navigateProductList(direction) {
+        const rows = Array.from(document.querySelectorAll('#products-grid tbody tr.product-item')).filter(row => row.style.display !== 'none');
+        
+        if (rows.length === 0) return;
+        
+        let selectedIndex = -1;
+        
+        // Encontrar índice do produto selecionado
+        rows.forEach((row, index) => {
+            if (row.classList.contains('selected')) {
+                selectedIndex = index;
+                row.classList.remove('selected');
+                row.style.outline = '';
             }
-            
-            // Buscar o primeiro produto visível
-            const visibleProducts = document.querySelectorAll('.product-item:not([style*="display: none"])');
-            if (visibleProducts.length > 0) {
-                // Selecionar o primeiro produto visível
-                selecionarProduto(visibleProducts[0]);
-            }
+            // Remover classe not-selected de todos
+            row.classList.remove('not-selected');
+        });
+        
+        if (direction === 'down') {
+            selectedIndex = (selectedIndex + 1) % rows.length;
+        } else if (direction === 'up') {
+            selectedIndex = selectedIndex <= 0 ? rows.length - 1 : selectedIndex - 1;
         }
-    });
-
-    // Atualizar o handler de atalhos globais para evitar conflitos com o novo handler do Enter
-    document.removeEventListener('keydown', handleShortcutKeys);
-    document.addEventListener('keydown', handleShortcutKeys);
-
-    // Adicionar evento de busca ao input de produtos
-    document.getElementById('product-search').addEventListener('input', function() {
-        const searchTerm = this.value.trim().toLowerCase();
-        const products = document.querySelectorAll('.product-item');
         
-        // Limpar qualquer seleção prévia
-        products.forEach(item => {
-            item.classList.remove('selected');
-        });
+        // Aplicar seleção ao produto correto
+        rows[selectedIndex].classList.add('selected');
+        rows[selectedIndex].style.outline = '2px solid #198754';
+        rows[selectedIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         
-        if (searchTerm === '') {
-            // Se o campo estiver vazio, mostrar todos os produtos
-            products.forEach(item => {
-                item.style.display = '';
-            });
-                return;
-            }
-            
-        // Primeiro verificar se há um código exato
-        let exactMatch = false;
-        products.forEach(item => {
-            const code = (item.getAttribute('data-code') || '').toLowerCase();
-            
-            if (code === searchTerm) {
-                // Código exato encontrado - selecionar este produto e ocultar os outros
-                exactMatch = true;
-                item.style.display = 'table-row';
-                item.classList.add('selected');
-                
-                // Rolar até o produto para que ele fique visível
-                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } else {
-                item.style.display = 'none';
+        // Marcar outros produtos como não selecionados
+        rows.forEach((row, index) => {
+            if (index !== selectedIndex) {
+                row.classList.add('not-selected');
             }
         });
-        
-        // Se não houve código exato, filtrar pelo nome e código
-        if (!exactMatch) {
-            let hasVisibleProducts = false;
-            
-            products.forEach(item => {
-                const name = item.querySelector('.fw-medium').textContent.toLowerCase();
-                const code = (item.getAttribute('data-code') || '').toLowerCase();
-                
-                if (name.includes(searchTerm) || code.includes(searchTerm)) {
-                    item.style.display = 'table-row';
-                    hasVisibleProducts = true;
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-            
-            // Se não encontrou nenhum produto, mostrar todos
-            if (!hasVisibleProducts) {
-                products.forEach(item => {
-                    item.style.display = '';
-                });
-            }
-        }
-    });
-
-    // Adicionar evento de clique em cada produto
-    document.querySelectorAll('.product-item').forEach(item => {
-        item.addEventListener('click', function() {
-            selecionarProduto(this);
-        });
-    });
+    }
     
+    // Função para selecionar um produto e abrir o modal de quantidade
+    function selectProduct(productRow) {
+        const id = productRow.getAttribute('data-id');
+        const name = productRow.getAttribute('data-name');
+        const price = parseFloat(productRow.getAttribute('data-price'));
+        const stock = parseInt(productRow.getAttribute('data-stock'));
+        const code = productRow.getAttribute('data-code');
+        
+        // Atualizar dados no modal
+        document.getElementById('modal-product-name').textContent = name;
+        document.getElementById('modal-product-price').textContent = `R$ ${price.toFixed(2)}`;
+        document.getElementById('modal-product-stock').textContent = stock;
+        document.getElementById('product-quantity').value = 1;
+        
+        // Armazenar dados do produto selecionado para adicionar ao carrinho
+        const addToCartBtn = document.getElementById('add-to-cart');
+        addToCartBtn.setAttribute('data-id', id);
+        addToCartBtn.setAttribute('data-name', name);
+        addToCartBtn.setAttribute('data-price', price);
+        addToCartBtn.setAttribute('data-code', code);
+        
+        // Abrir o modal
+        const modal = new bootstrap.Modal(document.getElementById('quantityModal'));
+        modal.show();
+    }
+
     // Configurar o botão de adicionar ao carrinho
     document.getElementById('add-to-cart').addEventListener('click', function() {
-        const productId = document.getElementById('product-id').value;
-        const productName = document.getElementById('modal-product-name').innerText;
-        const productPrice = parseFloat(document.getElementById('modal-product-price').innerText.replace('R$', '').trim());
-        const productStock = parseInt(document.getElementById('modal-product-stock').innerText);
-        const quantity = parseInt(document.getElementById('product-quantity').value);
+        const id = this.getAttribute('data-id');
+        const name = this.getAttribute('data-name');
+        const price = parseFloat(this.getAttribute('data-price'));
+        const code = this.getAttribute('data-code');
+        const quantity = parseInt(document.getElementById('product-quantity').value) || 1;
         
-        // Obter o código do produto do elemento selecionado
-        const selectedItem = document.querySelector('.product-item.selected');
-        const productCode = selectedItem ? (selectedItem.getAttribute('data-code') || '') : '';
-        
-        // Validação da quantidade
-        if (quantity <= 0) {
-            alert('A quantidade deve ser maior que zero.');
+        // Validar quantidade
+        if (quantity < 1) {
+            alert('A quantidade deve ser no mínimo 1.');
             return;
         }
         
-        if (quantity > productStock) {
-            alert(`Estoque insuficiente. Disponível: ${productStock}`);
+        const stock = parseInt(document.getElementById('modal-product-stock').textContent);
+        if (quantity > stock) {
+            alert(`Estoque insuficiente. Disponível: ${stock}`);
             return;
         }
         
-        // Verificar se o produto já está no carrinho
-        const existingItemIndex = cart.findIndex(item => item.id === productId);
-        
-        if (existingItemIndex !== -1) {
-            // Produto já existe no carrinho, atualizar quantidade
-            const newQuantity = cart[existingItemIndex].quantity + quantity;
-            
-            if (newQuantity > productStock) {
-                alert(`Estoque insuficiente. Você já tem ${cart[existingItemIndex].quantity} itens no carrinho. Disponível: ${productStock}`);
-                return;
-            }
-            
-            cart[existingItemIndex].quantity = newQuantity;
-            } else {
-            // Adicionar novo item ao carrinho
-                cart.push({
-                id: productId,
-                name: productName,
-                price: productPrice,
-                    quantity: quantity,
-                code: productCode
-                });
-            }
-            
-            // Atualizar interface
-            renderCartItems();
-            updateTotals();
-        
-        // Limpar seleção de produto e restaurar visibilidade
-        document.querySelectorAll('.product-item').forEach(item => {
-            item.classList.remove('selected');
-            item.style.display = '';
+        // Adicionar ao carrinho
+        cart.push({
+            id: id,
+            name: name,
+            price: price,
+            quantity: quantity,
+            code: code
+        });
+                    
+                    // Atualizar interface
+                    renderCartItems();
+                    updateTotals();
+                    
+                    // Fechar modal
+                    bootstrap.Modal.getInstance(document.getElementById('quantityModal')).hide();
+                    
+        // Limpar seleções e reexibir todos os produtos
+        const productsTable = document.getElementById('products-grid');
+        const allRows = productsTable.querySelectorAll('tbody tr.product-item');
+        allRows.forEach(row => {
+            row.classList.remove('selected');
+            row.classList.remove('not-selected');
+            row.style.outline = '';
+            row.style.display = '';
         });
         
-        // Fechar o modal
-        bootstrap.Modal.getInstance(document.getElementById('quantityModal')).hide();
-        
-        // Limpar o campo de busca e focar novamente
+        // Limpar e focar no campo de busca
         const searchInput = document.getElementById('product-search');
         searchInput.value = '';
         searchInput.focus();
     });
-    
+
     // Função para gerenciar atalhos de teclado
     function handleShortcutKeys(e) {
         // Evitar atalhos se algum modal estiver aberto
@@ -996,12 +1278,12 @@
                 document.getElementById('add-to-cart').click();
                 return false;
             }
-            return;
-        }
-
+                return;
+            }
+            
         // F1 - Focar no campo de busca de produtos
         if (e.key === 'F1') {
-            e.preventDefault();
+                            e.preventDefault();
             const searchInput = document.getElementById('product-search');
             searchInput.value = '';
             searchInput.focus();
@@ -1026,34 +1308,16 @@
             e.preventDefault();
             if (cart.length > 0) {
                 document.getElementById('finish-sale').click();
-            } else {
+                } else {
                 alert('Adicione produtos ao carrinho antes de finalizar a venda.');
-            }
+                }
         }
-    }
-
-    // Garantir que o evento seja configurado quando o documento estiver totalmente carregado
-    document.addEventListener('DOMContentLoaded', function() {
-        // Remover event listener anterior se existir (com tratamento de erro)
-        try {
-            document.removeEventListener('keydown', handleShortcutKeys);
-        } catch (e) {
-            // Ignora o erro se o listener não existir
         }
-        
-        // Adicionar event listener global para atalhos
-        document.addEventListener('keydown', handleShortcutKeys);
-        
-        // Focar no campo de busca ao carregar a página
-        const searchInput = document.getElementById('product-search');
-        searchInput.value = '';
-        searchInput.focus();
-    });
 
     // Manipulador de eventos para o modal de quantidade
     function quantityKeydownHandler(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
+            if (e.key === 'Enter') {
+                e.preventDefault();
             e.stopPropagation();
             // Clicar no botão de adicionar ao carrinho
             document.getElementById('add-to-cart').click();
@@ -1103,8 +1367,8 @@
 
     // Configurar o botão finalizar venda
     document.getElementById('finish-sale').addEventListener('click', function(e) {
-        // Verificar se há itens no carrinho
-        if (cart.length === 0) {
+            // Verificar se há itens no carrinho
+            if (cart.length === 0) {
                 e.preventDefault();
             alert('Adicione produtos ao carrinho antes de finalizar a venda.');
             return false;
@@ -1130,7 +1394,7 @@
         if (customerId && customerName) {
             document.getElementById('confirm-customer').textContent = customerName;
             document.getElementById('confirm-customer-container').style.display = 'block';
-        } else {
+                } else {
             document.getElementById('confirm-customer').textContent = '-';
             document.getElementById('confirm-customer-container').style.display = 'block';
         }
@@ -1143,16 +1407,16 @@
     // Configurar o botão de confirmar venda no modal
     document.getElementById('confirm-sale').addEventListener('click', function() {
         // Desabilitar o botão durante o processamento
-        this.disabled = true;
+            this.disabled = true;
         this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processando...';
         
         // Preparar os dados da venda
         const items = [];
         cart.forEach(item => {
             items.push({
-                product_id: item.id,
-                quantity: item.quantity,
-                price: item.price
+                    product_id: item.id,
+                    quantity: item.quantity,
+                    price: item.price
             });
         });
         
@@ -1167,15 +1431,15 @@
         
         // Enviar a venda para o servidor via AJAX
         fetch("{% url 'sales:confirm_sale' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(saleData)
-        })
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(saleData)
+            })
         .then(response => response.json())
-        .then(data => {
+            .then(data => {
             if (data.success) {
                 console.log("Venda registrada com sucesso:", data);
                 
@@ -1208,25 +1472,25 @@
                             'X-CSRFToken': '{{ csrf_token }}'
                         }
                     });
-                }
-            } else {
+                    }
+                } else {
                 // Mostrar erro
                 alert(`Erro ao finalizar venda: ${data.error}`);
                 
                 // Restaurar o botão
                 this.disabled = false;
                 this.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Venda';
-            }
-        })
-        .catch(error => {
+                }
+            })
+            .catch(error => {
             console.error('Erro:', error);
             alert('Erro ao processar a venda. Tente novamente.');
             
             // Restaurar o botão
             this.disabled = false;
             this.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Venda';
+            });
         });
-    });
 
     // Configurar o desconto para atualizar totais
     document.getElementById('discount').addEventListener('input', updateTotals);
@@ -1272,7 +1536,7 @@
     }
 
     // Adicionar evento para remover o manipulador de Enter quando o modal for fechado após sucesso
-    document.getElementById('confirmationModal').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('confirmationModal').addEventListener('hidden.bs.modal', function() {
         // Remover todos os event listeners específicos
         if (window.handleConfirmEnter) {
             document.removeEventListener('keydown', window.handleConfirmEnter);

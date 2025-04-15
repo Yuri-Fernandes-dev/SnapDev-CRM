@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import JsonResponse
 from .models import Customer
 from .forms import CustomerForm
 from django.db.models import Q, Sum
@@ -116,3 +117,35 @@ def customer_delete(request, pk):
         return redirect('customers:customer_list')
     
     return render(request, 'customers/customer_confirm_delete.html', {'customer': customer})
+
+@login_required
+def customer_search_ajax(request):
+    """
+    View para busca AJAX de clientes para o ponto de venda
+    Retorna resultados no formato JSON para uso em autocomplete
+    """
+    term = request.GET.get('term', '')
+    results = []
+    
+    if len(term) >= 2:
+        # Busca clientes por nome, telefone ou email
+        customers = Customer.objects.filter(
+            company=request.user.company
+        ).filter(
+            Q(name__icontains=term) | 
+            Q(phone__icontains=term) | 
+            Q(email__icontains=term)
+        )[:10]  # Limitar a 10 resultados
+        
+        for customer in customers:
+            # Incluir informações básicas do cliente no formato esperado pelo frontend
+            display_text = f"{customer.name} - {customer.phone}" if customer.phone else customer.name
+            results.append({
+                'id': customer.id,
+                'name': customer.name,
+                'text': display_text,
+                'has_phone': bool(customer.phone)
+            })
+    
+    # Retornar no formato esperado pelo JavaScript do PDV
+    return JsonResponse({'results': results})
