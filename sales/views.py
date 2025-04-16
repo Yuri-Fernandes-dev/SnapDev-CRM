@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
-from django.db.models import Q, Sum, Count, Avg, F, DecimalField, CharField, Value, ExpressionWrapper
+from django.db.models import Q, Sum, Count, Avg, F, DecimalField, CharField, Value, ExpressionWrapper, Min, Max
 from django.db.models.functions import Concat, TruncDate, ExtractHour, ExtractWeekDay
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -15,6 +15,8 @@ from .models import Sale, SaleItem, PaymentMethod
 from products.models import Product
 from customers.models import Customer
 from django.urls import reverse
+from django.db import transaction
+from django.core.exceptions import ValidationError
 
 # Adicionar imports para PDF
 import io
@@ -28,9 +30,9 @@ try:
     from weasyprint import HTML
     WEASYPRINT_AVAILABLE = True
 except (ImportError, OSError):
-    # OSError can happen if the required system libraries are missing
-    print("WeasyPrint is not available. PDF generation will be disabled.")
-    # Create a dummy HTML class as a placeholder
+    # OSError pode ocorrer se as bibliotecas de sistema necessárias estiverem ausentes
+    print("WeasyPrint não está disponível. A geração de PDF será desativada.")
+    # Criar uma classe HTML dummy como um placeholder
     class HTML:
         def __init__(self, *args, **kwargs):
             pass
@@ -203,134 +205,96 @@ def product_search(request):
 
 @login_required
 def create_sale(request):
-    """
-    View para criar uma nova venda via AJAX
-    """
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
             
-            customer_id = data.get('customer_id')
-            payment_method_id = data.get('payment_method')
-            items_data = data.get('items', [])
-            discount = data.get('discount', 0)
-            notes = data.get('notes', '')
-            
-            if not payment_method_id:
+            # Validar dados básicos
+            if not data.get('items'):
                 return JsonResponse({
                     'success': False,
-                    'error': 'Método de pagamento é obrigatório'
+                    'error': 'Nenhum item foi adicionado à venda'
                 }, status=400)
-            
-            if not items_data:
+
+            # Criar a venda
+            with transaction.atomic():
+                sale = Sale.objects.create(
+                    company=request.user.company,
+                    customer_id=data.get('customer_id'),
+                    payment_method_id=data['payment_method'],
+                    total=Decimal('0'),
+                    discount=Decimal(str(data.get('discount', '0'))),
+                    notes=data.get('notes', ''),
+                    created_by=request.user,
+                    status='paid'
+                )
+
+                # Processar itens
+                total = Decimal('0')
+                for item in data['items']:
+                    try:
+                        product = Product.objects.get(id=item['product_id'], company=request.user.company)
+                        
+                        if product.stock_quantity < item['quantity']:
+                            raise ValidationError(f'Estoque insuficiente para o produto {product.name}')
+                            
+                        price = Decimal(str(item['price']))
+                        quantity = int(item['quantity'])
+                        subtotal = price * quantity
+                        
+                        SaleItem.objects.create(
+                            sale=sale,
+                            product=product,
+                            quantity=quantity,
+                            price=price,
+                            cost_price=product.cost,
+                            subtotal=subtotal
+                        )
+                        
+                        total += subtotal
+                        
+                        # Atualizar estoque
+                        product.stock_quantity -= quantity
+                        product.save()
+                        
+                    except Product.DoesNotExist:
+                        raise ValidationError(f'Produto não encontrado: {item["product_id"]}')
+
+                # Atualizar o total da venda
+                sale.total = total - sale.discount
+                sale.save()
+
+                # Se tiver cliente, adicionar pontos de fidelidade
+                if sale.customer:
+                    sale.customer.add_points(sale.total)
+                    sale.customer.save()
+
                 return JsonResponse({
-                    'success': False,
-                    'error': 'Nenhum item adicionado à venda'
-                }, status=400)
-            
-            # Validar estoque antes de criar a venda
-            for item_data in items_data:
-                product_id = item_data.get('product_id')
-                quantity = int(item_data.get('quantity'))
-                
-                try:
-                    product = Product.objects.get(pk=product_id)
-                    if product.stock_quantity < quantity:
-                        return JsonResponse({
-                            'success': False,
-                            'error': f'Estoque insuficiente para o produto {product.name}'
-                        }, status=400)
-                except Product.DoesNotExist:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Produto não encontrado (ID: {product_id})'
-                    }, status=400)
-            
-            # Calcular o total antes de criar a venda
-            total = Decimal('0')
-            for item_data in items_data:
-                quantity = int(item_data.get('quantity'))
-                price = Decimal(str(item_data.get('price')))
-                total += quantity * price
-            
-            # Aplicar desconto
-            discount = Decimal(str(discount))
-            total = total - discount if total > discount else Decimal('0')
-            
-            # Criar a venda com o total já calculado
-            sale = Sale.objects.create(
-                customer_id=customer_id if customer_id else None,
-                payment_method_id=payment_method_id,
-                created_by=request.user,
-                company=request.user.company,
-                discount=discount,
-                notes=notes,
-                total=total,
-                status='pending'
-            )
-            
-            # Adicionar itens à venda
-            for item_data in items_data:
-                product_id = item_data.get('product_id')
-                quantity = int(item_data.get('quantity'))
-                price = Decimal(str(item_data.get('price')))
-                
-                product = Product.objects.get(pk=product_id)
-                
-                # Criar o item da venda
-                SaleItem.objects.create(
-                    sale=sale,
-                    product=product,
-                    quantity=quantity,
-                    price=price,
-                    subtotal=quantity * price
-                )
-                
-                # Atualizar estoque
-                product.stock_quantity -= quantity
-                product.save()
-            
-            # Finalizar a venda
-            sale.status = 'paid'
-            sale.save()
-            
-            # Construir a URL do recibo
-            try:
-                receipt_url = request.build_absolute_uri(
-                    reverse('sales:sale_receipt', args=[sale.id])
-                )
-                
-                # Verificar se o cliente tem telefone
-                has_phone = False
-                phone = None
-                if sale.customer and sale.customer.phone:
-                    has_phone = True
-                    phone = ''.join(filter(str.isdigit, sale.customer.phone))
-                    if not phone.startswith('55'):
-                        phone = '55' + phone
-            except Exception as e:
-                print(f"Erro ao gerar URL de recibo: {str(e)}")
-                receipt_url = None
-                has_phone = False
-                phone = None
-            
-            return JsonResponse({
-                'success': True,
-                'sale_id': sale.id,
-                'total': float(sale.total),
-                'receipt_url': receipt_url,
-                'has_phone': has_phone,
-                'customer_phone': phone
-            })
-            
-        except Exception as e:
-            print(f"Erro ao criar venda: {str(e)}")  # Debug
+                    'success': True, 
+                    'sale_id': sale.id,
+                    'has_phone': bool(sale.customer and sale.customer.phone) if sale.customer else False
+                })
+
+        except ValidationError as e:
             return JsonResponse({
                 'success': False,
                 'error': str(e)
             }, status=400)
-    
-    return JsonResponse({'success': False, 'error': 'Método não permitido'}, status=405)
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Dados da venda inválidos'
+            }, status=400)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Erro ao processar a venda: {str(e)}'
+            }, status=500)
+
+    return JsonResponse({
+        'success': False,
+        'error': 'Método não permitido'
+    }, status=405)
 
 @login_required
 def sales_report(request):

@@ -17,6 +17,7 @@
     .product-name {
         display: -webkit-box;
         -webkit-line-clamp: 2;
+        line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1175,13 +1176,23 @@
         
         // Validar quantidade
         if (quantity < 1) {
-            alert('A quantidade deve ser no mínimo 1.');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Quantidade Inválida',
+                text: 'A quantidade deve ser no mínimo 1.',
+                confirmButtonText: 'OK'
+            });
             return;
         }
         
         const stock = parseInt(document.getElementById('modal-product-stock').textContent);
         if (quantity > stock) {
-            alert(`Estoque insuficiente. Disponível: ${stock}`);
+            Swal.fire({
+                icon: 'warning',
+                title: 'Estoque Insuficiente',
+                text: `Estoque insuficiente. Disponível: ${stock}`,
+                confirmButtonText: 'OK'
+            });
             return;
         }
         
@@ -1259,7 +1270,12 @@
             if (cart.length > 0) {
                 document.getElementById('finish-sale').click();
                 } else {
-                alert('Adicione produtos ao carrinho antes de finalizar a venda.');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Carrinho Vazio',
+                    text: 'Adicione produtos ao carrinho antes de finalizar a venda.',
+                    confirmButtonText: 'OK'
+                });
                 }
         }
         }
@@ -1320,7 +1336,12 @@
             // Verificar se há itens no carrinho
             if (cart.length === 0) {
                 e.preventDefault();
-            alert('Adicione produtos ao carrinho antes de finalizar a venda.');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Carrinho Vazio',
+                    text: 'Adicione produtos ao carrinho antes de finalizar a venda.',
+                    confirmButtonText: 'OK'
+                });
             return false;
         }
         
@@ -1329,7 +1350,12 @@
         const paymentMethod = paymentMethodEl.options[paymentMethodEl.selectedIndex];
         if (!paymentMethod || paymentMethod.value === '') {
                 e.preventDefault();
-            alert('Selecione um método de pagamento antes de finalizar.');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Método de Pagamento',
+                    text: 'Selecione um método de pagamento antes de finalizar.',
+                    confirmButtonText: 'OK'
+                });
             paymentMethodEl.focus();
             return false;
         }
@@ -1378,80 +1404,101 @@
             notes: document.getElementById('notes').value || '',
             send_whatsapp: document.getElementById('send-whatsapp-receipt').checked
         };
-        
+
         // Enviar a venda para o servidor via AJAX
         fetch("{% url 'sales:confirm_sale' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify(saleData)
-            })
-        .then(response => response.json())
-            .then(data => {
-            if (data.success) {
-                console.log("Venda registrada com sucesso:", data);
-                
-                // Mostrar mensagem de sucesso
-                document.getElementById('sale-success-message').style.display = 'block';
-                
-                // Esconder botão de confirmar e mostrar botão de fechar
-                this.style.display = 'none';
-                document.getElementById('view-sales-history').style.display = 'inline-block';
-                document.getElementById('view-sales-history').href = "{% url 'sales:sale_list' %}";
-                
-                // Limpar o PDV
-                resetPDV();
-                
-                // Mostrar toast de confirmação
-                const toast = new bootstrap.Toast(document.getElementById('successToast'));
-                toast.show();
-                
-                // Ativar fechamento do modal com Enter
-                activateSuccessCloseWithEnter();
-                
-                // Se tiver uma URL de recibo e o cliente escolheu enviar por WhatsApp
-                if (data.has_phone && saleData.send_whatsapp) {
-                    // Atrasa um pouco o redirecionamento para garantir que o modal seja fechado primeiro
-                    setTimeout(() => {
-                        window.open(`/sistema/vendas/${data.sale_id}/whatsapp/`, '_blank');
-                    }, 500);
-                }
-
-                // Fechar o modal após um breve delay
-                setTimeout(() => {
-                    bootstrap.Modal.getInstance(document.getElementById('confirmationModal')).hide();
-                }, 1500);
-            } else {
-                alert(`Erro ao finalizar venda: ${data.error}`);
-                
-                // Restaurar o botão
-                this.disabled = false;
-                this.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Venda';
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(saleData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Erro ao processar a venda');
+                });
             }
-            })
-            .catch(error => {
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.error || 'Erro ao processar a venda');
+            }
+            console.log("Venda registrada com sucesso:", data);
+                
+            // Limpar o PDV imediatamente após o sucesso
+            resetPDV();
+                
+            // Mostrar mensagem de sucesso
+            document.getElementById('sale-success-message').style.display = 'block';
+                
+            // Esconder botão de confirmar e mostrar botão de fechar
+            this.style.display = 'none';
+            document.getElementById('view-sales-history').style.display = 'inline-block';
+            document.getElementById('view-sales-history').href = "{% url 'sales:sale_list' %}";
+                
+            // Mostrar toast de confirmação
+            const toast = new bootstrap.Toast(document.getElementById('successToast'));
+            toast.show();
+                
+            // Ativar fechamento do modal com Enter
+            activateSuccessCloseWithEnter();
+                
+            // Se tiver uma URL de recibo e o cliente escolheu enviar por WhatsApp
+            if (data.has_phone && saleData.send_whatsapp) {
+                setTimeout(() => {
+                    window.open(`/sistema/vendas/${data.sale_id}/whatsapp/`, '_blank');
+                }, 500);
+            }
+
+            // Fechar o modal após um breve delay
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('confirmationModal')).hide();
+                    
+                // Mostrar alerta de sucesso
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Venda Realizada',
+                    text: 'A venda foi registrada com sucesso!',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }, 500);
+        })
+        .catch(error => {
             console.error('Erro:', error);
-            alert('Erro ao processar a venda. Tente novamente.');
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro na Venda',
+                text: error.message || 'Ocorreu um erro ao processar a venda. Por favor, tente novamente.',
+                confirmButtonText: 'OK'
+            });
             
             // Restaurar o botão
             this.disabled = false;
             this.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Venda';
-            });
         });
+    });
 
     // Configurar o desconto para atualizar totais
     document.getElementById('discount').addEventListener('input', updateTotals);
 
     // Configurar o manipulador para Enter no modal de confirmação
     document.getElementById('confirmationModal').addEventListener('shown.bs.modal', function() {
+        // Desativar temporariamente o event listener global de atalhos
+        document.removeEventListener('keydown', handleShortcutKeys);
+        
         // Criar uma função global para lidar com o Enter
         window.handleConfirmEnter = function(event) {
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' && !event.repeat) {
                 event.preventDefault();
                 event.stopPropagation();
-                document.getElementById('confirm-sale').click();
+                const confirmButton = document.getElementById('confirm-sale');
+                if (!confirmButton.disabled) {
+                    confirmButton.click();
+                }
                 return false;
             }
         };
@@ -1461,10 +1508,12 @@
     });
     
     document.getElementById('confirmationModal').addEventListener('hidden.bs.modal', function() {
-        // Remover o event listener quando o modal fechar
+        // Remover o event listener específico do modal
         if (window.handleConfirmEnter) {
             document.removeEventListener('keydown', window.handleConfirmEnter);
         }
+        // Reativar o event listener global de atalhos
+        document.addEventListener('keydown', handleShortcutKeys);
     });
 
     // Quando o processamento da venda for concluído com sucesso e mostrarmos o botão de fechar
@@ -1518,32 +1567,39 @@
         document.getElementById('change-container').style.display = 'none';
         document.getElementById('change-amount').textContent = 'R$ 0,00';
 
+        // Remover listeners específicos dos modais
+        if (window.handleConfirmEnter) {
+            document.removeEventListener('keydown', window.handleConfirmEnter);
+            window.handleConfirmEnter = null;
+        }
+        if (window.handleSuccessEnter) {
+            document.removeEventListener('keydown', window.handleSuccessEnter);
+            window.handleSuccessEnter = null;
+        }
+
         // Esconder botão de limpar cliente
         const clearButton = document.querySelector('.position-relative button');
         if (clearButton) {
             clearButton.style.display = 'none';
         }
 
-        // Desabilitar e desmarcar checkbox do WhatsApp
-        const whatsappCheck = document.getElementById('send-whatsapp-receipt');
-        if (whatsappCheck) {
-            whatsappCheck.disabled = true;
-            whatsappCheck.checked = false;
+        // Resetar estado do botão finalizar venda
+        const finishSaleBtn = document.getElementById('finish-sale');
+        if (finishSaleBtn) {
+            finishSaleBtn.disabled = false;
+            finishSaleBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i> Finalizar Venda';
         }
 
-        // Resetar seleção de produtos
-        const productsTable = document.getElementById('products-grid');
-        const allRows = productsTable.querySelectorAll('tbody tr.product-item');
-        allRows.forEach(row => {
-            row.classList.remove('selected');
-            row.classList.remove('not-selected');
-            row.style.outline = '';
-            row.style.display = '';
-        });
-
-        // Focar no campo de busca
-        const searchInput = document.getElementById('product-search');
-        searchInput.focus();
+        // Resetar estado do botão confirmar venda no modal
+        const confirmSaleBtn = document.getElementById('confirm-sale');
+        if (confirmSaleBtn) {
+            confirmSaleBtn.disabled = false;
+            confirmSaleBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Venda';
+        }
+        
+        // Reativar manipuladores de atalhos globais
+        document.removeEventListener('keydown', handleShortcutKeys);
+        document.addEventListener('keydown', handleShortcutKeys);
     }
 </script>
 </div>

@@ -41,7 +41,13 @@ class Sale(models.Model):
     )
     
     company = models.ForeignKey(Company, on_delete=models.CASCADE, verbose_name='Empresa', related_name='sales')
-    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Cliente', related_name='sales')
+    customer = models.ForeignKey(
+        'customers.Customer',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sales'
+    )
     payment_method = models.ForeignKey(PaymentMethod, on_delete=models.PROTECT, verbose_name='Método de Pagamento', related_name='sales')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, verbose_name='Criado por', related_name='sales_created')
     status = models.CharField('Status', max_length=20, choices=STATUS_CHOICES, default='pending')
@@ -129,5 +135,9 @@ class SaleItem(models.Model):
         
         # Atualizar estoque do produto apenas se a venda estiver paga
         if self.sale.status == 'paid':
-            self.product.stock_quantity -= self.quantity
-            self.product.save()
+            if self.product.has_variations:
+                # Se o produto tem variações, deve ser tratado de forma diferente
+                pass  # TODO: Implementar lógica para produtos com variações
+            else:
+                self.product.stock_quantity = models.F('stock_quantity') - self.quantity
+                self.product.save()
