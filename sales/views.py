@@ -3,11 +3,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q, Sum, Count, Avg, F, DecimalField, CharField, Value, ExpressionWrapper
-from django.db.models.functions import Concat
+from django.db.models.functions import Concat, TruncDate, ExtractHour, ExtractWeekDay
 from django.core.paginator import Paginator
 from django.utils import timezone
 from datetime import timedelta
 import json
+import numpy as np
 from decimal import Decimal
 from django.core.serializers.json import DjangoJSONEncoder
 from .models import Sale, SaleItem, PaymentMethod
@@ -334,157 +335,156 @@ def create_sale(request):
 @login_required
 def sales_report(request):
     """
-    View para relatório de vendas com gráficos
+    View para exibir relatórios de vendas com análises detalhadas
     """
-    # Obtém o período selecionado (padrão: 30 dias)
     period = request.GET.get('period', '30')
     days = int(period)
+    category = request.GET.get('category', '')
+    sort = request.GET.get('sort', 'date')
     
-    # Data inicial do período atual
-    if days == 1:
-        start_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    else:
-        start_date = timezone.now() - timedelta(days=days)
+    start_date = timezone.now() - timedelta(days=days)
     
-    # Data inicial do período anterior (para comparação)
-    start_date_previous = start_date - timedelta(days=days)
-    
-    # Vendas no período atual
-    sales = Sale.objects.filter(
+    # Query base de vendas
+    sales_query = Sale.objects.filter(
         company=request.user.company,
-        created_at__gte=start_date,
-        status='paid'
+        status='paid',
+        created_at__gte=start_date
     )
     
-    # Vendas no período anterior
-    sales_previous = Sale.objects.filter(
-        company=request.user.company,
-        created_at__gte=start_date_previous,
-        created_at__lt=start_date,
-        status='paid'
-    )
-    
-    # Métricas do período atual
-    total_sales = sales.count()
-    total_revenue = sales.aggregate(
-        total=Sum('total', output_field=DecimalField(max_digits=10, decimal_places=2))
-    )['total'] or 0
-    average_ticket = total_revenue / total_sales if total_sales > 0 else 0
-    
-    # Métricas do período anterior
-    total_sales_previous = sales_previous.count()
-    total_revenue_previous = sales_previous.aggregate(
-        total=Sum('total', output_field=DecimalField(max_digits=10, decimal_places=2))
-    )['total'] or 0
-    average_ticket_previous = total_revenue_previous / total_sales_previous if total_sales_previous > 0 else 0
-    
-    # Calcular variações percentuais
-    sales_variation = ((total_sales - total_sales_previous) / total_sales_previous * 100) if total_sales_previous > 0 else 0
-    revenue_variation = ((total_revenue - total_revenue_previous) / total_revenue_previous * 100) if total_revenue_previous > 0 else 0
-    ticket_variation = ((average_ticket - average_ticket_previous) / average_ticket_previous * 100) if average_ticket_previous > 0 else 0
-    
-    # Taxa de conversão atual
-    total_attempts = Sale.objects.filter(created_at__gte=start_date).count()
-    conversion_rate = (total_sales / total_attempts * 100) if total_attempts > 0 else 0
-    
-    # Taxa de conversão anterior
-    total_attempts_previous = Sale.objects.filter(
-        created_at__gte=start_date_previous,
-        created_at__lt=start_date
-    ).count()
-    conversion_rate_previous = (total_sales_previous / total_attempts_previous * 100) if total_attempts_previous > 0 else 0
-    
-    # Variação da taxa de conversão
-    conversion_variation = ((conversion_rate - conversion_rate_previous) / conversion_rate_previous * 100) if conversion_rate_previous > 0 else 0
-    
-    # Vendas por dia
-    sales_by_date = sales.values('created_at__date').annotate(
-        date=F('created_at__date'),
-        total_sales=Count('id'),
-        total_revenue=Sum('total', output_field=DecimalField(max_digits=10, decimal_places=2)),
-        avg_ticket=Avg('total', output_field=DecimalField(max_digits=10, decimal_places=2))
-    ).order_by('created_at__date')
-
-    # Preparar dados para o gráfico
-    chart_data = {
-        'labels': [],
-        'values': []
-    }
-
-    for sale in sales_by_date:
-        chart_data['labels'].append(sale['date'].strftime('%d/%m'))
-        chart_data['values'].append(float(sale['total_revenue']))
-
-    # Converter para JSON
-    sales_chart_data = json.dumps(chart_data)
-
-    # Produtos mais vendidos
-    top_products = SaleItem.objects.filter(
-        sale__in=sales
-    ).values(
-        'product__name'
-    ).annotate(
-        name=F('product__name'),
-        quantity=Sum('quantity'),
-        revenue=Sum('subtotal', output_field=DecimalField(max_digits=10, decimal_places=2))
-    ).order_by('-quantity')[:10]
-    
-    # Desempenho por vendedor
-    sellers = Sale.objects.filter(
-        id__in=sales
-    ).values(
-        'created_by__username',
-        'created_by__first_name',
-        'created_by__last_name'
-    ).annotate(
-        name=Concat(
-            F('created_by__first_name'),
-            Value(' '),
-            F('created_by__last_name'),
-            output_field=CharField()
-        ),
-        username=F('created_by__username'),
-        total_sales=Count('id'),
-        total_revenue=Sum('total', output_field=DecimalField(max_digits=10, decimal_places=2))
-    ).order_by('-total_revenue')
-    
-    # Adicionar ticket médio por vendedor e tratar nomes vazios
-    for seller in sellers:
-        seller['avg_ticket'] = seller['total_revenue'] / seller['total_sales'] if seller['total_sales'] > 0 else 0
-        if not seller['name'] or seller['name'].strip() == ' ':
-            seller['name'] = seller['username']
-    
-    # Calcular lucro total e margem de lucro
-    total_profit = SaleItem.objects.filter(
-        sale__in=sales
-    ).annotate(
-        profit=ExpressionWrapper(
-            (F('price') - F('product__cost')) * F('quantity'),
-            output_field=DecimalField(max_digits=10, decimal_places=2)
+    # Análise por método de pagamento
+    payment_analysis = (
+        sales_query
+        .values('payment_method__name')
+        .annotate(
+            total_sales=Count('id'),
+            total_revenue=Sum('total'),
+            avg_ticket=ExpressionWrapper(
+                Sum('total') / Count('id'),
+                output_field=DecimalField(max_digits=10, decimal_places=2)
+            )
         )
-    ).aggregate(
-        total=Sum('profit')
-    )['total'] or Decimal('0')
-
-    # Calcular margem de lucro
+        .order_by('-total_revenue')
+    )
+    
+    # Análise de horários de pico
+    peak_hours = (
+        sales_query
+        .annotate(hour=ExtractHour('created_at'))
+        .values('hour')
+        .annotate(
+            total_sales=Count('id'),
+            total_revenue=Sum('total')
+        )
+        .order_by('hour')
+    )
+    
+    # Análise de dias da semana
+    weekday_analysis = (
+        sales_query
+        .annotate(weekday=ExtractWeekDay('created_at'))
+        .values('weekday')
+        .annotate(
+            total_sales=Count('id'),
+            total_revenue=Sum('total')
+        )
+        .order_by('weekday')
+    )
+    
+    # Análise de recorrência de clientes
+    customer_recurrence = (
+        sales_query
+        .values('customer')
+        .annotate(
+            purchase_count=Count('id'),
+            total_spent=Sum('total'),
+            avg_ticket=Avg('total'),
+            first_purchase=Min('created_at'),
+            last_purchase=Max('created_at')
+        )
+        .filter(customer__isnull=False)
+        .order_by('-purchase_count')
+    )
+    
+    # Calcular outros indicadores importantes
+    totals = sales_query.aggregate(
+        total_sales=Count('id'),
+        total_revenue=Sum('total'),
+        total_items=Sum('items__quantity'),
+        total_cost=Sum(F('items__quantity') * F('items__cost_price')),
+        avg_items_per_sale=Avg('items__quantity')
+    )
+    
+    total_sales = totals['total_sales'] or 0
+    total_revenue = totals['total_revenue'] or 0
+    total_items = totals['total_items'] or 0
+    total_cost = totals['total_cost'] or 0
+    avg_items_per_sale = totals['avg_items_per_sale'] or 0
+    
+    # Calcular métricas de performance
+    average_ticket = total_revenue / total_sales if total_sales > 0 else 0
+    total_profit = total_revenue - total_cost
     profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # Produtos e categorias mais vendidos
+    top_products = (
+        SaleItem.objects
+        .filter(sale__in=sales_query)
+        .values('product__name', 'product__code')
+        .annotate(
+            name=F('product__name'),
+            code=F('product__code'),
+            quantity=Sum('quantity'),
+            revenue=Sum(F('quantity') * F('price')),
+            profit=Sum(F('quantity') * (F('price') - F('cost_price'))),
+            margin=ExpressionWrapper(
+                Sum(F('quantity') * (F('price') - F('cost_price'))) / Sum(F('quantity') * F('price')) * 100,
+                output_field=DecimalField(max_digits=10, decimal_places=2)
+            )
+        )
+        .order_by('-quantity' if sort == 'quantity' else '-revenue')[:10]
+    )
+    
+    # Análise de vendas por dia com tendência
+    sales_by_date = (
+        sales_query
+        .annotate(date=TruncDate('created_at'))
+        .values('date')
+        .annotate(
+            total_sales=Count('id'),
+            total_revenue=Sum('total'),
+            items_sold=Sum('items__quantity'),
+            avg_ticket=Avg('total')
+        )
+        .order_by('date')
+    )
+    
+    # Dados para o gráfico
+    chart_data = {
+        'labels': [sale['date'].strftime('%d/%m') for sale in sales_by_date],
+        'values': [float(sale['total_revenue']) for sale in sales_by_date],
+        'items': [int(sale['items_sold'] or 0) for sale in sales_by_date],
+        'sales_count': [int(sale['total_sales']) for sale in sales_by_date],
+        'avg_tickets': [float(sale['avg_ticket'] or 0) for sale in sales_by_date]
+    }
     
     context = {
         'period': period,
+        'category': category,
+        'sort': sort,
         'total_sales': total_sales,
         'total_revenue': total_revenue,
+        'total_items': total_items,
         'average_ticket': average_ticket,
-        'conversion_rate': conversion_rate,
-        'sales_variation': sales_variation,
-        'revenue_variation': revenue_variation,
-        'ticket_variation': ticket_variation,
-        'conversion_variation': conversion_variation,
-        'sales_by_date': sales_by_date,
-        'top_products': top_products,
-        'sellers': sellers,
         'total_profit': total_profit,
         'profit_margin': profit_margin,
-        'sales_chart_data': sales_chart_data,
+        'avg_items_per_sale': avg_items_per_sale,
+        'sales_by_date': sales_by_date,
+        'top_products': top_products,
+        'payment_analysis': payment_analysis,
+        'peak_hours': peak_hours,
+        'weekday_analysis': weekday_analysis,
+        'customer_recurrence': customer_recurrence,
+        'chart_data': json.dumps(chart_data, cls=DjangoJSONEncoder)
     }
     
     return render(request, 'sales/sales_report.html', context)

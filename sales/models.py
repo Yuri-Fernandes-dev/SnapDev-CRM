@@ -6,6 +6,7 @@ from products.models import Product
 from decimal import Decimal
 from core.models import Company
 from django.contrib.auth import get_user_model
+from django.db.models import Sum, F
 import uuid
 import hashlib
 
@@ -41,11 +42,14 @@ class Sale(models.Model):
     
     company = models.ForeignKey(Company, on_delete=models.CASCADE, verbose_name='Empresa', related_name='sales')
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Cliente', related_name='sales')
-    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Método de Pagamento')
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Criado por')
+    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.PROTECT, verbose_name='Método de Pagamento', related_name='sales')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, verbose_name='Criado por', related_name='sales_created')
     status = models.CharField('Status', max_length=20, choices=STATUS_CHOICES, default='pending')
     total = models.DecimalField('Total', max_digits=10, decimal_places=2, default=0)
     discount = models.DecimalField('Desconto', max_digits=10, decimal_places=2, default=0)
+    cost_total = models.DecimalField('Custo Total', max_digits=10, decimal_places=2, default=0)
+    profit = models.DecimalField('Lucro', max_digits=10, decimal_places=2, default=0)
+    profit_margin = models.DecimalField('Margem de Lucro', max_digits=5, decimal_places=2, default=0)
     notes = models.TextField('Observações', blank=True, null=True)
     created_at = models.DateTimeField('Criado em', auto_now_add=True)
     updated_at = models.DateTimeField('Atualizado em', auto_now=True)
@@ -55,7 +59,7 @@ class Sale(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, 
         null=True, blank=True, related_name='canceled_sales'
     )
-    access_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
+    access_token = models.UUIDField(default=uuid.uuid4, editable=False)
     
     class Meta:
         verbose_name = 'Venda'
@@ -75,18 +79,30 @@ class Sale(models.Model):
         return total - self.discount if total else Decimal('0')
 
     def save(self, *args, **kwargs):
-        if not self.access_token:
-            self.access_token = self.generate_access_token()
+        if not self.pk:  # Se é uma nova venda
+            self.access_token = uuid.uuid4()
+        
+        # Recalcular totais se houver itens
+        if self.pk:
+            # Custo total
+            self.cost_total = self.items.aggregate(
+                total=Sum(F('quantity') * F('cost_price'))
+            )['total'] or Decimal('0')
+            
+            # Lucro
+            self.profit = self.total - self.cost_total
+            
+            # Margem de lucro
+            if self.total > 0:
+                self.profit_margin = (self.profit / self.total) * 100
+            else:
+                self.profit_margin = Decimal('0')
+        
         super().save(*args, **kwargs)
-    
-    def generate_access_token(self):
-        """Gera um token único para acesso ao recibo"""
-        unique_id = uuid.uuid4().hex
-        return hashlib.sha256(unique_id.encode()).hexdigest()
 
 class SaleItem(models.Model):
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, verbose_name='Venda', related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Produto')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name='Produto', related_name='sale_items')
     quantity = models.PositiveIntegerField('Quantidade', default=1)
     price = models.DecimalField('Preço', max_digits=10, decimal_places=2)
     cost_price = models.DecimalField('Custo', max_digits=10, decimal_places=2, null=True, blank=True)
@@ -100,13 +116,16 @@ class SaleItem(models.Model):
         return f'{self.quantity} x {self.product.name}'
     
     def save(self, *args, **kwargs):
-        # Capturar o custo do produto no momento da venda
-        if not self.id or not self.cost_price:  # Verificar na criação ou se cost_price estiver vazio
-            self.cost_price = self.product.cost
-            
+        # Atualizar preço de custo do produto
+        self.cost_price = self.product.cost
+        
         # Calcular subtotal
-        self.subtotal = self.price * self.quantity
+        self.subtotal = self.quantity * self.price
+        
         super(SaleItem, self).save(*args, **kwargs)
+        
+        # Recalcular totais da venda
+        self.sale.save()
         
         # Atualizar estoque do produto apenas se a venda estiver paga
         if self.sale.status == 'paid':

@@ -1,47 +1,56 @@
 {% extends 'core/base.html' %}
+{% load humanize %}
 
 {% block title %}Relatório de Vendas - SaaS CRM{% endblock %}
 
 {% block extra_css %}
 <style>
-.card {
-    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s;
-}
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08);
-}
 .stats-card {
     border-radius: 15px;
     overflow: hidden;
 }
+
 .stats-card .icon {
     width: 48px;
     height: 48px;
     border-radius: 12px;
 }
+
 .chart-container {
     position: relative;
     height: 300px;
     width: 100%;
 }
-.table thead th {
-    font-size: 0.875rem;
-    font-weight: 600;
-    border-bottom: 2px solid #e9ecef;
-}
-.table td {
-    font-size: 0.875rem;
-    vertical-align: middle;
-}
-.btn-filter {
-    border-radius: 20px;
-    padding: 8px 16px;
+
+.trend-indicator {
+    padding: 4px 8px;
+    border-radius: 4px;
     font-size: 0.875rem;
 }
-.btn-filter.active {
-    background-color: #5e72e4;
+
+.trend-up { 
+    background-color: rgba(40, 167, 69, 0.1); 
+    color: #28a745; 
+}
+
+.trend-down { 
+    background-color: rgba(220, 53, 69, 0.1); 
+    color: #dc3545; 
+}
+
+.heat-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.heat-cell {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: white;
 }
 </style>
@@ -49,123 +58,152 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Filtro de período -->
+    <!-- Filtros -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Relatório de Vendas</h5>
-                        <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-filter {% if period == '1' %}active{% endif %}" data-period="1">Hoje</button>
-                            <button type="button" class="btn btn-filter {% if period == '7' %}active{% endif %}" data-period="7">7 dias</button>
-                            <button type="button" class="btn btn-filter {% if period == '15' %}active{% endif %}" data-period="15">15 dias</button>
-                            <button type="button" class="btn btn-filter {% if period == '30' %}active{% endif %}" data-period="30">30 dias</button>
-                            <button type="button" class="btn btn-filter {% if period == '90' %}active{% endif %}" data-period="90">90 dias</button>
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Período</label>
+                            <select name="period" class="form-select">
+                                <option value="7" {% if period == '7' %}selected{% endif %}>Últimos 7 dias</option>
+                                <option value="15" {% if period == '15' %}selected{% endif %}>Últimos 15 dias</option>
+                                <option value="30" {% if period == '30' %}selected{% endif %}>Últimos 30 dias</option>
+                                <option value="90" {% if period == '90' %}selected{% endif %}>Últimos 90 dias</option>
+                            </select>
                         </div>
-                    </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Categoria</label>
+                            <select name="category" class="form-select">
+                                <option value="">Todas as categorias</option>
+                                {% for category in top_categories %}
+                                    <option value="{{ category.name }}" {% if category.name == selected_category %}selected{% endif %}>
+                                        {{ category.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Ordenar por</label>
+                            <select name="sort" class="form-select">
+                                <option value="date" {% if sort == 'date' %}selected{% endif %}>Data</option>
+                                <option value="revenue" {% if sort == 'revenue' %}selected{% endif %}>Maior Receita</option>
+                                <option value="quantity" {% if sort == 'quantity' %}selected{% endif %}>Maior Quantidade</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter me-2"></i>Aplicar Filtros
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Resumo -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-sm-6 mb-4">
-            <div class="card stats-card">
+    <!-- KPIs -->
+    <div class="row g-4 mb-4">
+        <!-- Total de Vendas -->
+        <div class="col-xl-3 col-sm-6">
+            <div class="card stats-card h-100">
                 <div class="card-body p-3">
                     <div class="row">
                         <div class="col-8">
                             <div class="numbers">
-                                <div>
-                                    <h6 class="text-uppercase text-muted mb-2">Total de Vendas</h6>
-                                    <h4 class="mb-0 text-primary-dark">{{ total_sales|default:0 }}</h4>
-                                    <div class="small text-muted mt-2">
-                                        <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
-                                    </div>
-                                </div>
+                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Total de Vendas</p>
+                                <h5 class="font-weight-bolder mb-0">
+                                    {{ total_sales }}
+                                    <small class="text-muted">({{ total_items }} itens)</small>
+                                </h5>
+                                <small class="text-muted">
+                                    Média de {{ avg_items_per_sale|floatformat:1 }} itens por venda
+                                </small>
                             </div>
                         </div>
                         <div class="col-4 text-end">
                             <div class="icon icon-shape bg-gradient-primary shadow text-center">
-                                <i class="fas fa-shopping-cart text-lg opacity-10" aria-hidden="true"></i>
+                                <i class="fas fa-shopping-cart text-lg opacity-10"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-sm-6 mb-4">
-            <div class="card stats-card">
+
+        <!-- Receita Total -->
+        <div class="col-xl-3 col-sm-6">
+            <div class="card stats-card h-100">
                 <div class="card-body p-3">
                     <div class="row">
                         <div class="col-8">
                             <div class="numbers">
-                                <div>
-                                    <h6 class="text-uppercase text-muted mb-2">Receita Total</h6>
-                                    <h4 class="mb-0 text-success">R$ {{ total_revenue|floatformat:2 }}</h4>
-                                    <div class="small text-muted mt-2">
-                                        <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
-                                    </div>
-                                </div>
+                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Receita Total</p>
+                                <h5 class="font-weight-bolder mb-0">
+                                    R$ {{ total_revenue|floatformat:2 }}
+                                </h5>
+                                <small class="text-muted">
+                                    Lucro: R$ {{ total_profit|floatformat:2 }}
+                                </small>
                             </div>
                         </div>
                         <div class="col-4 text-end">
                             <div class="icon icon-shape bg-gradient-success shadow text-center">
-                                <i class="fas fa-dollar-sign text-lg opacity-10" aria-hidden="true"></i>
+                                <i class="fas fa-dollar-sign text-lg opacity-10"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-sm-6 mb-4">
-            <div class="card stats-card">
+
+        <!-- Ticket Médio -->
+        <div class="col-xl-3 col-sm-6">
+            <div class="card stats-card h-100">
                 <div class="card-body p-3">
                     <div class="row">
                         <div class="col-8">
                             <div class="numbers">
-                                <div>
-                                    <h6 class="text-uppercase text-muted mb-2">Ticket Médio</h6>
-                                    <h4 class="mb-0 text-info">R$ {{ average_ticket|floatformat:2 }}</h4>
-                                    <div class="small text-muted mt-2">
-                                        <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
-                                    </div>
-                                </div>
+                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Ticket Médio</p>
+                                <h5 class="font-weight-bolder mb-0">
+                                    R$ {{ average_ticket|floatformat:2 }}
+                                </h5>
+                                <small class="text-muted">
+                                    Por transação
+                                </small>
                             </div>
                         </div>
                         <div class="col-4 text-end">
-                            <div class="icon icon-shape bg-gradient-warning shadow text-center">
-                                <i class="fas fa-tag text-lg opacity-10" aria-hidden="true"></i>
+                            <div class="icon icon-shape bg-gradient-info shadow text-center">
+                                <i class="fas fa-receipt text-lg opacity-10"></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-sm-6 mb-4">
-            <div class="card stats-card">
+
+        <!-- Margem de Lucro -->
+        <div class="col-xl-3 col-sm-6">
+            <div class="card stats-card h-100">
                 <div class="card-body p-3">
                     <div class="row">
                         <div class="col-8">
                             <div class="numbers">
-                                <div>
-                                    <h6 class="text-uppercase text-muted mb-2">Margem de Lucro</h6>
-                                    <h4 class="mb-0">
-                                        <span class="text-warning">{{ profit_margin|default:0|floatformat:1 }}%</span>
-                                        <span class="text-success ms-2">
-                                            R$ {{ total_profit|default:0|floatformat:2 }}
-                                        </span>
-                                    </h4>
-                                    <div class="small text-muted mt-2">
-                                        <i class="fas fa-calendar me-1"></i> Últimos {{ period }} dias
-                                    </div>
-                                </div>
+                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Margem de Lucro</p>
+                                <h5 class="font-weight-bolder mb-0">
+                                    {{ profit_margin|floatformat:1 }}%
+                                </h5>
+                                <small class="text-muted">
+                                    Média do período
+                                </small>
                             </div>
                         </div>
                         <div class="col-4 text-end">
                             <div class="icon icon-shape bg-gradient-warning shadow text-center">
-                                <i class="fas fa-percentage text-lg opacity-10" aria-hidden="true"></i>
+                                <i class="fas fa-chart-pie text-lg opacity-10"></i>
                             </div>
                         </div>
                     </div>
@@ -174,21 +212,21 @@
         </div>
     </div>
 
-    <!-- Gráficos -->
+    <!-- Gráficos e Análises -->
     <div class="row mb-4">
-        <div class="col-lg-8 mb-4">
-            <div class="card">
-                <div class="card-header bg-white pb-0">
+        <!-- Evolução de Vendas -->
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header pb-0">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">Evolução de Vendas</h6>
-                        <div class="dropdown">
-                            <button class="btn btn-link text-secondary mb-0" data-bs-toggle="dropdown">
-                                <i class="fa fa-ellipsis-v"></i>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="exportTableToCSV('vendas-por-dia')">
+                                <i class="fas fa-file-csv me-1"></i>CSV
                             </button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#" onclick="exportChart('salesChart')">Exportar PNG</a></li>
-                                <li><a class="dropdown-item" href="#" onclick="exportTableToCSV('vendas-por-dia')">Exportar CSV</a></li>
-                            </ul>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportChart('salesChart')">
+                                <i class="fas fa-file-image me-1"></i>PNG
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -199,74 +237,111 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-4 mb-4">
-            <div class="card">
-                <div class="card-header bg-white pb-0">
+
+        <!-- Análise por Método de Pagamento -->
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header pb-0">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">Produtos Mais Vendidos</h6>
-                        <div class="dropdown">
-                            <button class="btn btn-link text-secondary mb-0" data-bs-toggle="dropdown">
-                                <i class="fa fa-ellipsis-v"></i>
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#" onclick="exportChart('productsChart')">Exportar PNG</a></li>
-                                <li><a class="dropdown-item" href="#" onclick="exportTableToCSV('produtos-mais-vendidos')">Exportar CSV</a></li>
-                            </ul>
-                        </div>
+                        <h6 class="mb-0">Métodos de Pagamento</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="exportTableToCSV('pagamentos')">
+                            <i class="fas fa-file-csv me-1"></i>CSV
+                        </button>
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="productsChart"></canvas>
+                    <div class="table-responsive">
+                        <table class="table align-items-center" id="pagamentos">
+                            <thead>
+                                <tr>
+                                    <th>Método</th>
+                                    <th>Vendas</th>
+                                    <th>Ticket Médio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payment_analysis %}
+                                <tr>
+                                    <td>{{ payment.payment_method__name }}</td>
+                                    <td>{{ payment.total_sales }}</td>
+                                    <td>R$ {{ payment.avg_ticket|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row">
-        <!-- Tabela de Vendas por Dia -->
-        <div class="col-12 mb-4">
+    <!-- Horários de Pico e Dias da Semana -->
+    <div class="row mb-4">
+        <!-- Horários de Pico -->
+        <div class="col-lg-6">
             <div class="card">
-                <div class="card-header bg-white pb-0">
+                <div class="card-header pb-0">
+                    <h6 class="mb-0">Horários de Pico</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="peakHoursChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vendas por Dia da Semana -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header pb-0">
+                    <h6 class="mb-0">Vendas por Dia da Semana</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="weekdayChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Análise de Produtos e Clientes -->
+    <div class="row">
+        <!-- Top Produtos -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header pb-0">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">Detalhamento de Vendas por Dia</h6>
-                        <button class="btn btn-sm btn-primary" onclick="exportTableToCSV('vendas-por-dia')">
-                            <i class="fas fa-download me-1"></i>Exportar CSV
+                        <h6 class="mb-0">Produtos Mais Vendidos</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="exportTableToCSV('produtos')">
+                            <i class="fas fa-file-csv me-1"></i>CSV
                         </button>
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table align-items-center" id="vendas-por-dia">
+                        <table class="table align-items-center" id="produtos">
                             <thead>
                                 <tr>
-                                    <th>Data</th>
-                                    <th>Total de Vendas</th>
-                                    <th>Receita Total</th>
-                                    <th>Ticket Médio</th>
-                                    <th>Taxa de Conversão</th>
-                                    <th>Tendência</th>
+                                    <th>Produto</th>
+                                    <th>Qtd</th>
+                                    <th>Receita</th>
+                                    <th>Margem</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for sale in sales_by_date %}
+                                {% for product in top_products %}
                                 <tr>
-                                    <td>{{ sale.date|date:"d/m/Y" }}</td>
-                                    <td>{{ sale.total_sales }}</td>
-                                    <td>R$ {{ sale.total_revenue|floatformat:2 }}</td>
-                                    <td>R$ {{ sale.avg_ticket|floatformat:2 }}</td>
-                                    <td>{{ sale.conversion_rate|floatformat:1 }}%</td>
                                     <td>
-                                        <div class="d-flex align-items-center">
-                                            <span class="me-2 text-success">
-                                                <i class="fas fa-arrow-up"></i>
-                                            </span>
-                                            <div class="progress" style="width: 100px">
-                                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ sale.conversion_rate }}%"></div>
-                                            </div>
+                                        <div class="d-flex flex-column">
+                                            <span class="fw-semibold">{{ product.name }}</span>
+                                            <small class="text-muted">#{{ product.code }}</small>
                                         </div>
                                     </td>
+                                    <td>{{ product.quantity }}</td>
+                                    <td>R$ {{ product.revenue|floatformat:2 }}</td>
+                                    <td>{{ product.margin|floatformat:1 }}%</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -276,51 +351,35 @@
             </div>
         </div>
 
-        <!-- Desempenho por Vendedor -->
-        <div class="col-12">
+        <!-- Análise de Recorrência -->
+        <div class="col-lg-6 mb-4">
             <div class="card">
-                <div class="card-header bg-white pb-0">
+                <div class="card-header pb-0">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">Desempenho por Vendedor</h6>
-                        <button class="btn btn-sm btn-primary" onclick="exportTableToCSV('vendedores')">
-                            <i class="fas fa-download me-1"></i>Exportar CSV
+                        <h6 class="mb-0">Recorrência de Clientes</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="exportTableToCSV('clientes')">
+                            <i class="fas fa-file-csv me-1"></i>CSV
                         </button>
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table align-items-center" id="vendedores">
+                        <table class="table align-items-center" id="clientes">
                             <thead>
                                 <tr>
-                                    <th>Vendedor</th>
-                                    <th>Vendas</th>
-                                    <th>Receita</th>
+                                    <th>Cliente</th>
+                                    <th>Compras</th>
+                                    <th>Total Gasto</th>
                                     <th>Ticket Médio</th>
-                                    <th>Performance</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for seller in sellers %}
+                                {% for customer in customer_recurrence %}
                                 <tr>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="avatar avatar-sm rounded-circle bg-gradient-primary me-2">
-                                                <span class="text-white">{{ seller.name|default:seller.username|first|upper }}</span>
-                                            </div>
-                                            <span>{{ seller.name|default:seller.username }}</span>
-                                        </div>
-                                    </td>
-                                    <td>{{ seller.total_sales }}</td>
-                                    <td>R$ {{ seller.total_revenue|floatformat:2 }}</td>
-                                    <td>R$ {{ seller.avg_ticket|floatformat:2 }}</td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <span class="me-2 text-success">100%</span>
-                                            <div class="progress" style="width: 100px">
-                                                <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
-                                            </div>
-                                        </div>
-                                    </td>
+                                    <td>{{ customer.customer__name }}</td>
+                                    <td>{{ customer.purchase_count }}</td>
+                                    <td>R$ {{ customer.total_spent|floatformat:2 }}</td>
+                                    <td>R$ {{ customer.avg_ticket|floatformat:2 }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -334,195 +393,216 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Função para formatar data
-function formatDate(date) {
-    const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
-    return new Date(date).toLocaleDateString('pt-BR', options);
-}
-
-// Função para exportar tabela para CSV
-function exportTableToCSV(tableId, filename = '') {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-    
-    const rows = Array.from(table.querySelectorAll('tr'));
-    
-    // Extrair cabeçalho
-    const header = Array.from(rows[0].querySelectorAll('th')).map(th => th.textContent.trim());
-    
-    // Extrair dados
-    const csvData = [header];
-    for (let i = 1; i < rows.length; i++) {
-        const row = Array.from(rows[i].querySelectorAll('td')).map(td => {
-            // Remove formatação de moeda e porcentagem
-            let text = td.textContent.trim();
-            if (text.startsWith('R$')) {
-                text = text.replace('R$', '').trim().replace('.', '').replace(',', '.');
-            }
-            if (text.endsWith('%')) {
-                text = text.replace('%', '').trim().replace(',', '.');
-            }
-            return `"${text}"`;
-        });
-        csvData.push(row);
-    }
-    
-    // Converter para CSV
-    const csv = csvData.map(row => row.join(',')).join('\n');
-    
-    // Criar arquivo e fazer download
-    const csvFile = new Blob([csv], { type: 'text/csv' });
-    const downloadLink = document.createElement('a');
-    downloadLink.download = filename || `tabela_${tableId}_${new Date().toISOString().slice(0, 10)}.csv`;
-    downloadLink.href = window.URL.createObjectURL(csvFile);
-    downloadLink.style.display = 'none';
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-}
-
-// Função para exportar gráfico como imagem
-function exportChart(chartId) {
-    const canvas = document.getElementById(chartId);
-    const link = document.createElement('a');
-    const now = new Date();
-    const fileName = `grafico_${chartId}_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}.png`;
-    
-    link.download = fileName;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-}
-
-// Configuração dos gráficos
 document.addEventListener('DOMContentLoaded', function() {
-    try {
-        // Configuração do gráfico de vendas
-        const ctx = document.getElementById('salesChart');
-        if (!ctx) {
-            console.error("Elemento 'salesChart' não encontrado");
-            return;
-        }
-        
-        let chartData;
-        try {
-            chartData = JSON.parse('{{ sales_chart_data|escapejs }}');
-            console.log("Chart data:", chartData); // Log para debug
-        } catch (error) {
-            console.error("Erro ao analisar dados do gráfico:", error);
-            chartData = {labels: [], values: []};
-        }
-
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: chartData.labels || [],
-                datasets: [{
-                    label: 'Receita Diária',
-                    data: chartData.values || [],
-                    backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 0,
-                    borderRadius: 0,
-                    barPercentage: 0.2,
-                    categoryPercentage: 0.8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2
-                                });
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.1)',
-                            drawBorder: false
+    const setupCharts = () => {
+        // Gráfico de vendas
+        const salesChartCtx = document.getElementById('salesChart');
+        if (salesChartCtx) {
+            const chartData = JSON.parse('{{ chart_data|escapejs }}');
+            
+            new Chart(salesChartCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [
+                        {
+                            label: 'Vendas Diárias',
+                            data: chartData.values,
+                            borderColor: '#4c6ef5',
+                            backgroundColor: 'rgba(76, 110, 245, 0.1)',
+                            tension: 0.4,
+                            fill: true
                         },
-                        ticks: {
-                            callback: function(value) {
-                                return 'R$ ' + value.toLocaleString('pt-BR', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2
-                                });
-                            }
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false,
-                            drawBorder: false
+                        {
+                            label: 'Número de Itens',
+                            data: chartData.items,
+                            borderColor: '#2ecc71',
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            fill: false
                         },
-                        offset: false,
-                        distribution: 'linear',
-                        ticks: {
-                            maxRotation: 0,
-                            autoSkip: false
+                        {
+                            label: 'Ticket Médio',
+                            data: chartData.avg_tickets,
+                            borderColor: '#f39c12',
+                            borderDash: [3, 3],
+                            tension: 0.4,
+                            fill: false
                         }
-                    }
-                }
-            }
-        });
-
-        // Dados para o gráfico de produtos
-        const productsChart = document.getElementById('productsChart');
-        if (productsChart) {
-            const productsData = {
-                labels: [{% for product in top_products|slice:":5" %}'{{ product.name }}',{% endfor %}],
-                datasets: [{
-                    data: [{% for product in top_products|slice:":5" %}{{ product.quantity }},{% endfor %}],
-                    backgroundColor: [
-                        '#5e72e4',
-                        '#2dce89',
-                        '#fb6340',
-                        '#11cdef',
-                        '#f5365c'
                     ]
-                }]
-            };
-
-            // Configuração do gráfico de produtos
-            new Chart(productsChart, {
-                type: 'doughnut',
-                data: productsData,
+                },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    },
                     plugins: {
-                        legend: {
-                            position: 'right'
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    let value = context.raw;
+                                    
+                                    if (label === 'Vendas Diárias' || label === 'Ticket Médio') {
+                                        return label + ': R$ ' + value.toFixed(2);
+                                    } else if (label === 'Número de Itens') {
+                                        return label + ': ' + value;
+                                    }
+                                    return label;
+                                }
+                            }
                         }
                     }
                 }
             });
         }
-    } catch (error) {
-        console.error("Erro ao inicializar gráficos:", error);
-    }
 
-    // Configuração dos botões de filtro
-    document.querySelectorAll('.btn-filter').forEach(button => {
-        button.addEventListener('click', function() {
-            const period = this.dataset.period;
-            window.location.href = `?period=${period}`;
-        });
-    });
+        // Gráfico de horários de pico
+        const peakHoursCtx = document.getElementById('peakHoursChart');
+        if (peakHoursCtx) {
+            const peakHoursData = {
+                labels: {% for hour in peak_hours %}'{{ hour.hour }}h'{% if not forloop.last %}, {% endif %}{% endfor %},
+                datasets: [{
+                    label: 'Vendas por Hora',
+                    data: [{% for hour in peak_hours %}{{ hour.total_sales }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                    backgroundColor: 'rgba(76, 110, 245, 0.2)',
+                    borderColor: '#4c6ef5',
+                    borderWidth: 1
+                }]
+            };
+
+            new Chart(peakHoursCtx, {
+                type: 'bar',
+                data: peakHoursData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de dias da semana
+        const weekdayCtx = document.getElementById('weekdayChart');
+        if (weekdayCtx) {
+            const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+            const weekdayData = {
+                labels: weekdays,
+                datasets: [{
+                    label: 'Vendas por Dia',
+                    data: [{% for day in weekday_analysis %}{{ day.total_sales }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                    backgroundColor: 'rgba(46, 204, 113, 0.2)',
+                    borderColor: '#2ecc71',
+                    borderWidth: 1
+                }]
+            };
+
+            new Chart(weekdayCtx, {
+                type: 'radar',
+                data: weekdayData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    };
+
+    setupCharts();
 });
+
+// Função para exportar tabela para CSV
+function exportTableToCSV(tableId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    
+    let csv = [];
+    
+    // Header
+    const header = [];
+    const headerCells = table.querySelectorAll('thead th');
+    headerCells.forEach(cell => {
+        let text = cell.textContent.trim();
+        text = text.replace(/[,"\n\r]/g, ' ');
+        header.push(`"${text}"`);
+    });
+    csv.push(header.join(','));
+    
+    // Rows
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const rowData = [];
+        const cells = row.querySelectorAll('td');
+        cells.forEach(cell => {
+            let text = cell.textContent.trim();
+            if (text.startsWith('R$')) {
+                text = text.replace('R$', '').trim().replace('.', '').replace(',', '.');
+            }
+            text = text.replace(/[,"\n\r]/g, ' ');
+            rowData.push(`"${text}"`);
+        });
+        csv.push(rowData.join(','));
+    });
+    
+    // Download
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `${tableId}_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Função para exportar gráfico como imagem
+function exportChart(chartId) {
+    const canvas = document.getElementById(chartId);
+    if (!canvas) return;
+    
+    // Configurar background branco
+    const ctx = canvas.getContext('2d');
+    const currentFill = ctx.fillStyle;
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = currentFill;
+    
+    const image = canvas.toDataURL('image/png', 1.0);
+    const link = document.createElement('a');
+    link.href = image;
+    link.download = `${chartId}_${new Date().toISOString().slice(0,10)}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 </script>
-{% endblock %} 
+{% endblock %}

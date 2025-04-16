@@ -59,6 +59,9 @@ def stop_impersonating(request):
         del request.session['impersonate_user_id']
     return redirect('/')
 
+def redirect_to_system_dashboard(request):
+    return redirect('sistema/dashboard/')
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     
@@ -66,6 +69,9 @@ urlpatterns = [
     path('', core_views.home, name='home'),
     path('sobre/', core_views.about, name='about'),
     path('precos/', core_views.pricing, name='pricing'),
+    
+    # Redirecionamento do dashboard
+    path('dashboard/', redirect_to_system_dashboard),
     
     # URLs do sistema (protegidas por login)
     path('sistema/', include('core.urls')),  # URLs principais do sistema

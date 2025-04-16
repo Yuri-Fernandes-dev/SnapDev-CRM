@@ -1,11 +1,9 @@
 from django.urls import path
 from . import views
-from sales.views import sales_report
 
 urlpatterns = [
     # URLs do sistema (todas agora sob /sistema/)
     path('', views.dashboard, name='dashboard'),  # Dashboard como página inicial do sistema
-    path('relatorios/', sales_report, name='reports'),
     path('perfil/', views.profile, name='profile'),
     path('empresa/', views.company_settings, name='company_settings'),
     path('assinatura/', views.subscription, name='subscription'),

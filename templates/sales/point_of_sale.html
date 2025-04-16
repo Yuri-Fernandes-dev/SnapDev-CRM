@@ -812,50 +812,33 @@
         const customerSuggestions = document.getElementById('customer-suggestions');
         const customerId = document.getElementById('customer-id');
         
-        // Estilização aprimorada para as sugestões de clientes
-        customerSuggestions.style.maxHeight = '200px';
-        customerSuggestions.style.overflowY = 'auto';
-        
-        customerSearch.addEventListener('input', function() {
+        customerSearch?.addEventListener('input', function() {
             const searchTerm = this.value.trim();
             
             if (searchTerm.length < 2) {
                 customerSuggestions.style.display = 'none';
                 customerId.value = '';
+                this.classList.remove('is-valid');
                 return;
             }
             
-            console.log('Buscando clientes com termo:', searchTerm);
-            
             // Buscar clientes via AJAX
-            fetch(`/clientes/busca-ajax/?term=${encodeURIComponent(searchTerm)}`)
-                .then(response => {
-                    console.log('Status da resposta:', response.status);
-                    if (!response.ok) {
-                        throw new Error(`Erro na busca: ${response.status} ${response.statusText}`);
-                    }
-                    return response.json();
-                })
+            fetch(`/sistema/clientes/busca-ajax/?term=${encodeURIComponent(searchTerm)}`)
+                .then(response => response.json())
                 .then(data => {
-                    console.log('Dados recebidos:', data);
                     if (data.results && data.results.length > 0) {
                         // Mostrar sugestões
                         let suggestionsHtml = '';
                         data.results.forEach(customer => {
                             suggestionsHtml += `
-                                <div class="customer-suggestion p-2 border-bottom" data-id="${customer.id}" data-name="${customer.name}">
-                                    <div class="fw-medium">${customer.name}</div>
-                                    <div class="text-muted small">${customer.text.includes('-') ? customer.text.split('-')[1].trim() : ''}</div>
+                                <div class="customer-suggestion p-2 border-bottom" 
+                                    data-id="${customer.id}" 
+                                    data-name="${customer.name}"
+                                    data-has-phone="${customer.has_phone}">
+                                    <div class="fw-medium">${customer.text}</div>
                                 </div>
                             `;
                         });
-                        
-                        // Adicionar opção para cadastrar novo cliente
-                        suggestionsHtml += `
-                            <div class="p-2 text-primary new-customer-option" style="cursor: pointer;">
-                                <i class="fas fa-plus-circle me-1"></i> Cadastrar novo cliente
-                            </div>
-                        `;
                         
                         customerSuggestions.innerHTML = suggestionsHtml;
                         customerSuggestions.style.display = 'block';
@@ -865,32 +848,29 @@
                             suggestion.addEventListener('click', function() {
                                 const id = this.getAttribute('data-id');
                                 const name = this.getAttribute('data-name');
+                                const hasPhone = this.getAttribute('data-has-phone') === 'true';
                                 
                                 customerSearch.value = name;
                                 customerId.value = id;
                                 customerSuggestions.style.display = 'none';
-                                
-                                // Feedback visual de cliente selecionado
                                 customerSearch.classList.add('is-valid');
                                 
-                                // Atualizar o nome do cliente no modal de confirmação
+                                // Atualizar modal de confirmação
                                 if (document.getElementById('confirm-customer')) {
                                     document.getElementById('confirm-customer').textContent = name;
                                     document.getElementById('confirm-customer-container').style.display = 'block';
                                 }
                                 
-                                // Habilitar opção de envio de recibo por WhatsApp
-                                document.getElementById('send-whatsapp-receipt').disabled = false;
+                                // Habilitar opção de WhatsApp se o cliente tiver telefone
+                                const whatsappCheck = document.getElementById('send-whatsapp-receipt');
+                                if (whatsappCheck) {
+                                    whatsappCheck.disabled = !hasPhone;
+                                    whatsappCheck.checked = false; // Sempre começa desmarcado
+                                }
                             });
                         });
-                        
-                        // Adicionar evento para a opção de novo cliente
-                        document.querySelector('.new-customer-option')?.addEventListener('click', function() {
-                            // Abrir a página de cadastro de clientes em uma nova aba
-                            window.open('/clientes/novo/', '_blank');
-                        });
                     } else {
-                        // Exibir opção para cadastrar um novo cliente
+                        // Nenhum cliente encontrado - oferecer opção de cadastro
                         customerSuggestions.innerHTML = `
                             <div class="p-2 text-primary new-customer-option" style="cursor: pointer;">
                                 <i class="fas fa-plus-circle me-1"></i> Cadastrar novo cliente "${searchTerm}"
@@ -898,10 +878,9 @@
                         `;
                         customerSuggestions.style.display = 'block';
                         
-                        // Adicionar evento para a opção de novo cliente
+                        // Adicionar evento para cadastro de novo cliente
                         document.querySelector('.new-customer-option')?.addEventListener('click', function() {
-                            // Abrir a página de cadastro de clientes em uma nova aba
-                            window.open('/clientes/novo/?name=' + encodeURIComponent(searchTerm), '_blank');
+                            window.open('/sistema/clientes/novo/?name=' + encodeURIComponent(searchTerm), '_blank');
                         });
                     }
                 })
@@ -911,42 +890,13 @@
                 });
         });
         
-        // Adicionar evento de teclado para navegação nas sugestões
-        customerSearch.addEventListener('keydown', function(e) {
-            const suggestions = Array.from(document.querySelectorAll('.customer-suggestion'));
-            if (suggestions.length === 0 || customerSuggestions.style.display === 'none') return;
-            
-            let currentIndex = -1;
-            suggestions.forEach((suggestion, index) => {
-                if (suggestion.classList.contains('active')) {
-                    currentIndex = index;
-                    suggestion.classList.remove('active');
-                }
-            });
-            
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                currentIndex = (currentIndex + 1) % suggestions.length;
-                suggestions[currentIndex].classList.add('active');
-                suggestions[currentIndex].scrollIntoView({behavior: 'smooth', block: 'nearest'});
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                currentIndex = currentIndex <= 0 ? suggestions.length - 1 : currentIndex - 1;
-                suggestions[currentIndex].classList.add('active');
-                suggestions[currentIndex].scrollIntoView({behavior: 'smooth', block: 'nearest'});
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (currentIndex >= 0) {
-                    suggestions[currentIndex].click();
-                } else if (suggestions.length > 0) {
-                    suggestions[0].click();
-                }
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
+        // Fechar sugestões ao clicar fora
+        document.addEventListener('click', function(e) {
+            if (!customerSearch?.contains(e.target) && !customerSuggestions?.contains(e.target)) {
                 customerSuggestions.style.display = 'none';
             }
         });
-        
+
         // Adicionar botão para limpar a seleção de cliente
         const customerField = document.querySelector('.position-relative');
         const clearButton = document.createElement('button');
@@ -1451,10 +1401,8 @@
                 document.getElementById('view-sales-history').style.display = 'inline-block';
                 document.getElementById('view-sales-history').href = "{% url 'sales:sale_list' %}";
                 
-                // Limpar o carrinho
-                cart = [];
-                renderCartItems();
-                updateTotals();
+                // Limpar o PDV
+                resetPDV();
                 
                 // Mostrar toast de confirmação
                 const toast = new bootstrap.Toast(document.getElementById('successToast'));
@@ -1464,23 +1412,24 @@
                 activateSuccessCloseWithEnter();
                 
                 // Se tiver uma URL de recibo e o cliente escolheu enviar por WhatsApp
-                if (data.receipt_url && data.has_phone && saleData.send_whatsapp) {
-                    // Enviar recibo por WhatsApp
-                    fetch(`/sales/${data.sale_id}/whatsapp/`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': '{{ csrf_token }}'
-                        }
-                    });
-                    }
-                } else {
-                // Mostrar erro
+                if (data.has_phone && saleData.send_whatsapp) {
+                    // Atrasa um pouco o redirecionamento para garantir que o modal seja fechado primeiro
+                    setTimeout(() => {
+                        window.open(`/sistema/vendas/${data.sale_id}/whatsapp/`, '_blank');
+                    }, 500);
+                }
+
+                // Fechar o modal após um breve delay
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('confirmationModal')).hide();
+                }, 1500);
+            } else {
                 alert(`Erro ao finalizar venda: ${data.error}`);
                 
                 // Restaurar o botão
                 this.disabled = false;
                 this.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Venda';
-                }
+            }
             })
             .catch(error => {
             console.error('Erro:', error);
@@ -1545,6 +1494,57 @@
             document.removeEventListener('keydown', window.handleSuccessEnter);
         }
     });
+
+    // Função para resetar o PDV
+    function resetPDV() {
+        // Limpar o carrinho
+        cart = [];
+        renderCartItems();
+        updateTotals();
+
+        // Resetar campos de entrada
+        document.getElementById('product-search').value = '';
+        document.getElementById('discount').value = '0';
+        document.getElementById('payment-method').selectedIndex = 0;
+        document.getElementById('customer-search').value = '';
+        document.getElementById('customer-id').value = '';
+        document.getElementById('notes').value = '';
+        document.getElementById('payment-amount').value = '';
+
+        // Remover classe de validação do campo de cliente
+        document.getElementById('customer-search').classList.remove('is-valid');
+
+        // Esconder elementos relacionados ao troco
+        document.getElementById('change-container').style.display = 'none';
+        document.getElementById('change-amount').textContent = 'R$ 0,00';
+
+        // Esconder botão de limpar cliente
+        const clearButton = document.querySelector('.position-relative button');
+        if (clearButton) {
+            clearButton.style.display = 'none';
+        }
+
+        // Desabilitar e desmarcar checkbox do WhatsApp
+        const whatsappCheck = document.getElementById('send-whatsapp-receipt');
+        if (whatsappCheck) {
+            whatsappCheck.disabled = true;
+            whatsappCheck.checked = false;
+        }
+
+        // Resetar seleção de produtos
+        const productsTable = document.getElementById('products-grid');
+        const allRows = productsTable.querySelectorAll('tbody tr.product-item');
+        allRows.forEach(row => {
+            row.classList.remove('selected');
+            row.classList.remove('not-selected');
+            row.style.outline = '';
+            row.style.display = '';
+        });
+
+        // Focar no campo de busca
+        const searchInput = document.getElementById('product-search');
+        searchInput.focus();
+    }
 </script>
 </div>
-{% endblock %} 
+{% endblock %}
