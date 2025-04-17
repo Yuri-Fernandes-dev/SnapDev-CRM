@@ -1,0 +1,92 @@
+/* Estilos para animações personalizadas no SnapDev-CRM */
+
+/* Animação do impacto de pagamento de despesa */
+.payment-impact-animation {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    opacity: 0;
+    font-size: 18px;
+    pointer-events: none;
+    z-index: 1000;
+    transition: all 0.3s ease-out;
+}
+
+.payment-impact-animation.positive {
+    background-color: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+    border: 1px solid #28a745;
+}
+
+.payment-impact-animation.negative {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+    border: 1px solid #dc3545;
+}
+
+.payment-impact-animation.animate {
+    opacity: 1;
+    animation: float-up 2s ease-out;
+}
+
+/* Animação de pulso para o card de lucro quando recebe impacto */
+.profit-impact-pulse {
+    animation: cardPulse 0.6s ease-in-out;
+}
+
+/* Animação para destacar o texto quando uma despesa é paga */
+.text-pulse {
+    animation: textPulse 0.6s ease-in-out;
+}
+
+/* Keyframes para a animação de pulso do card */
+@keyframes cardPulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+    50% {
+        transform: scale(1.03);
+        box-shadow: 0 0 15px rgba(40, 167, 69, 0.8);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+}
+
+/* Keyframes para a animação de pulso do texto */
+@keyframes textPulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes float-up {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, 0%);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+    80% {
+        opacity: 1;
+        transform: translate(-50%, -70%);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -100%);
+    }
+}

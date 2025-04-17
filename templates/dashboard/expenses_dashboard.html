@@ -194,30 +194,118 @@
         font-weight: 600;
     }
     
-    /* Botão para alternar status de pagamento */
+    /* Botão para alternar status de pagamento - Melhorado */
     .payment-toggle {
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.3s ease;
         position: relative;
+        display: inline-block;
     }
-    
+
     .payment-toggle:hover {
-        transform: scale(1.1);
+        transform: scale(1.05);
     }
     
-    .payment-toggle:hover .click-hint {
+    /* Adicionar efeito 3D para parecer mais com um botão */
+    .payment-toggle .badge {
+        min-width: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        transition: all 0.25s ease;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .payment-toggle .badge:hover {
+        filter: brightness(1.1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .payment-toggle .badge i.fa-exchange-alt {
+        transition: transform 0.3s ease;
+        opacity: 0.7;
+        font-size: 0.9em;
+        margin-left: 8px;
+    }
+
+    .payment-toggle:hover .badge i.fa-exchange-alt {
+        transform: rotate(180deg);
         opacity: 1;
     }
     
-    .badge-status:after {
+    /* Adicionar pulsação mais visível para indicar que é clicável */
+    .payment-toggle .badge:after {
         content: '';
         position: absolute;
-        bottom: -3px;
+        top: 0;
         left: 0;
-        width: 100%;
-        height: 2px;
-        background-color: currentColor;
-        opacity: 0.5;
+        right: 0;
+        bottom: 0;
+        border: 2px dashed transparent;
+        border-radius: inherit;
+        animation: pulse 1.5s infinite;
+        opacity: 0;
+    }
+    
+    .payment-toggle:hover .badge:after {
+        opacity: 0.6;
+    }
+    
+    @keyframes pulse {
+        0% {
+            transform: scale(0.95);
+            border-color: rgba(0,0,0,0.1);
+        }
+        50% {
+            transform: scale(1);
+            border-color: rgba(0,0,0,0.3);
+        }
+        100% {
+            transform: scale(0.95);
+            border-color: rgba(0,0,0,0.1);
+        }
+    }
+    
+    /* Adicionar tooltip personalizado */
+    .payment-toggle .tooltip-text {
+        visibility: hidden;
+        width: 180px;
+        background-color: rgba(0,0,0,0.8);
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -90px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 0.8rem;
+        pointer-events: none;
+        font-weight: normal;
+    }
+    
+    .payment-toggle .tooltip-text::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: rgba(0,0,0,0.8) transparent transparent transparent;
+    }
+    
+    .payment-toggle:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
     }
     
     /* Ajustes responsivos */
@@ -262,7 +350,388 @@
         align-items: center;
         justify-content: center;
     }
+
+    /* Efeito de pulsação para destacar valores que mudam */
+    @keyframes text-pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.08); opacity: 1; color: #ffffff; text-shadow: 0 0 10px rgba(255,255,255,0.8); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    
+    .text-pulse {
+        animation: text-pulse 1.5s ease-in-out;
+        display: inline-block;
+    }
+    
+    #discounted-profit-value {
+        font-weight: bold;
+        font-size: 1.1rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+
+    .text-pulse {
+        animation: pulse 1s ease-in-out;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .card-value {
+        transition: color 0.5s ease;
+    }
+    
+    .value-increase {
+        color: #198754 !important;
+        animation: highlight-green 2s ease-out;
+    }
+    
+    .value-decrease {
+        color: #dc3545 !important;
+        animation: highlight-red 2s ease-out;
+    }
+    
+    @keyframes highlight-green {
+        0% { color: #198754; }
+        50% { color: #15c164; }
+        100% { color: #198754; }
+    }
+    
+    @keyframes highlight-red {
+        0% { color: #dc3545; }
+        50% { color: #ff6b70; }
+        100% { color: #dc3545; }
+    }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/expense-management.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Formatação de entradas monetárias
+        const moneyInputs = document.querySelectorAll('.money-input');
+        moneyInputs.forEach(input => {
+            input.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                
+                if (value === '') {
+                    e.target.value = '';
+                    return;
+                }
+                
+                // Converte para número e divide por 100 para obter o valor com centavos
+                value = parseFloat(value) / 100;
+                
+                // Formata para o padrão brasileiro (1.234,56)
+                e.target.value = value.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            });
+        });
+        
+        // Converter de volta para formato de backend no envio do formulário
+        const expenseForms = document.querySelectorAll('form');
+        expenseForms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const moneyInputs = form.querySelectorAll('.money-input');
+                moneyInputs.forEach(input => {
+                    if (input.value) {
+                        // Converter de formato brasileiro para o backend
+                        const rawValue = input.value
+                            .replace(/\./g, '')  // Remove separadores de milhar
+                            .replace(',', '.');  // Substitui vírgula decimal por ponto
+                        
+                        input.value = rawValue;
+                    }
+                });
+            });
+        });
+        
+        // Mostrar/ocultar opções de recorrência
+        const isRecurringCheckboxes = document.querySelectorAll('[id$="is_recurring"]');
+        isRecurringCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const idPrefix = this.id.replace('is_recurring', '');
+                const recurrenceOptions = document.getElementById(idPrefix + 'recurrenceOptions');
+                
+                if (recurrenceOptions) {
+                    recurrenceOptions.style.display = this.checked ? 'block' : 'none';
+                }
+            });
+            
+            // Verificar estado inicial
+            if (checkbox.checked) {
+                const idPrefix = checkbox.id.replace('is_recurring', '');
+                const recurrenceOptions = document.getElementById(idPrefix + 'recurrenceOptions');
+                if (recurrenceOptions) {
+                    recurrenceOptions.style.display = 'block';
+                }
+            });
+        });
+        
+        // Função para atualizar preview de ícone
+        function updateIconPreview() {
+            const icon = document.getElementById('categoryIcon').value;
+            const color = document.getElementById('categoryColor').value;
+            const preview = document.getElementById('iconPreview');
+            
+            preview.className = `d-inline-block rounded-circle bg-${color} text-white`;
+            preview.querySelector('i').className = `fas ${icon} fa-2x`;
+        }
+        
+        // Inicializar os previews de ícones
+        if (document.getElementById('categoryIcon')) {
+            document.getElementById('categoryIcon').addEventListener('change', updateIconPreview);
+            document.getElementById('categoryColor').addEventListener('change', updateIconPreview);
+        }
+
+        // Adicionar código para o modal de edição de categoria
+        if (document.getElementById('editCategoryIcon')) {
+            document.getElementById('editCategoryIcon').addEventListener('change', updateEditIconPreview);
+            document.getElementById('editCategoryColor').addEventListener('change', updateEditIconPreview);
+        }
+
+        // Função para excluir despesa
+        function setupDeleteExpenseButtons() {
+            document.querySelectorAll('.delete-expense-btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (confirm('Tem certeza que deseja excluir esta despesa?')) {
+                        const expenseId = this.getAttribute('data-expense-id');
+                        fetch(`/dashboard/despesas/excluir/${expenseId}/`, {
+                            method: 'GET',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Content-Type': 'application/json'
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Remover a linha da tabela
+                                const row = this.closest('tr');
+                                if (row) {
+                                    row.remove();
+                                }
+                                
+                                // Atualizar os valores dos cards
+                                updateDashboardCards(data.dashboard_data);
+                                
+                                // Notificar o usuário
+                                alert('Despesa excluída com sucesso!');
+                            } else {
+                                alert('Erro ao excluir despesa: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erro:', error);
+                            alert('Ocorreu um erro ao excluir a despesa');
+                        });
+                    }
+                });
+            });
+        }
+        
+        // Função para alternar status de pagamento
+        function setupTogglePaymentButtons() {
+            document.querySelectorAll('.toggle-payment-btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const expenseId = this.getAttribute('data-expense-id');
+                    const row = this.closest('tr');
+                    
+                    fetch(`/dashboard/despesas/toggle-payment/${expenseId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Atualizar o ícone e a classe da linha
+                            const statusIcon = row.querySelector('.payment-status-icon');
+                            const statusCell = row.querySelector('.payment-status');
+                            
+                            if (data.is_paid) {
+                                // Adicionar animação quando marcar como pago
+                                row.style.transition = 'all 0.5s ease';
+                                
+                                // Animação de destaque
+                                row.animate([
+                                    // Keyframes
+                                    { backgroundColor: '#ffffff' },
+                                    { backgroundColor: '#d1fae5' },  // Tom verde claro
+                                    { backgroundColor: '#ffffff' }
+                                ], {
+                                    duration: 1000,
+                                    easing: 'ease-in-out'
+                                });
+                                
+                                // Animar o ícone de status
+                                statusIcon.animate([
+                                    { transform: 'scale(1)' },
+                                    { transform: 'scale(1.5)' },
+                                    { transform: 'scale(1)' }
+                                ], {
+                                    duration: 800,
+                                    easing: 'ease-out'
+                                });
+                                
+                                // Atualizar classes e textos após a animação
+                                statusIcon.className = 'fa fa-check-circle text-success payment-status-icon';
+                                statusCell.textContent = 'Pago';
+                                statusCell.classList.add('text-pulse');  // Adicionar classe de pulsação
+                                
+                                // Remover classe após animação
+                                setTimeout(() => {
+                                    statusCell.classList.remove('text-pulse');
+                                }, 1500);
+                                
+                                this.innerHTML = '<i class="fa fa-times"></i> Marcar como Pendente';
+                                row.classList.remove('table-warning');
+                                row.classList.add('table-success');
+                                
+                            } else {
+                                // Animação quando marcar como pendente
+                                row.style.transition = 'all 0.5s ease';
+                                
+                                // Animação de destaque
+                                row.animate([
+                                    // Keyframes
+                                    { backgroundColor: '#ffffff' },
+                                    { backgroundColor: '#fff3cd' },  // Tom amarelo claro
+                                    { backgroundColor: '#ffffff' }
+                                ], {
+                                    duration: 1000,
+                                    easing: 'ease-in-out'
+                                });
+                                
+                                statusIcon.className = 'fa fa-clock-o text-warning payment-status-icon';
+                                statusCell.textContent = 'Pendente';
+                                statusCell.classList.add('text-pulse');
+                                
+                                // Remover classe após animação
+                                setTimeout(() => {
+                                    statusCell.classList.remove('text-pulse');
+                                }, 1500);
+                                
+                                this.innerHTML = '<i class="fa fa-check"></i> Marcar como Pago';
+                                row.classList.remove('table-success');
+                                row.classList.add('table-warning');
+                            }
+                            
+                            // Atualizar os valores dos cards com animação
+                            updateDashboardCardsWithAnimation(data.dashboard_data);
+                        } else {
+                            alert('Erro ao alterar status: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro:', error);
+                        alert('Ocorreu um erro ao alterar o status da despesa');
+                    });
+                });
+            });
+        }
+        
+        // Função para atualizar os cards do dashboard
+        function updateDashboardCards(dashboardData) {
+            if (dashboardData) {
+                // Formatar valores para exibição
+                const formatCurrency = (value) => {
+                    return new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL'
+                    }).format(value);
+                };
+                
+                // Atualizar card de despesas totais
+                const totalExpensesCard = document.querySelector('#total-expenses-card');
+                if (totalExpensesCard) {
+                    totalExpensesCard.textContent = formatCurrency(dashboardData.total_expenses);
+                }
+                
+                // Atualizar card de despesas pagas
+                const paidExpensesCard = document.querySelector('#paid-expenses-card');
+                if (paidExpensesCard) {
+                    paidExpensesCard.textContent = formatCurrency(dashboardData.paid_expenses);
+                }
+                
+                // Atualizar card de despesas pendentes
+                const pendingExpensesCard = document.querySelector('#pending-expenses-card');
+                if (pendingExpensesCard) {
+                    pendingExpensesCard.textContent = formatCurrency(dashboardData.pending_expenses);
+                }
+            }
+        }
+        
+        // Função para atualizar os cards com animação
+        function updateDashboardCardsWithAnimation(dashboardData) {
+            // Obtém os elementos dos cards
+            const totalExpensesEl = document.getElementById('total-expenses');
+            const paidExpensesEl = document.getElementById('paid-expenses');
+            const pendingExpensesEl = document.getElementById('pending-expenses');
+            
+            // Guarda os valores antigos para comparação
+            const oldTotalExpenses = parseFloat(totalExpensesEl.textContent.replace('R$', '').replace('.', '').replace(',', '.'));
+            const oldPaidExpenses = parseFloat(paidExpensesEl.textContent.replace('R$', '').replace('.', '').replace(',', '.'));
+            const oldPendingExpenses = parseFloat(pendingExpensesEl.textContent.replace('R$', '').replace('.', '').replace(',', '.'));
+            
+            // Atualiza os valores com os novos dados recebidos
+            totalExpensesEl.textContent = dashboardData.total_expenses;
+            paidExpensesEl.textContent = dashboardData.paid_expenses;
+            pendingExpensesEl.textContent = dashboardData.pending_expenses;
+            
+            // Extrai os novos valores para comparação
+            const newTotalExpenses = parseFloat(dashboardData.total_expenses.replace('R$', '').replace('.', '').replace(',', '.'));
+            const newPaidExpenses = parseFloat(dashboardData.paid_expenses.replace('R$', '').replace('.', '').replace(',', '.'));
+            const newPendingExpenses = parseFloat(dashboardData.pending_expenses.replace('R$', '').replace('.', '').replace(',', '.'));
+            
+            // Aplica animações baseadas na diferença dos valores
+            if (newTotalExpenses !== oldTotalExpenses) {
+                totalExpensesEl.classList.add('text-pulse');
+                setTimeout(() => totalExpensesEl.classList.remove('text-pulse'), 1500);
+            }
+            
+            if (newPaidExpenses > oldPaidExpenses) {
+                paidExpensesEl.classList.add('value-increase');
+                setTimeout(() => paidExpensesEl.classList.remove('value-increase'), 2000);
+            }
+            
+            if (newPendingExpenses < oldPendingExpenses) {
+                pendingExpensesEl.classList.add('value-decrease');
+                setTimeout(() => pendingExpensesEl.classList.remove('value-decrease'), 2000);
+            }
+        }
+        
+        // Função para obter o token CSRF
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // Inicializar os listeners de eventos
+        setupDeleteExpenseButtons();
+        setupTogglePaymentButtons();
+    });
+</script>
 {% endblock %}
 
 {% block content %}
@@ -321,7 +790,7 @@
 
     <!-- Cards de resumo -->
     <div class="row mb-3 mb-md-4">
-        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
+        <div class="col-lg-4 col-md-6 mb-3 mb-lg-0">
             <div class="summary-card danger">
                 <div class="d-flex justify-content-between">
                     <div>
@@ -343,7 +812,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
+        <div class="col-lg-4 col-md-6 mb-3 mb-lg-0">
             <div class="summary-card primary">
                 <div class="d-flex justify-content-between">
                     <div>
@@ -365,13 +834,15 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
-            <div class="summary-card warning">
+        <div class="col-lg-4 col-md-6 mb-3 mb-lg-0">
+            <div class="summary-card success">
                 <div class="d-flex justify-content-between">
                     <div>
                         <p class="mb-2">Margem de Lucro</p>
-                        <h3 class="mb-0">R$ {{ products_profit|default:0|floatformat:2|intcomma }}</h3>
-                        <small class="text-white">Itens vendidos: {{ items_count|default:0 }}</small>
+                        <h3 class="mb-0">R$ <span id="profit-value">{{ products_profit|default:0|floatformat:2|intcomma }}</span></h3>
+                        <div class="mt-2 p-2 bg-white bg-opacity-25 rounded shadow-sm">
+                            <strong class="text-white" style="font-size: 1.1rem;">Lucro descontado: R$ <span id="discounted-profit-value">{{ total_profit|floatformat:2|intcomma }}</span></strong>
+                        </div>
                     </div>
                     <div class="summary-icon">
                         <i class="fas fa-chart-line"></i>
@@ -384,28 +855,6 @@
                     </div>
                     <div class="progress mt-2" style="height: 8px;">
                         <div class="progress-bar bg-white" role="progressbar" style="width: {{ products_profit_percentage|default:0|floatformat:0 }}%; opacity: 1;" aria-valuenow="{{ products_profit_percentage|default:0|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
-            <div class="summary-card success">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <p class="mb-2">Lucro Total</p>
-                        <h3 class="mb-0">R$ {{ total_profit|floatformat:2|intcomma }}</h3>
-                    </div>
-                    <div class="summary-icon">
-                        <i class="fas fa-chart-bar"></i>
-                    </div>
-                </div>
-                <div class="mt-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>Margem de Lucro</span>
-                        <span>{{ profit_margin|floatformat:0 }}%</span>
-                    </div>
-                    <div class="progress mt-2" style="height: 8px;">
-                        <div class="progress-bar bg-white" role="progressbar" style="width: {{ profit_margin_abs|floatformat:0 }}%; opacity: 1;" aria-valuenow="{{ profit_margin_abs|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
                 </div>
             </div>
@@ -524,18 +973,23 @@
                                             <span class="money fw-semibold">R$ {{ expense.amount|floatformat:2|intcomma }}</span>
                                         </td>
                                         <td class="text-center">
-                                            <span class="payment-toggle" onclick="togglePaymentStatus('{{ expense.id }}', this)" data-expense-id="{{ expense.id }}" data-is-paid="{{ expense.is_paid|yesno:'true,false' }}" style="position: relative; display: inline-block;">
-                                                {% if expense.is_paid %}
-                                                    <span class="badge-status badge-paid">
-                                                        <i class="fas fa-check-circle me-1"></i> Pago
-                                                    </span>
-                                                {% else %}
-                                                    <span class="badge-status badge-pending">
-                                                        <i class="fas fa-clock me-1"></i> Pendente
-                                                    </span>
-                                                {% endif %}
-                                                <span class="click-hint" style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; opacity: 0; transition: opacity 0.3s; white-space: nowrap;">Clique para alterar</span>
+                                            {% if expense.is_paid %}
+                                            <span class="payment-toggle" onclick="togglePaymentStatus({{ expense.id }}, this)" data-is-paid="true">
+                                                <span class="tooltip-text">Clique para marcar como "Não Pago"</span>
+                                                <span class="badge rounded-pill bg-success d-flex align-items-center justify-content-center">
+                                                    <i class="fas fa-check-circle me-1"></i> Pago 
+                                                    <i class="fas fa-exchange-alt ms-2"></i>
+                                                </span>
                                             </span>
+                                            {% else %}
+                                            <span class="payment-toggle" onclick="togglePaymentStatus({{ expense.id }}, this)" data-is-paid="false">
+                                                <span class="tooltip-text">Clique para marcar como "Pago"</span>
+                                                <span class="badge rounded-pill bg-warning text-dark d-flex align-items-center justify-content-center">
+                                                    <i class="fas fa-clock me-1"></i> Pendente 
+                                                    <i class="fas fa-exchange-alt ms-2"></i>
+                                                </span>
+                                            </span>
+                                            {% endif %}
                                         </td>
                                         <td class="text-center">
                                             {% if expense.is_recurring %}
@@ -549,7 +1003,7 @@
                                                 <button class="btn btn-sm btn-outline-warning" onclick="editExpense('{{ expense.id }}')" title="Editar despesa">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteExpense('{{ expense.id }}', '{{ expense.description|default:expense.category.name }}')" title="Excluir despesa">
+                                                <button class="btn btn-sm btn-outline-danger btn-delete-expense" data-expense-id="{{ expense.id }}" title="Excluir despesa">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
@@ -844,328 +1298,4 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Formatação de entradas monetárias
-        const moneyInputs = document.querySelectorAll('.money-input');
-        moneyInputs.forEach(input => {
-            input.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                
-                if (value === '') {
-                    e.target.value = '';
-                    return;
-                }
-                
-                // Converte para número e divide por 100 para obter o valor com centavos
-                value = parseFloat(value) / 100;
-                
-                // Formata para o padrão brasileiro (1.234,56)
-                e.target.value = value.toLocaleString('pt-BR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                });
-            });
-        });
-        
-        // Converter de volta para formato de backend no envio do formulário
-        const expenseForms = document.querySelectorAll('form');
-        expenseForms.forEach(form => {
-            form.addEventListener('submit', function(e) {
-                const moneyInputs = form.querySelectorAll('.money-input');
-                moneyInputs.forEach(input => {
-                    if (input.value) {
-                        // Converter de formato brasileiro para o backend
-                        const rawValue = input.value
-                            .replace(/\./g, '')  // Remove separadores de milhar
-                            .replace(',', '.');  // Substitui vírgula decimal por ponto
-                        
-                        input.value = rawValue;
-                    }
-                });
-            });
-        });
-        
-        // Mostrar/ocultar opções de recorrência
-        const isRecurringCheckboxes = document.querySelectorAll('[id$="is_recurring"]');
-        isRecurringCheckboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                const idPrefix = this.id.replace('is_recurring', '');
-                const recurrenceOptions = document.getElementById(idPrefix + 'recurrenceOptions');
-                
-                if (recurrenceOptions) {
-                    recurrenceOptions.style.display = this.checked ? 'block' : 'none';
-                }
-            });
-            
-            // Verificar estado inicial
-            if (checkbox.checked) {
-                const idPrefix = checkbox.id.replace('is_recurring', '');
-                const recurrenceOptions = document.getElementById(idPrefix + 'recurrenceOptions');
-                if (recurrenceOptions) {
-                    recurrenceOptions.style.display = 'block';
-                }
-            }
-        });
-        
-        // Função para atualizar preview de ícone
-        function updateIconPreview() {
-            const icon = document.getElementById('categoryIcon').value;
-            const color = document.getElementById('categoryColor').value;
-            const preview = document.getElementById('iconPreview');
-            
-            preview.className = `d-inline-block rounded-circle bg-${color} text-white`;
-            preview.querySelector('i').className = `fas ${icon} fa-2x`;
-        }
-        
-        // Inicializar os previews de ícones
-        if (document.getElementById('categoryIcon')) {
-            document.getElementById('categoryIcon').addEventListener('change', updateIconPreview);
-            document.getElementById('categoryColor').addEventListener('change', updateIconPreview);
-        }
-
-        // Adicionar código para o modal de edição de categoria
-        if (document.getElementById('editCategoryIcon')) {
-            document.getElementById('editCategoryIcon').addEventListener('change', updateEditIconPreview);
-            document.getElementById('editCategoryColor').addEventListener('change', updateEditIconPreview);
-        }
-    });
-    
-    // Função para pré-selecionar categoria
-    function preSelectCategory(categoryId, categoryName) {
-        document.getElementById('category').value = categoryId;
-    }
-    
-    // Função para editar despesa
-    function editExpense(expenseId) {
-        document.getElementById('editExpenseForm').action = `/sistema/dashboard/despesas/editar/${expenseId}/`;
-        
-        // Carregar os dados da despesa usando fetch API
-        fetch(`/sistema/dashboard/despesas/editar/${expenseId}/?format=json`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            }
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Erro ao buscar dados da despesa');
-            }
-            return response.json();
-        })
-        .then(data => {
-            // Preencher o formulário com os dados recebidos
-            document.getElementById('edit_category').value = data.category_id;
-            document.getElementById('edit_description').value = data.description || '';
-            
-            // Formatar o valor para exibição em formato brasileiro
-            const amount = parseFloat(data.amount);
-            document.getElementById('edit_amount').value = new Intl.NumberFormat('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }).format(amount);
-            
-            document.getElementById('edit_date').value = data.date;
-            document.getElementById('edit_is_recurring').checked = data.is_recurring;
-            if (data.is_recurring) {
-                document.getElementById('edit_recurrence_period').value = data.recurrence_period;
-                document.getElementById('edit_recurrenceOptions').style.display = 'block';
-            } else {
-                document.getElementById('edit_recurrenceOptions').style.display = 'none';
-            }
-            
-            // Abrir o modal
-            const editModal = new bootstrap.Modal(document.getElementById('editExpenseModal'));
-            editModal.show();
-        })
-        .catch(error => {
-            console.error('Erro:', error);
-            
-            // Mesmo em caso de erro, abrimos o modal para o usuário editar
-            const editModal = new bootstrap.Modal(document.getElementById('editExpenseModal'));
-            editModal.show();
-            
-            // Notificar o usuário do erro
-            alert('Não foi possível carregar os dados da despesa. Por favor, preencha manualmente.');
-        });
-    }
-    
-    // Função para alternar o status de pagamento da despesa
-    function togglePaymentStatus(expenseId, element) {
-        // Obter o estado atual
-        const isPaid = element.getAttribute('data-is-paid') === 'true';
-        
-        // Enviar solicitação AJAX para alternar o status
-        fetch(`/sistema/dashboard/despesas/toggle-payment/${expenseId}/`, {
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Erro ao alternar status de pagamento');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                // Atualizar o elemento visual
-                const badgeElement = element.querySelector('span');
-                
-                if (data.is_paid) {
-                    // Atualizar para pago
-                    badgeElement.className = 'badge-status badge-paid';
-                    badgeElement.innerHTML = '<i class="fas fa-check-circle me-1"></i> Pago';
-                } else {
-                    // Atualizar para pendente
-                    badgeElement.className = 'badge-status badge-pending';
-                    badgeElement.innerHTML = '<i class="fas fa-clock me-1"></i> Pendente';
-                }
-                
-                // Atualizar o atributo de dados
-                element.setAttribute('data-is-paid', data.is_paid);
-                
-                // Atualizar a barra de progresso e os valores no card de Total de Despesas
-                if (data.payment_percentage !== undefined) {
-                    // Atualizar a porcentagem mostrada no texto
-                    const paymentPercentText = document.querySelector('.summary-card.danger .d-flex.justify-content-between.align-items-center span:last-child');
-                    if (paymentPercentText) {
-                        paymentPercentText.textContent = `${Math.round(data.payment_percentage)}%`;
-                    }
-                    
-                    // Atualizar a largura da barra de progresso
-                    const progressBar = document.querySelector('.summary-card.danger .progress-bar');
-                    if (progressBar) {
-                        progressBar.style.width = `${data.payment_percentage}%`;
-                        progressBar.setAttribute('aria-valuenow', data.payment_percentage);
-                    }
-                    
-                    // Atualizar os valores no card de Receita Bruta (Antiga Despesas Pagas)
-                    if (data.paid_expenses !== undefined) {
-                        const paidExpensesValue = document.querySelector('.summary-card.primary h3');
-                        if (paidExpensesValue) {
-                            paidExpensesValue.textContent = `R$ ${new Intl.NumberFormat('pt-BR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            }).format(data.total_revenue)}`;
-                        }
-                    }
-                    
-                    // Atualizar os valores no card de Total de Despesas
-                    if (data.total_expenses !== undefined) {
-                        const totalExpensesValue = document.querySelector('.summary-card.danger h3');
-                        if (totalExpensesValue) {
-                            totalExpensesValue.textContent = `R$ ${new Intl.NumberFormat('pt-BR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            }).format(data.total_expenses)}`;
-                        }
-                    }
-                    
-                    // Atualizar valores no card de Lucro Total, se disponíveis
-                    if (data.total_profit !== undefined && data.profit_margin !== undefined) {
-                        const totalProfitValue = document.querySelector('.summary-card.success h3');
-                        if (totalProfitValue) {
-                            totalProfitValue.textContent = `R$ ${new Intl.NumberFormat('pt-BR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            }).format(data.total_profit)}`;
-                        }
-                        
-                        const profitMarginText = document.querySelector('.summary-card.success .d-flex.justify-content-between.align-items-center span:last-child');
-                        if (profitMarginText) {
-                            profitMarginText.textContent = `${Math.round(data.profit_margin)}%`;
-                        }
-                        
-                        const profitProgressBar = document.querySelector('.summary-card.success .progress-bar');
-                        if (profitProgressBar) {
-                            const absMargin = Math.abs(data.profit_margin);
-                            profitProgressBar.style.width = `${absMargin}%`;
-                            profitProgressBar.setAttribute('aria-valuenow', absMargin);
-                        }
-                    }
-                }
-                
-                // Opcional: mostrar mensagem de sucesso temporária
-                const alertElement = document.createElement('div');
-                alertElement.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
-                alertElement.setAttribute('role', 'alert');
-                alertElement.style.zIndex = '9999';
-                alertElement.innerHTML = `Status da despesa alterado para <strong>${data.status_display}</strong> com sucesso.
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
-                
-                document.body.appendChild(alertElement);
-                
-                // Remover automaticamente após 3 segundos
-                setTimeout(() => {
-                    alertElement.remove();
-                }, 3000);
-            } else {
-                console.error('Erro retornado pelo servidor:', data.error);
-                alert('Ocorreu um erro ao alterar o status da despesa.');
-            }
-        })
-        .catch(error => {
-            console.error('Erro:', error);
-            alert('Ocorreu um erro ao comunicar com o servidor.');
-        });
-    }
-    
-    // Função para excluir despesa
-    function deleteExpense(expenseId, expenseName) {
-        document.getElementById('deleteExpenseName').textContent = expenseName;
-        document.getElementById('confirmDeleteBtn').href = `/sistema/dashboard/despesas/excluir/${expenseId}/`;
-        
-        // Abrir o modal
-        const deleteModal = new bootstrap.Modal(document.getElementById('deleteExpenseModal'));
-        deleteModal.show();
-    }
-    
-    // Função para mostrar despesas de uma categoria
-    function showCategoryExpenses(categoryId) {
-        // Rolar até a seção de despesas detalhadas
-        const detailsSection = document.querySelector('.card-header:contains("Despesas Detalhadas")');
-        if (detailsSection) {
-            const card = detailsSection.closest('.card');
-            if (card) {
-                card.scrollIntoView({ behavior: 'smooth' });
-            }
-        }
-    }
-
-    function editCategory(categoryId, categoryName, categoryIcon, categoryColor) {
-        document.getElementById('editCategoryName').value = categoryName;
-        document.getElementById('editCategoryIcon').value = categoryIcon;
-        document.getElementById('editCategoryColor').value = categoryColor;
-        
-        // Atualizar o preview
-        updateEditIconPreview();
-        
-        // Atualizar a action do formulário
-        document.getElementById('editCategoryForm').action = `/sistema/dashboard/despesas/categorias/editar/${categoryId}/`;
-    }
-
-    function deleteCategory(categoryId, categoryName) {
-        document.getElementById('deleteCategoryName').textContent = categoryName;
-        document.getElementById('confirmDeleteCategoryBtn').href = `/sistema/dashboard/despesas/categorias/excluir/${categoryId}/`;
-        
-        // Abrir o modal
-        const deleteModal = new bootstrap.Modal(document.getElementById('deleteCategoryModal'));
-        deleteModal.show();
-    }
-
-    function updateEditIconPreview() {
-        const icon = document.getElementById('editCategoryIcon').value;
-        const color = document.getElementById('editCategoryColor').value;
-        const preview = document.getElementById('editIconPreview');
-        
-        preview.className = `d-inline-block rounded-circle bg-${color} text-white`;
-        preview.querySelector('i').className = `fas ${icon} fa-2x`;
-    }
-</script>
 {% endblock %}

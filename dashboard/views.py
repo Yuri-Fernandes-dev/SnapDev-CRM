@@ -5,11 +5,12 @@ from django.db.models.functions import TruncDate, TruncMonth
 from django.utils import timezone
 from django.contrib import messages
 from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from datetime import timedelta
 from sales.models import Sale, SaleItem
 from products.models import Product
 from customers.models import Customer
 from .models import ExpenseCategory, Expense
-from datetime import timedelta
 import json
 import logging
 
@@ -603,86 +604,177 @@ def edit_expense(request, expense_id):
     
     return redirect('dashboard:expenses')
 
-@login_required
+@require_http_methods(["POST"])
 def toggle_expense_payment(request, expense_id):
+    """Função para alternar o status de pagamento de uma despesa"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Não autorizado'}, status=401)
+        
+    try:
+        expense = get_object_or_404(Expense, id=expense_id)
+        
+        # Verificar se o usuário tem permissão para modificar esta despesa
+        if expense.company != request.user.company:
+            return JsonResponse({'success': False, 'error': 'Você não tem permissão para modificar esta despesa'}, status=403)
+        
+        # Inverter o status de pagamento
+        expense.is_paid = not expense.is_paid
+        expense.save()
+        
+        # Recalcular totais para o dashboard
+        company = request.user.company
+        total_expenses = Expense.objects.filter(company=company).aggregate(Sum('amount'))['amount__sum'] or 0
+        paid_expenses = Expense.objects.filter(company=company, is_paid=True).aggregate(Sum('amount'))['amount__sum'] or 0
+        pending_expenses = total_expenses - paid_expenses
+        
+        return JsonResponse({
+            'success': True,
+            'is_paid': expense.is_paid,
+            'dashboard_data': {
+                'total_expenses': total_expenses,
+                'paid_expenses': paid_expenses,
+                'pending_expenses': pending_expenses
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@require_http_methods(["GET"])
+def delete_expense(request, expense_id):
+    """Função para excluir despesas"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Não autorizado'}, status=401)
+        
+    try:
+        expense = get_object_or_404(Expense, id=expense_id)
+        
+        # Verificar se o usuário tem permissão para excluir esta despesa
+        if expense.company != request.user.company:
+            return JsonResponse({'success': False, 'error': 'Você não tem permissão para excluir esta despesa'}, status=403)
+        
+        # Armazenar dados para atualização do dashboard
+        category_id = expense.category.id if expense.category else None
+        amount = expense.amount
+        is_paid = expense.is_paid
+        
+        # Excluir a despesa
+        expense.delete()
+        
+        # Recalcular totais para o dashboard
+        company = request.user.company
+        total_expenses = Expense.objects.filter(company=company).aggregate(Sum('amount'))['amount__sum'] or 0
+        paid_expenses = Expense.objects.filter(company=company, is_paid=True).aggregate(Sum('amount'))['amount__sum'] or 0
+        pending_expenses = total_expenses - paid_expenses
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Despesa excluída com sucesso',
+            'dashboard_data': {
+                'total_expenses': total_expenses,
+                'paid_expenses': paid_expenses,
+                'pending_expenses': pending_expenses,
+                'category_id': category_id,
+                'removed_amount': amount,
+                'was_paid': is_paid
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@login_required
+def toggle_payment(request, expense_id):
     """
     View para alternar o status de pagamento de uma despesa
     """
     expense = get_object_or_404(Expense, id=expense_id, company=request.user.company)
     
     try:
-        # Alternar o status
+        # Salvar informações para retornar dados atualizados ao front-end
+        current_month = expense.date.month
+        current_year = expense.date.year
+        expense_amount = float(expense.amount)
+        
+        # Alternar o status de pagamento
         expense.is_paid = not expense.is_paid
         expense.save()
         
-        # Obter dados atualizados para retornar ao front-end
-        current_month = expense.date.month
-        current_year = expense.date.year
-        
-        # Total de despesas do mês
-        expenses = Expense.objects.filter(
-            company=request.user.company,
-            date__month=current_month,
-            date__year=current_year
-        )
-        total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
-        
-        # Total de despesas pagas e pendentes
-        paid_expenses = expenses.filter(is_paid=True).aggregate(total=Sum('amount'))['total'] or 0
-        
-        # Percentual de despesas pagas
-        payment_percentage = (paid_expenses / total_expenses * 100) if total_expenses > 0 else 0
-        
-        # Receita total
-        total_revenue = Sale.objects.filter(
-            company=request.user.company,
-            status='paid',
-            created_at__month=current_month,
-            created_at__year=current_year
-        ).aggregate(total=Sum('total'))['total'] or 0
-        
-        # Margem de lucro dos produtos vendidos
-        products_profit_data = (
-            SaleItem.objects
-            .filter(
-                sale__company=request.user.company,
-                sale__status='paid',
-                sale__created_at__month=current_month,
-                sale__created_at__year=current_year
+        # Se for uma chamada AJAX, retornar resposta JSON com dados atualizados
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Total de despesas do mês
+            expenses = Expense.objects.filter(
+                company=request.user.company,
+                date__month=current_month,
+                date__year=current_year
             )
-            .annotate(
-                profit=ExpressionWrapper(
-                    (F('price') - F('cost_price')) * F('quantity'),
-                    output_field=DecimalField()
+            total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
+            
+            # Total de despesas pagas e pendentes
+            paid_expenses = expenses.filter(is_paid=True).aggregate(total=Sum('amount'))['total'] or 0
+            
+            # Percentual de despesas pagas
+            payment_percentage = (paid_expenses / total_expenses * 100) if total_expenses > 0 else 0
+            
+            # Receita total
+            total_revenue = Sale.objects.filter(
+                company=request.user.company,
+                status='paid',
+                created_at__month=current_month,
+                created_at__year=current_year
+            ).aggregate(total=Sum('total'))['total'] or 0
+            
+            # Margem de lucro dos produtos vendidos
+            products_profit_data = (
+                SaleItem.objects
+                .filter(
+                    sale__company=request.user.company,
+                    sale__status='paid',
+                    sale__created_at__month=current_month,
+                    sale__created_at__year=current_year
                 )
+                .annotate(
+                    profit=ExpressionWrapper(
+                        (F('price') - F('cost_price')) * F('quantity'),
+                        output_field=DecimalField()
+                    )
+                )
+                .aggregate(total_profit=Sum('profit'))
             )
-            .aggregate(total_profit=Sum('profit'))
-        )
-        
-        products_profit = float(products_profit_data['total_profit'] or 0)
-        
-        # Lucro total e margem
-        total_profit = products_profit - float(total_expenses)
-        profit_margin = (total_profit / float(total_revenue) * 100) if total_revenue > 0 else 0
-        
-        # Retornar resposta JSON com todos os dados atualizados
-        return JsonResponse({
-            'success': True,
-            'is_paid': expense.is_paid,
-            'status_display': expense.get_status_display(),
-            'payment_percentage': payment_percentage,
-            'total_expenses': float(total_expenses),
-            'paid_expenses': float(paid_expenses),
-            'total_revenue': float(total_revenue),
-            'products_profit': products_profit,
-            'total_profit': total_profit,
-            'profit_margin': profit_margin
-        })
+            
+            products_profit = float(products_profit_data['total_profit'] or 0)
+            
+            # Lucro total e margem
+            total_profit = products_profit - float(total_expenses)
+            profit_margin = (total_profit / float(total_revenue) * 100) if total_revenue > 0 else 0
+            
+            # Porcentagem da margem de lucro dos produtos
+            products_profit_percentage = (products_profit / float(total_revenue) * 100) if total_revenue > 0 else 0
+            
+            return JsonResponse({
+                'success': True,
+                'is_paid': expense.is_paid,
+                'payment_percentage': payment_percentage,
+                'total_expenses': float(total_expenses),
+                'paid_expenses': float(paid_expenses),
+                'total_revenue': float(total_revenue),
+                'products_profit': products_profit,
+                'products_profit_percentage': products_profit_percentage,
+                'total_profit': total_profit,
+                'profit_margin': profit_margin
+            })
+        else:
+            status_text = "paga" if expense.is_paid else "pendente"
+            messages.success(request, f'Despesa marcada como {status_text} com sucesso!')
+            
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=400)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': f'Erro ao alterar status: {str(e)}'
+            }, status=400)
+        else:
+            messages.error(request, f'Erro ao alterar status: {str(e)}')
+    
+    return redirect('dashboard:expenses')
 
 @login_required
 def delete_expense(request, expense_id):
@@ -692,10 +784,89 @@ def delete_expense(request, expense_id):
     expense = get_object_or_404(Expense, id=expense_id, company=request.user.company)
     
     try:
+        # Salvar informações para retornar dados atualizados ao front-end
+        current_month = expense.date.month
+        current_year = expense.date.year
+        expense_amount = float(expense.amount)
+        expense_was_paid = expense.is_paid
+        
+        # Excluir a despesa
         expense.delete()
-        messages.success(request, 'Despesa excluída com sucesso!')
+        
+        # Se for uma chamada AJAX, retornar resposta JSON com dados atualizados
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Total de despesas do mês
+            expenses = Expense.objects.filter(
+                company=request.user.company,
+                date__month=current_month,
+                date__year=current_year
+            )
+            total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
+            
+            # Total de despesas pagas
+            paid_expenses = expenses.filter(is_paid=True).aggregate(total=Sum('amount'))['total'] or 0
+            
+            # Percentual de despesas pagas
+            payment_percentage = (paid_expenses / total_expenses * 100) if total_expenses > 0 else 0
+            
+            # Receita total
+            total_revenue = Sale.objects.filter(
+                company=request.user.company,
+                status='paid',
+                created_at__month=current_month,
+                created_at__year=current_year
+            ).aggregate(total=Sum('total'))['total'] or 0
+            
+            # Margem de lucro dos produtos vendidos
+            products_profit_data = (
+                SaleItem.objects
+                .filter(
+                    sale__company=request.user.company,
+                    sale__status='paid',
+                    sale__created_at__month=current_month,
+                    sale__created_at__year=current_year
+                )
+                .annotate(
+                    profit=ExpressionWrapper(
+                        (F('price') - F('cost_price')) * F('quantity'),
+                        output_field=DecimalField()
+                    )
+                )
+                .aggregate(total_profit=Sum('profit'))
+            )
+            
+            products_profit = float(products_profit_data['total_profit'] or 0)
+            
+            # Lucro total e margem
+            total_profit = products_profit - float(total_expenses)
+            profit_margin = (total_profit / float(total_revenue) * 100) if total_revenue > 0 else 0
+            
+            # Porcentagem da margem de lucro dos produtos
+            products_profit_percentage = (products_profit / float(total_revenue) * 100) if total_revenue > 0 else 0
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Despesa excluída com sucesso!',
+                'payment_percentage': payment_percentage,
+                'total_expenses': float(total_expenses),
+                'paid_expenses': float(paid_expenses),
+                'total_revenue': float(total_revenue),
+                'products_profit': products_profit,
+                'products_profit_percentage': products_profit_percentage,
+                'total_profit': total_profit,
+                'profit_margin': profit_margin
+            })
+        else:
+            messages.success(request, 'Despesa excluída com sucesso!')
+            
     except Exception as e:
-        messages.error(request, f'Erro ao excluir despesa: {str(e)}')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': f'Erro ao excluir despesa: {str(e)}'
+            }, status=400)
+        else:
+            messages.error(request, f'Erro ao excluir despesa: {str(e)}')
     
     return redirect('dashboard:expenses')
 

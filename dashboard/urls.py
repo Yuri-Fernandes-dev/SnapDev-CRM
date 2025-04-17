@@ -18,4 +18,4 @@ urlpatterns = [
     path('despesas/categorias/excluir/<int:category_id>/', views.delete_expense_category, name='delete_expense_category'),
     # URL for SaaS platform expenses (admin only)
     path('admin/saas-despesas/adicionar/', views.add_saas_expense, name='add_saas_expense'),
-] 
+]
