@@ -662,6 +662,11 @@
         return colors[Math.floor(Math.random() * colors.length)];
     }
     
+    // Função para obter o token CSRF da página
+    function getCSRFToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+    
     // Função para alternar o status de pagamento de uma despesa
     function togglePaymentStatus(element, expenseId) {
         const isPaid = element.classList.contains('badge-paid');
@@ -672,17 +677,17 @@
         element.innerHTML = '<span class="loading-indicator"></span> Atualizando...';
         element.style.pointerEvents = 'none';
         
+        // Obter o token CSRF da página
+        const csrfToken = getCSRFToken();
+        
         // Enviar requisição AJAX para atualizar o status
-        fetch('/expenses/toggle-payment-status/', {
+        fetch('{% url "dashboard:toggle_expense_payment" 0 %}'.replace('0', expenseId), {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken()
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken
             },
-            body: JSON.stringify({
-                expense_id: expenseId,
-                new_status: newStatus
-            })
+            body: 'is_paid=' + (newStatus === 'paid' ? 'true' : 'false')
         })
         .then(function(response) {
             if (!response.ok) {
@@ -692,23 +697,37 @@
         })
         .then(function(data) {
             // Atualizar o elemento com o novo status
-            if (newStatus === 'paid') {
-                element.classList.remove('badge-pending');
-                element.classList.add('badge-paid');
-                element.innerHTML = '<i class="fas fa-check-circle me-1"></i> Pago';
+            if (data.success) {
+                if (data.is_paid) {
+                    // Mudar para Pago (verde)
+                    element.classList.remove('badge-pending');
+                    element.classList.add('badge-paid');
+                    element.setAttribute('data-status', 'paid');
+                    element.innerHTML = '<i class="fas fa-check-circle me-1"></i> Pago';
+                    element.style.backgroundColor = '#d1e7dd';
+                    element.style.color = '#0f5132';
+                } else {
+                    // Mudar para A Pagar (bege/amarelo)
+                    element.classList.remove('badge-paid');
+                    element.classList.add('badge-pending');
+                    element.setAttribute('data-status', 'pending');
+                    element.innerHTML = '<i class="fas fa-clock me-1"></i> A Pagar';
+                    element.style.backgroundColor = '#fff3cd';
+                    element.style.color = '#664d03';
+                }
+                
+                // Atualizar os cards com os novos valores
+                updateSummaryCards(data);
             } else {
-                element.classList.remove('badge-paid');
-                element.classList.add('badge-pending');
-                element.innerHTML = '<i class="fas fa-clock me-1"></i> Pendente';
+                // Restaurar o conteúdo original em caso de erro
+                element.innerHTML = originalContent;
+                alert('Erro ao atualizar o status: ' + (data.error || 'Erro desconhecido'));
             }
-            
-            // Atualizar os totais do dashboard
-            updateDashboardCards();
         })
         .catch(function(error) {
             console.error('Erro:', error);
             element.innerHTML = originalContent;
-            alert('Erro ao atualizar o status de pagamento.');
+            alert('Erro ao atualizar o status de pagamento: ' + error.message);
         })
         .finally(function() {
             element.style.pointerEvents = 'auto';
@@ -718,10 +737,23 @@
     // Função para atualizar os cards com os novos valores
     function updateSummaryCards(newTotals) {
         if (newTotals) {
-            document.querySelector('.card-blue h3').textContent = 'R$ ' + newTotals.total_expenses.toFixed(2);
-            document.querySelector('.card-green h3').textContent = 'R$ ' + newTotals.paid_expenses.toFixed(2);
-            document.querySelector('.card-orange h3').textContent = 'R$ ' + newTotals.pending_expenses.toFixed(2);
-            document.querySelector('.card-red h3').textContent = 'R$ ' + newTotals.total_profit.toFixed(2);
+            // Verificar se cada valor existe antes de usar toFixed
+            if (newTotals.total_expenses !== undefined) {
+                document.querySelector('.card-blue h3').textContent = 'R$ ' + newTotals.total_expenses.toFixed(2);
+            }
+            
+            if (newTotals.paid_expenses !== undefined) {
+                document.querySelector('.card-green h3').textContent = 'R$ ' + newTotals.paid_expenses.toFixed(2);
+            }
+            
+            if (newTotals.pending_expenses !== undefined) {
+                document.querySelector('.card-orange h3').textContent = 'R$ ' + newTotals.pending_expenses.toFixed(2);
+            }
+            
+            // O lucro total pode não estar sendo retornado pela API
+            if (newTotals.total_profit !== undefined) {
+                document.querySelector('.card-red h3').textContent = 'R$ ' + newTotals.total_profit.toFixed(2);
+            }
         }
     }
 </script>

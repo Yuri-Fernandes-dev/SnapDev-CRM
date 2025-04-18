@@ -65,11 +65,21 @@
             </div>
             
             <div class="mb-3">
-                <label for="payment_status" class="form-label">Status de Pagamento</label>
-                <select class="form-select" id="payment_status" name="is_paid">
-                    <option value="true" {% if expense.is_paid %}selected{% endif %}>Pago</option>
-                    <option value="false" {% if not expense.is_paid %}selected{% endif %}>A Pagar</option>
-                </select>
+                <label class="form-label">Status de Pagamento</label>
+                <div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="payment_status" name="is_paid" value="true" {% if expense.is_paid %}checked{% endif %} style="width: 3em; height: 1.5em;">
+                        <label class="form-check-label" for="payment_status">
+                            <span id="statusLabel" class="badge {% if expense.is_paid %}bg-success{% else %}bg-warning{% endif %} p-2">
+                                {% if expense.is_paid %}
+                                <i class="fas fa-check-circle me-1"></i> Pago
+                                {% else %}
+                                <i class="fas fa-clock me-1"></i> A Pagar
+                                {% endif %}
+                            </span>
+                        </label>
+                    </div>
+                </div>
             </div>
             
             <div class="btn-container">
@@ -84,7 +94,23 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Aqui pode ser adicionada lógica JavaScript adicional se necessário
+        // Atualizar o texto do status de pagamento quando o switch é alterado
+        const paymentSwitch = document.getElementById('payment_status');
+        const statusLabel = document.getElementById('statusLabel');
+        
+        if (paymentSwitch && statusLabel) {
+            paymentSwitch.addEventListener('change', function() {
+                if (this.checked) {
+                    // Status Pago
+                    statusLabel.className = 'badge bg-success p-2';
+                    statusLabel.innerHTML = '<i class="fas fa-check-circle me-1"></i> Pago';
+                } else {
+                    // Status A Pagar
+                    statusLabel.className = 'badge bg-warning p-2';
+                    statusLabel.innerHTML = '<i class="fas fa-clock me-1"></i> A Pagar';
+                }
+            });
+        }
     });
 </script>
 {% endblock %} 
