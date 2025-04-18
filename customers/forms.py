@@ -29,7 +29,7 @@ class CustomerForm(forms.ModelForm):
         if not phone:  # Se o telefone estiver vazio, não precisa validar
             return phone
         
-        # Verificar se existe outro cliente com este telefone na mesma empresa
+        # . Verificar se existe outro cliente com este telefone na mesma empresa
         # Excluir o cliente atual no caso de edição
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
