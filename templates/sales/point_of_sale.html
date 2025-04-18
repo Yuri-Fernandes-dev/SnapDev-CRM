@@ -887,7 +887,7 @@
                 })
                 .catch(error => {
                     console.error('Erro na busca de clientes:', error);
-                    customerSuggestions.style.display = 'none';
+                customerSuggestions.style.display = 'none';
                 });
         });
         
@@ -1493,7 +1493,7 @@
         // Criar uma função global para lidar com o Enter
         window.handleConfirmEnter = function(event) {
             if (event.key === 'Enter' && !event.repeat) {
-                event.preventDefault();
+                    event.preventDefault();
                 event.stopPropagation();
                 const confirmButton = document.getElementById('confirm-sale');
                 if (!confirmButton.disabled) {
@@ -1548,8 +1548,8 @@
     function resetPDV() {
         // Limpar o carrinho
         cart = [];
-        renderCartItems();
-        updateTotals();
+                    renderCartItems();
+                    updateTotals();
 
         // Resetar campos de entrada
         document.getElementById('product-search').value = '';
@@ -1603,4 +1603,4 @@
     }
 </script>
 </div>
-{% endblock %}
+{% endblock %} 

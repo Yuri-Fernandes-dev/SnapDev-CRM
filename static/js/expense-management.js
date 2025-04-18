@@ -6,7 +6,11 @@
 // Função para alternar o status de pagamento de uma despesa
 function togglePaymentStatus(expenseId, element) {
     // Verificar se o elemento existe
-    if (!element) return;
+    if (!element) {
+        console.error('Erro: Elemento não encontrado');
+        showAlert('Erro técnico: Elemento não encontrado', 'danger');
+        return;
+    }
 
     // Obter o status atual (boolean)
     const isPaid = element.getAttribute('data-is-paid') === 'true';
@@ -20,38 +24,63 @@ function togglePaymentStatus(expenseId, element) {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCsrfToken(),
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
         },
         credentials: 'same-origin'
     })
     .then(response => {
+        // Verificar status HTTP antes de prosseguir
         if (!response.ok) {
-            throw new Error('Erro na requisição');
+            // Verificar tipos específicos de erro HTTP
+            if (response.status === 401) {
+                throw new Error('Não autorizado. Por favor, faça login novamente.');
+            } else if (response.status === 403) {
+                throw new Error('Você não tem permissão para modificar esta despesa.');
+            } else if (response.status === 404) {
+                throw new Error('Despesa não encontrada.');
+            } else {
+                throw new Error(`Erro HTTP: ${response.status}`);
+            }
         }
         return response.json();
     })
     .then(data => {
         if (data.success) {
             // Atualizar a interface com o novo status
-            updatePaymentStatus(element, !isPaid);
+            updatePaymentStatus(element, data.is_paid);
 
             // Mostrar mensagem de sucesso
             showAlert('Status de pagamento atualizado com sucesso!', 'success');
             
-            // Atualizar os totais se fornecidos na resposta
-            updateTotals(data);
+            // Atualizar os totais com os valores retornados
+            if (data.total_expenses !== undefined) {
+                // Chamar updateTotals em vez de updateExpenseTotals para atualizar também dados de lucro
+                updateTotals(data);
+            }
         } else {
+            console.error('Erro retornado pelo servidor:', data.error);
+            
+            // Se houver mais detalhes de erro, registrar
+            if (data.details) {
+                console.error('Detalhes do erro:', data.details);
+            }
+            
             throw new Error(data.error || 'Não foi possível atualizar o status da despesa');
         }
     })
     .catch(error => {
-        console.error('Erro:', error);
+        console.error('Erro completo:', error);
         
         // Restaurar conteúdo original
         element.querySelector('.badge').innerHTML = originalContent;
         
-        // Mostrar mensagem de erro
-        showAlert('Erro ao atualizar status de pagamento. Tente novamente.', 'danger');
+        // Mensagem de erro mais detalhada
+        const errorMessage = error.message || 'Erro ao atualizar status de pagamento. Tente novamente.';
+        showAlert(errorMessage, 'danger');
+        
+        // Tentativa de diagnóstico automático
+        diagnosePotentialIssues(expenseId);
     });
 }
 
@@ -132,6 +161,86 @@ function deleteExpense(expenseId) {
     .catch(error => {
         console.error('Erro:', error);
         showAlert('Erro ao excluir despesa. Tente novamente.', 'danger');
+    });
+}
+
+// Função para atualizar os totais de despesas
+function updateExpenseTotals(data) {
+    const totalExpensesElement = document.getElementById('total-expenses');
+    const paidExpensesElement = document.getElementById('paid-expenses');
+    const pendingExpensesElement = document.getElementById('pending-expenses');
+    const progressBarElement = document.querySelector('.expense-progress-bar');
+    
+    if (totalExpensesElement) {
+        totalExpensesElement.textContent = formatCurrency(data.total_expenses);
+    }
+    
+    if (paidExpensesElement) {
+        paidExpensesElement.textContent = formatCurrency(data.paid_expenses);
+    }
+    
+    if (pendingExpensesElement) {
+        pendingExpensesElement.textContent = formatCurrency(data.pending_expenses);
+    }
+    
+    if (progressBarElement) {
+        const percentage = data.payment_percentage || 0;
+        progressBarElement.style.width = `${percentage}%`;
+        progressBarElement.setAttribute('aria-valuenow', percentage);
+        progressBarElement.textContent = `${percentage.toFixed(1)}%`;
+    }
+}
+
+// Função para diagnóstico automático de problemas
+function diagnosePotentialIssues(expenseId) {
+    console.log('Executando diagnóstico automático para a despesa ID:', expenseId);
+    
+    // Verificar se o usuário está autenticado
+    fetch('/dashboard/check-auth/', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.authenticated) {
+            showAlert('Diagnóstico: Você não está autenticado. Por favor, faça login novamente.', 'warning');
+            return;
+        }
+        
+        // Verificar se a despesa existe e pertence à empresa do usuário
+        fetch(`/dashboard/despesas/diagnostico/${expenseId}/`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(diagnosticoData => {
+            console.log('Resultado do diagnóstico:', diagnosticoData);
+            
+            if (diagnosticoData.error) {
+                showAlert(`Diagnóstico: ${diagnosticoData.error}`, 'warning');
+            } else if (diagnosticoData.success) {
+                // Verificar possíveis problemas específicos
+                if (diagnosticoData.details) {
+                    showAlert(`Diagnóstico: ${diagnosticoData.details}`, 'info');
+                } else {
+                    showAlert('Diagnóstico: A despesa existe e você tem permissão para modificá-la. Tente novamente ou contate o suporte.', 'info');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erro durante o diagnóstico:', error);
+            showAlert('Não foi possível completar o diagnóstico automático. Por favor, contate o suporte técnico.', 'warning');
+        });
+    })
+    .catch(error => {
+        console.error('Erro ao verificar autenticação:', error);
+        showAlert('Diagnóstico: Não foi possível verificar seu estado de autenticação. Por favor, recarregue a página.', 'warning');
     });
 }
 

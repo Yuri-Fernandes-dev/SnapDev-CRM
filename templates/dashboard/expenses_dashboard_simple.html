@@ -1,0 +1,728 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Despesas Simplificadas | SaaS CRM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .summary-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
+        padding: 1.5rem;
+        height: 100%;
+    }
+    
+    .summary-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .card-blue {
+        background: linear-gradient(45deg, #2196F3, #4FC3F7);
+        color: white;
+    }
+    
+    .card-green {
+        background: linear-gradient(45deg, #4CAF50, #8BC34A);
+        color: white;
+    }
+    
+    .card-orange {
+        background: linear-gradient(45deg, #FF9800, #FFC107);
+        color: white;
+    }
+    
+    .card-red {
+        background: linear-gradient(45deg, #F44336, #FF5722);
+        color: white;
+    }
+    
+    .expense-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    
+    .table-expenses {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .table-expenses th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+    
+    .table-expenses tbody tr {
+        transition: background-color 0.2s;
+    }
+    
+    .table-expenses tbody tr:hover {
+        background-color: #f1f3f5;
+    }
+    
+    .status-badge {
+        padding: 5px 10px;
+        border-radius: 20px;
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .status-badge:hover {
+        filter: brightness(1.1);
+    }
+    
+    .badge-paid {
+        background-color: #d1e7dd;
+        color: #0f5132;
+    }
+    
+    .badge-pending {
+        background-color: #fff3cd;
+        color: #664d03;
+    }
+    
+    .loading-indicator {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        margin-right: 5px;
+        border: 2px solid currentColor;
+        border-radius: 50%;
+        border-top-color: transparent;
+        animation: spin 0.6s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .action-btn {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s;
+        color: #6c757d;
+        background-color: #f8f9fa;
+        border: none;
+    }
+    
+    .action-btn:hover {
+        background-color: #e9ecef;
+        color: #495057;
+    }
+    
+    .action-btn-edit:hover {
+        background-color: #E3F2FD;
+        color: #1976D2;
+    }
+    
+    .action-btn-delete:hover {
+        background-color: #FFEBEE;
+        color: #D32F2F;
+    }
+    
+    .category-badge {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        margin-right: 0.5rem;
+        background-color: #E3F2FD;
+        color: #1976D2;
+    }
+    
+    .add-button {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: #2196F3;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        transition: all 0.3s;
+    }
+    
+    .add-button:hover {
+        background-color: #1976D2;
+        transform: scale(1.1);
+    }
+    
+    .filter-container {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .chart-container {
+        height: 300px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Despesas Simplificadas</h1>
+            <p class="text-muted">Visualização simplificada das suas despesas</p>
+        </div>
+        
+        <div class="d-flex">
+            <a href="{% url 'dashboard:expenses' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-th-list me-1"></i> Versão Completa
+            </a>
+            <div class="dropdown me-2">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="periodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-calendar me-1"></i> Período
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="periodDropdown">
+                    <li><a class="dropdown-item" href="?period=7">Últimos 7 dias</a></li>
+                    <li><a class="dropdown-item" href="?period=30">Últimos 30 dias</a></li>
+                    <li><a class="dropdown-item" href="?period=90">Últimos 90 dias</a></li>
+                    <li><a class="dropdown-item" href="?period=365">Último ano</a></li>
+                </ul>
+            </div>
+            
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                <i class="fas fa-plus me-1"></i> Nova Despesa
+            </button>
+        </div>
+    </div>
+    
+    <!-- Cards de resumo -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="summary-card card-blue">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-white-50">Total de Despesas</h6>
+                        <h3 class="mb-0">R$ {{ total_expenses|floatformat:2 }}</h3>
+                    </div>
+                    <div class="expense-icon">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="summary-card card-green">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-white-50">Despesas Pagas</h6>
+                        <h3 class="mb-0">R$ {{ paid_expenses|floatformat:2 }}</h3>
+                    </div>
+                    <div class="expense-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="summary-card card-orange">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-white-50">A Pagar</h6>
+                        <h3 class="mb-0">R$ {{ pending_expenses|floatformat:2 }}</h3>
+                    </div>
+                    <div class="expense-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="summary-card card-red">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-white-50">Lucro Líquido</h6>
+                        <h3 class="mb-0">R$ {{ total_profit|floatformat:2 }}</h3>
+                        <small class="text-white-50">Receita - Despesas Pagas</small>
+                    </div>
+                    <div class="expense-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabela de despesas -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <h5 class="mb-0">Despesas Recentes</h5>
+            
+            <div>
+                <button class="btn btn-sm btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#filterModal">
+                    <i class="fas fa-filter me-1"></i> Filtros
+                </button>
+                
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-file-export me-1"></i> Exportar
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="visually-hidden">Toggle Dropdown</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#">Excel</a></li>
+                        <li><a class="dropdown-item" href="#">PDF</a></li>
+                        <li><a class="dropdown-item" href="#">CSV</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-expenses mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-3">Descrição</th>
+                            <th>Categoria</th>
+                            <th>Data</th>
+                            <th>Valor</th>
+                            <th>Status</th>
+                            <th class="text-end pe-3">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in recent_expenses %}
+                        <tr>
+                            <td class="ps-3">{{ expense.description }}</td>
+                            <td>
+                                <span class="category-badge">{{ expense.category.name }}</span>
+                            </td>
+                            <td>{{ expense.date|date:"d/m/Y" }}</td>
+                            <td>R$ {{ expense.amount|floatformat:2 }}</td>
+                            <td>
+                                {% if expense.is_paid %}
+                                <span>
+                                    <span class="status-badge badge-paid toggle-payment-status" onclick="togglePaymentStatus(this, {{ expense.id }})" data-status="paid">
+                                        <i class="fas fa-check-circle me-1"></i> Pago
+                                    </span>
+                                </span>
+                                {% else %}
+                                <span>
+                                    <span class="status-badge badge-pending toggle-payment-status" onclick="togglePaymentStatus(this, {{ expense.id }})" data-status="pending">
+                                        <i class="fas fa-clock me-1"></i> A Pagar
+                                    </span>
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-3">
+                                <button 
+                                    class="action-btn action-btn-edit me-1" 
+                                    title="Editar" 
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editExpenseModal"
+                                    data-expense-id="{{ expense.id }}"
+                                    onclick="prepareEditExpense({{ expense.id }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                
+                                <button 
+                                    class="action-btn action-btn-delete" 
+                                    title="Excluir"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteExpenseModal"
+                                    data-expense-id="{{ expense.id }}"
+                                    data-expense-description="{{ expense.description }}">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center p-4">
+                                <i class="fas fa-receipt text-muted mb-3" style="font-size: 2rem;"></i>
+                                <p class="mb-0">Nenhuma despesa encontrada.</p>
+                                <p class="text-muted small">Comece adicionando uma nova despesa.</p>
+                                <button class="btn btn-sm btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                                    <i class="fas fa-plus me-1"></i> Adicionar Despesa
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Despesas por categoria -->
+    <div class="row mt-4">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">Despesas por Categoria</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="categoriesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">Categorias de Despesas</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-expenses mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-3">Categoria</th>
+                                    <th>Total</th>
+                                    <th>Pagas</th>
+                                    <th>Pendentes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cat in expenses_by_category %}
+                                <tr>
+                                    <td class="ps-3">{{ cat.category.name }}</td>
+                                    <td>R$ {{ cat.total|floatformat:2 }}</td>
+                                    <td>R$ {{ cat.paid|floatformat:2 }}</td>
+                                    <td>R$ {{ cat.pending|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center p-3">
+                                        <p class="mb-0 text-muted">Nenhuma categoria encontrada.</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Adicionar Despesa -->
+    <div class="modal fade" id="addExpenseModal" tabindex="-1" aria-labelledby="addExpenseModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addExpenseModalLabel">Nova Despesa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" action="{% url 'dashboard:add_expense' %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Categoria</label>
+                            <select class="form-select" id="category" name="category" required>
+                                <option value="" disabled selected>Selecione uma categoria</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Descrição</label>
+                            <input type="text" class="form-control" id="description" name="description" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="amount" class="form-label">Valor (R$)</label>
+                            <input type="number" class="form-control" id="amount" name="amount" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="date" class="form-label">Data</label>
+                            <input type="date" class="form-control" id="date" name="date" value="{{ today|date:'Y-m-d' }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="payment_status" class="form-label">Status de Pagamento</label>
+                            <select class="form-select" id="payment_status" name="is_paid">
+                                <option value="true">Pago</option>
+                                <option value="false" selected>A Pagar</option>
+                            </select>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="is_paid" name="is_paid_old" style="display:none;">
+                            <label class="form-check-label" for="is_paid" style="display:none;">
+                                Despesa já paga
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Editar Despesa -->
+    <div class="modal fade" id="editExpenseModal" tabindex="-1" aria-labelledby="editExpenseModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editExpenseModalLabel">Editar Despesa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="editExpenseForm" method="post" action="">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="edit_category" class="form-label">Categoria</label>
+                            <select class="form-select" id="edit_category" name="category" required>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_description" class="form-label">Descrição</label>
+                            <input type="text" class="form-control" id="edit_description" name="description" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_amount" class="form-label">Valor (R$)</label>
+                            <input type="number" class="form-control" id="edit_amount" name="amount" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_date" class="form-label">Data</label>
+                            <input type="date" class="form-control" id="edit_date" name="date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_payment_status" class="form-label">Status de Pagamento</label>
+                            <select class="form-select" id="edit_payment_status" name="is_paid">
+                                <option value="true">Pago</option>
+                                <option value="false">A Pagar</option>
+                            </select>
+                        </div>
+                        <div class="form-check mb-3" style="display:none;">
+                            <input class="form-check-input" type="checkbox" id="edit_is_paid" name="is_paid_old">
+                            <label class="form-check-label" for="edit_is_paid">
+                                Despesa já paga
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Atualizar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Excluir Despesa -->
+    <div class="modal fade" id="deleteExpenseModal" tabindex="-1" aria-labelledby="deleteExpenseModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteExpenseModalLabel">Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Tem certeza que deseja excluir a despesa <strong id="deleteExpenseName"></strong>?</p>
+                    <p class="text-danger">Esta ação não pode ser desfeita.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <a href="#" id="deleteExpenseBtn" class="btn btn-danger">Excluir</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Botão flutuante para nova despesa -->
+    <a href="#" class="add-button" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+        <i class="fas fa-plus"></i>
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Gráfico de categorias
+        const categoryData = [
+            {% for cat in expenses_by_category %}
+                {
+                    category: '{{ cat.category.name }}',
+                    total: {{ cat.total|default:0 }},
+                    color: getRandomColor()
+                }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        
+        if (categoryData.length > 0) {
+            renderCategoriesChart(categoryData);
+        }
+        
+        // Preparar modal de exclusão
+        const deleteModal = document.getElementById('deleteExpenseModal');
+        if (deleteModal) {
+            deleteModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const expenseId = button.getAttribute('data-expense-id');
+                const expenseDescription = button.getAttribute('data-expense-description');
+                
+                document.getElementById('deleteExpenseName').textContent = expenseDescription;
+                document.getElementById('deleteExpenseBtn').href = '{% url "dashboard:delete_expense" 0 %}'.replace('0', expenseId);
+            });
+        }
+    });
+    
+    // Preparar modal de edição
+    function prepareEditExpense(expenseId) {
+        // Configurar o formulário com o ID correto para o envio
+        const form = document.getElementById('editExpenseForm');
+        form.action = '{% url "dashboard:edit_expense" 0 %}'.replace('0', expenseId);
+        
+        // Verificar se o botão que foi clicado tem dados do item diretamente nos atributos data-*
+        const button = document.querySelector(`[data-expense-id="${expenseId}"]`);
+        
+        // Em caso de falha na obtenção dos dados via AJAX, redirecionar para a página de edição
+        form.addEventListener('submit', function(e) {
+            // O formulário vai enviar normalmente e redirecionar para a página de edição da despesa
+            return true;
+        });
+        
+        // Abrir a despesa diretamente em uma nova janela se o AJAX falhar
+        setTimeout(() => {
+            // Se após 2 segundos o formulário ainda não foi preenchido, habilitar um botão para edição direta
+            const footer = form.querySelector('.modal-footer');
+            if (footer) {
+                const directEditBtn = document.createElement('a');
+                directEditBtn.href = '{% url "dashboard:edit_expense" 0 %}'.replace('0', expenseId);
+                directEditBtn.className = 'btn btn-info';
+                directEditBtn.innerText = 'Editar Diretamente';
+                directEditBtn.target = '_self';
+                
+                // Adicionar apenas se ainda não existe
+                if (!footer.querySelector('.btn-info')) {
+                    footer.insertBefore(directEditBtn, footer.firstChild);
+                }
+            }
+        }, 2000);
+    }
+    
+    // Renderizar gráfico de categorias
+    function renderCategoriesChart(data) {
+        const ctx = document.getElementById('categoriesChart').getContext('2d');
+        
+        const labels = data.map(item => item.category);
+        const values = data.map(item => item.total);
+        const colors = data.map(item => item.color);
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+    }
+    
+    // Gerar cores aleatórias para o gráfico
+    function getRandomColor() {
+        const colors = [
+            '#4285F4', '#EA4335', '#FBBC05', '#34A853', '#FF6D01',
+            '#46BDC6', '#9C27B0', '#673AB7', '#3F51B5', '#009688'
+        ];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+    
+    // Função para alternar o status de pagamento de uma despesa
+    function togglePaymentStatus(element, expenseId) {
+        const isPaid = element.classList.contains('badge-paid');
+        const newStatus = isPaid ? 'pending' : 'paid';
+        
+        // Mostrar indicador de carregamento
+        const originalContent = element.innerHTML;
+        element.innerHTML = '<span class="loading-indicator"></span> Atualizando...';
+        element.style.pointerEvents = 'none';
+        
+        // Enviar requisição AJAX para atualizar o status
+        fetch('/expenses/toggle-payment-status/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                expense_id: expenseId,
+                new_status: newStatus
+            })
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Falha ao atualizar status');
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            // Atualizar o elemento com o novo status
+            if (newStatus === 'paid') {
+                element.classList.remove('badge-pending');
+                element.classList.add('badge-paid');
+                element.innerHTML = '<i class="fas fa-check-circle me-1"></i> Pago';
+            } else {
+                element.classList.remove('badge-paid');
+                element.classList.add('badge-pending');
+                element.innerHTML = '<i class="fas fa-clock me-1"></i> Pendente';
+            }
+            
+            // Atualizar os totais do dashboard
+            updateDashboardCards();
+        })
+        .catch(function(error) {
+            console.error('Erro:', error);
+            element.innerHTML = originalContent;
+            alert('Erro ao atualizar o status de pagamento.');
+        })
+        .finally(function() {
+            element.style.pointerEvents = 'auto';
+        });
+    }
+    
+    // Função para atualizar os cards com os novos valores
+    function updateSummaryCards(newTotals) {
+        if (newTotals) {
+            document.querySelector('.card-blue h3').textContent = 'R$ ' + newTotals.total_expenses.toFixed(2);
+            document.querySelector('.card-green h3').textContent = 'R$ ' + newTotals.paid_expenses.toFixed(2);
+            document.querySelector('.card-orange h3').textContent = 'R$ ' + newTotals.pending_expenses.toFixed(2);
+            document.querySelector('.card-red h3').textContent = 'R$ ' + newTotals.total_profit.toFixed(2);
+        }
+    }
+</script>
+{% endblock %} 

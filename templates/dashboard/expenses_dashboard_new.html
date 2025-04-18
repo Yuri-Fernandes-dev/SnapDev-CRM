@@ -1,0 +1,1077 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Gestão de Despesas | SaaS CRM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card {
+        border: none;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s, box-shadow 0.3s;
+        margin-bottom: 1.5rem;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.12);
+    }
+    
+    .bg-gradient-primary {
+        background: linear-gradient(45deg, #0062cc, #007bff);
+    }
+    
+    .bg-gradient-success {
+        background: linear-gradient(45deg, #28a745, #34ce57);
+    }
+    
+    .bg-gradient-danger {
+        background: linear-gradient(45deg, #dc3545, #ff4d5a);
+    }
+    
+    .bg-gradient-info {
+        background: linear-gradient(45deg, #17a2b8, #20c9e0);
+    }
+    
+    .bg-gradient-warning {
+        background: linear-gradient(45deg, #ffc107, #ffca2c);
+    }
+    
+    .bg-gradient-purple {
+        background: linear-gradient(45deg, #8540f5, #a676f8);
+    }
+
+    .summary-card {
+        position: relative;
+        overflow: hidden;
+        color: white;
+        z-index: 1;
+    }
+    
+    .summary-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 120px;
+        height: 120px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(30%, -30%);
+        z-index: -1;
+    }
+    
+    .summary-card::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 80px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(-30%, 30%);
+        z-index: -1;
+    }
+    
+    .category-card {
+        border-left: 4px solid;
+        transition: all 0.3s;
+    }
+    
+    .category-card:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .trend-value {
+        font-size: 0.75rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 1rem;
+    }
+    
+    .expense-table th {
+        font-weight: 600;
+        background-color: #f8f9fa;
+    }
+    
+    .expense-badge {
+        width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+    
+    .btn-float {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        border-radius: 50%;
+        width: 3.5rem;
+        height: 3.5rem;
+        font-size: 1.5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .filter-badge {
+        background-color: #e9ecef;
+        color: #495057;
+        border-radius: 1rem;
+        padding: 0.25rem 0.75rem;
+        margin-right: 0.5rem;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .filter-badge:hover, .filter-badge.active {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .payment-toggle {
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .payment-toggle .tooltip-text {
+        visibility: hidden;
+        width: 120px;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+    
+    .payment-toggle:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+
+    /* Animações */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+    
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.4s; }
+    .delay-5 { animation-delay: 0.5s; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-0">Gestão de Despesas</h1>
+        <p class="text-muted mb-0">Acompanhe e gerencie suas despesas de forma eficiente</p>
+    </div>
+    
+    <div class="d-flex">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+                <i class="fas fa-filter me-1"></i> Filtros
+            </button>
+            <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="visually-hidden">Expandir</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="?period=7">Últimos 7 dias</a></li>
+                <li><a class="dropdown-item" href="?period=30">Últimos 30 dias</a></li>
+                <li><a class="dropdown-item" href="?period=90">Últimos 90 dias</a></li>
+                <li><a class="dropdown-item" href="?period=365">Último ano</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#filterModal">Filtro avançado</a></li>
+            </ul>
+        </div>
+        
+        <div class="dropdown">
+            <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-plus me-1"></i> Adicionar
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                    <i class="fas fa-money-bill-wave me-2"></i> Nova Despesa
+                </a></li>
+                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                    <i class="fas fa-folder-plus me-2"></i> Nova Categoria
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#importExpensesModal">
+                    <i class="fas fa-file-import me-2"></i> Importar Despesas
+                </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros ativos -->
+<div class="d-flex align-items-center mb-4">
+    <span class="me-2 text-muted">Filtros ativos:</span>
+    <span class="filter-badge active">
+        <span>Período: {{ period }} dias</span>
+        <i class="fas fa-times-circle ms-1"></i>
+    </span>
+    {% if category_filter %}
+    <span class="filter-badge active">
+        <span>Categoria: {{ category_filter }}</span>
+        <i class="fas fa-times-circle ms-1"></i>
+    </span>
+    {% endif %}
+    {% if payment_status_filter %}
+    <span class="filter-badge active">
+        <span>Status: {{ payment_status_filter }}</span>
+        <i class="fas fa-times-circle ms-1"></i>
+    </span>
+    {% endif %}
+</div>
+
+<!-- Cards de Resumo -->
+<div class="row">
+    <!-- Total de Despesas -->
+    <div class="col-md-4 animate-fade-in delay-1">
+        <div class="card summary-card bg-gradient-danger h-100">
+            <div class="card-body">
+                <h5 class="card-title text-white-50">Total de Despesas</h5>
+                <div class="d-flex align-items-center mt-3">
+                    <div class="display-5 fw-bold me-3">R$ {{ total_expenses|floatformat:2 }}</div>
+                    <div class="trend-value bg-white text-danger">
+                        <i class="fas fa-chart-line me-1"></i> {{ period }} dias
+                    </div>
+                </div>
+                <p class="card-text mt-3 mb-0 opacity-75">
+                    <i class="fas fa-calendar-alt me-1"></i> {{ start_date|date:"d/m/Y" }} - {{ end_date|date:"d/m/Y" }}
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Despesas Pagas -->
+    <div class="col-md-4 animate-fade-in delay-2">
+        <div class="card summary-card bg-gradient-success h-100">
+            <div class="card-body">
+                <h5 class="card-title text-white-50">Despesas Pagas</h5>
+                <div class="d-flex align-items-center mt-3">
+                    <div class="display-5 fw-bold me-3">R$ {{ paid_expenses|floatformat:2 }}</div>
+                    <div class="trend-value bg-white text-success">
+                        <i class="fas fa-check-circle me-1"></i> {{ payment_percentage|floatformat:0 }}% do total
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 8px;">
+                    <div class="progress-bar bg-white" role="progressbar" style="width: {{ payment_percentage }}%; opacity: 1;" aria-valuenow="{{ payment_percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Despesas Pendentes -->
+    <div class="col-md-4 animate-fade-in delay-3">
+        <div class="card summary-card bg-gradient-warning h-100">
+            <div class="card-body">
+                <h5 class="card-title text-white-50">Despesas Pendentes</h5>
+                <div class="d-flex align-items-center mt-3">
+                    <div class="display-5 fw-bold me-3">R$ {{ unpaid_expenses|floatformat:2 }}</div>
+                    <div class="trend-value bg-white text-warning">
+                        <i class="fas fa-exclamation-circle me-1"></i> {{ 100|add:"-"|add:payment_percentage|floatformat:0 }}% do total
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 8px;">
+                    <div class="progress-bar bg-white" role="progressbar" style="width: {{ 100|add:"-"|add:payment_percentage }}%; opacity: 1;" aria-valuenow="{{ 100|add:"-"|add:payment_percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos e Análises -->
+<div class="row mt-4">
+    <!-- Gráfico de Despesas por Dia -->
+    <div class="col-lg-8 animate-fade-in delay-3">
+        <div class="card h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="card-title mb-0">Evolução de Despesas</h5>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-secondary active" data-view="daily">Diário</button>
+                    <button type="button" class="btn btn-outline-secondary" data-view="weekly">Semanal</button>
+                    <button type="button" class="btn btn-outline-secondary" data-view="monthly">Mensal</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="expensesChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Categorias de Despesa -->
+    <div class="col-lg-4 animate-fade-in delay-4">
+        <div class="card h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="card-title mb-0">Despesas por Categoria</h5>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#categoryAnalysisModal">
+                            <i class="fas fa-chart-pie me-2"></i> Análise Detalhada
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                            <i class="fas fa-folder-plus me-2"></i> Nova Categoria
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <canvas id="categoryChart" height="200"></canvas>
+                </div>
+                <div class="mt-4">
+                    {% for category in expenses_by_category %}
+                    <div class="category-item mb-3" style="border-left-color: #{{ forloop.counter|make_list|random }}{{ forloop.counter|make_list|random }}{{ forloop.counter|make_list|random }};">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="expense-badge bg-{{ category.category__color|default:'primary' }}">
+                                    <i class="fas fa-{{ category.category__icon|default:'folder' }}"></i>
+                                </span>
+                                <span class="fw-medium">{{ category.category__name }}</span>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold">R$ {{ category.total|floatformat:2 }}</div>
+                                <div class="small text-muted">{{ category.percentage|floatformat:1 }}%</div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="progress me-3" style="flex-grow: 1; height: 10px;">
+                                <div class="progress-bar bg-{{ category.category__color|default:'primary' }}" role="progressbar" style="width: {{ category.percentage }}%; box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);"></div>
+                            </div>
+                            <span class="fw-semibold" style="min-width: 50px;">{{ category.percentage|floatformat:0 }}%</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-folder-open fa-2x mb-3"></i>
+                        <p>Nenhuma categoria de despesa encontrada no período selecionado.</p>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                            <i class="fas fa-plus me-1"></i> Adicionar Categoria
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lista de Despesas -->
+<div class="card mt-4 animate-fade-in delay-5">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <h5 class="card-title mb-0">Despesas Recentes</h5>
+        <div class="d-flex align-items-center">
+            <form class="d-flex me-2" action="{% url 'dashboard:expenses' %}" method="get">
+                <input type="hidden" name="period" value="{{ period }}">
+                <div class="input-group">
+                    <input type="text" class="form-control form-control-sm" placeholder="Buscar despesa..." name="search" value="{{ search_term|default:'' }}">
+                    <button class="btn btn-outline-secondary btn-sm" type="submit">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </form>
+            
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-sort me-1"></i> Ordenar
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="?period={{ period }}&sort=date">Data (mais recente)</a></li>
+                    <li><a class="dropdown-item" href="?period={{ period }}&sort=-date">Data (mais antiga)</a></li>
+                    <li><a class="dropdown-item" href="?period={{ period }}&sort=amount">Valor (menor)</a></li>
+                    <li><a class="dropdown-item" href="?period={{ period }}&sort=-amount">Valor (maior)</a></li>
+                    <li><a class="dropdown-item" href="?period={{ period }}&sort=category">Categoria (A-Z)</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 expense-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Categoria</th>
+                        <th>Descrição</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-end">Valor</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expense in expenses %}
+                    <tr>
+                        <td>{{ expense.date|date:"d/m/Y" }}</td>
+                        <td>
+                            <span class="expense-badge bg-{{ expense.category.color|default:'primary' }}">
+                                <i class="fas fa-{{ expense.category.icon|default:'folder' }}"></i>
+                            </span>
+                            {{ expense.category.name }}
+                        </td>
+                        <td>{{ expense.description|default:"-" }}</td>
+                        <td class="text-center">
+                            {% if expense.is_paid %}
+                            <span class="payment-toggle" onclick="togglePaymentStatus({{ expense.id }}, this)" data-is-paid="true">
+                                <span class="tooltip-text">Clique para marcar como "Não Pago"</span>
+                                <span class="badge rounded-pill bg-success d-flex align-items-center justify-content-center">
+                                    <i class="fas fa-check-circle me-1"></i> Pago 
+                                </span>
+                            </span>
+                            {% else %}
+                            <span class="payment-toggle" onclick="togglePaymentStatus({{ expense.id }}, this)" data-is-paid="false">
+                                <span class="tooltip-text">Clique para marcar como "Pago"</span>
+                                <span class="badge rounded-pill bg-warning text-dark d-flex align-items-center justify-content-center">
+                                    <i class="fas fa-clock me-1"></i> Pendente 
+                                </span>
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-bold">R$ {{ expense.amount|floatformat:2 }}</td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" onclick="editExpense({{ expense.id }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" onclick="deleteExpense({{ expense.id }})">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <div class="text-muted">
+                                <i class="fas fa-file-invoice-dollar fa-2x mb-3"></i>
+                                <p>Nenhuma despesa encontrada no período selecionado.</p>
+                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                                    <i class="fas fa-plus me-1"></i> Adicionar Despesa
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-white py-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="text-muted small">
+                Mostrando {{ expenses.count }} de {{ total_expenses_count }} despesas
+            </div>
+            <nav aria-label="Page navigation">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not prev_page %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ prev_page }}&period={{ period }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% for p in paginator.page_range %}
+                    <li class="page-item {% if page == p %}active{% endif %}">
+                        <a class="page-link" href="?page={{ p }}&period={{ period }}">{{ p }}</a>
+                    </li>
+                    {% endfor %}
+                    <li class="page-item {% if not next_page %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ next_page }}&period={{ period }}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Botão Flutuante de Adicionar Despesa -->
+<button class="btn btn-primary btn-float" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+    <i class="fas fa-plus"></i>
+</button>
+
+<!-- Modal de Adicionar Despesa -->
+<div class="modal fade" id="addExpenseModal" tabindex="-1" aria-labelledby="addExpenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addExpenseModalLabel">Adicionar Nova Despesa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addExpenseForm" method="post" action="{% url 'dashboard:add_expense' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="expense_category" class="form-label">Categoria</label>
+                        <select class="form-select" id="expense_category" name="category" required>
+                            <option value="" selected disabled>Selecione uma categoria</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="expense_amount" class="form-label">Valor (R$)</label>
+                        <input type="number" class="form-control" id="expense_amount" name="amount" min="0.01" step="0.01" required placeholder="0,00">
+                    </div>
+                    <div class="mb-3">
+                        <label for="expense_description" class="form-label">Descrição</label>
+                        <input type="text" class="form-control" id="expense_description" name="description" placeholder="Ex: Aluguel do escritório">
+                    </div>
+                    <div class="mb-3">
+                        <label for="expense_date" class="form-label">Data</label>
+                        <input type="date" class="form-control" id="expense_date" name="date" value="{{ today|date:'Y-m-d' }}" required>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="expense_is_paid" name="is_paid" checked>
+                        <label class="form-check-label" for="expense_is_paid">
+                            Despesa já paga
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Despesa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Adicionar Categoria -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addCategoryModalLabel">Adicionar Categoria de Despesa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addCategoryForm" method="post" action="{% url 'dashboard:add_expense_category' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="category_name" class="form-label">Nome da Categoria</label>
+                        <input type="text" class="form-control" id="category_name" name="name" required placeholder="Ex: Aluguel">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cor</label>
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            {% for color in 'primary,secondary,success,danger,warning,info,dark'|split:',' %}
+                            <div class="form-check">
+                                <input class="form-check-input visually-hidden" type="radio" name="color" id="color_{{ color }}" value="{{ color }}" {% if forloop.first %}checked{% endif %}>
+                                <label class="form-check-label d-flex align-items-center justify-content-center" for="color_{{ color }}" style="width: 40px; height: 40px; border-radius: 50%; background-color: var(--bs-{{ color }}); cursor: pointer; border: 4px solid transparent;">
+                                    <i class="fas fa-check text-white"></i>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ícone</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for icon in 'home,building,car,shopping-cart,utensils,graduation-cap,briefcase,file-invoice-dollar,hand-holding-usd,heartbeat,plane'|split:',' %}
+                            <div class="form-check">
+                                <input class="form-check-input visually-hidden" type="radio" name="icon" id="icon_{{ icon }}" value="{{ icon }}" {% if forloop.first %}checked{% endif %}>
+                                <label class="form-check-label d-flex align-items-center justify-content-center" for="icon_{{ icon }}" style="width: 40px; height: 40px; border-radius: 8px; background-color: #f8f9fa; cursor: pointer; border: 2px solid transparent;">
+                                    <i class="fas fa-{{ icon }}"></i>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Categoria</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Filtros -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="filterModalLabel">Filtros Avançados</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="filterForm" method="get" action="{% url 'dashboard:expenses' %}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="filter_date_start" class="form-label">Data Inicial</label>
+                        <input type="date" class="form-control" id="filter_date_start" name="date_start" value="{{ start_date|date:'Y-m-d' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="filter_date_end" class="form-label">Data Final</label>
+                        <input type="date" class="form-control" id="filter_date_end" name="date_end" value="{{ end_date|date:'Y-m-d' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="filter_category" class="form-label">Categoria</label>
+                        <select class="form-select" id="filter_category" name="category">
+                            <option value="">Todas as categorias</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}" {% if category_filter == category.id %}selected{% endif %}>{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="filter_payment_status" class="form-label">Status de Pagamento</label>
+                        <select class="form-select" id="filter_payment_status" name="payment_status">
+                            <option value="">Todos os status</option>
+                            <option value="paid" {% if payment_status_filter == 'paid' %}selected{% endif %}>Pago</option>
+                            <option value="unpaid" {% if payment_status_filter == 'unpaid' %}selected{% endif %}>Pendente</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="filter_amount_min" class="form-label">Valor Mínimo (R$)</label>
+                        <input type="number" class="form-control" id="filter_amount_min" name="amount_min" min="0" step="0.01" value="{{ amount_min|default:'' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="filter_amount_max" class="form-label">Valor Máximo (R$)</label>
+                        <input type="number" class="form-control" id="filter_amount_max" name="amount_max" min="0" step="0.01" value="{{ amount_max|default:'' }}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="{% url 'dashboard:expenses' %}" class="btn btn-link text-muted">Limpar Filtros</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    // Função para obter token CSRF
+    function getCSRFToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+
+    // Atualizar cards com animação
+    function updateDashboardCards(data) {
+        const totalCard = document.querySelector('.summary-card.bg-gradient-danger .display-5');
+        const paidCard = document.querySelector('.summary-card.bg-gradient-success .display-5');
+        const unpaidCard = document.querySelector('.summary-card.bg-gradient-warning .display-5');
+        
+        if (totalCard) animateValue(totalCard, parseFloat(totalCard.innerText.replace('R$ ', '').replace(',', '.')), data.total_expenses, 1000);
+        if (paidCard) animateValue(paidCard, parseFloat(paidCard.innerText.replace('R$ ', '').replace(',', '.')), data.paid_expenses, 1000);
+        if (unpaidCard) animateValue(unpaidCard, parseFloat(unpaidCard.innerText.replace('R$ ', '').replace(',', '.')), data.unpaid_expenses, 1000);
+    }
+
+    // Animação para os valores
+    function animateValue(element, start, end, duration) {
+        let startTimestamp = null;
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            const value = progress * (end - start) + start;
+            element.innerHTML = `R$ ${value.toFixed(2)}`;
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            }
+        };
+        window.requestAnimationFrame(step);
+    }
+
+    // Alternar status de pagamento
+    function togglePaymentStatus(expenseId, element) {
+        const isPaid = element.getAttribute('data-is-paid') === 'true';
+        const newStatus = !isPaid;
+        
+        fetch('/dashboard/despesas/alternar-status/' + expenseId + '/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ is_paid: newStatus })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Atualizar interface
+                element.setAttribute('data-is-paid', newStatus.toString());
+                
+                const tooltipText = element.querySelector('.tooltip-text');
+                const badge = element.querySelector('.badge');
+                
+                if (newStatus) {
+                    tooltipText.textContent = 'Clique para marcar como "Não Pago"';
+                    badge.classList.remove('bg-warning', 'text-dark');
+                    badge.classList.add('bg-success');
+                    badge.innerHTML = '<i class="fas fa-check-circle me-1"></i> Pago';
+                } else {
+                    tooltipText.textContent = 'Clique para marcar como "Pago"';
+                    badge.classList.remove('bg-success');
+                    badge.classList.add('bg-warning', 'text-dark');
+                    badge.innerHTML = '<i class="fas fa-clock me-1"></i> Pendente';
+                }
+                
+                // Atualizar cards do dashboard
+                updateDashboardCards(data);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao alterar status:', error);
+            alert('Erro ao alterar o status da despesa.');
+        });
+    }
+
+    // Editar despesa
+    function editExpense(expenseId) {
+        // Obter dados da despesa via AJAX
+        fetch('/dashboard/despesas/' + expenseId + '/editar/?format=json', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Criar modal dinâmico
+            const modalId = 'editExpenseModal' + expenseId;
+            let modal = document.getElementById(modalId);
+            
+            if (!modal) {
+                const modalHTML = `
+                <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="${modalId}Label">Editar Despesa</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <form method="post" action="/dashboard/despesas/${expenseId}/editar/">
+                                <input type="hidden" name="csrfmiddlewaretoken" value="${getCSRFToken()}">
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label for="edit_category_${expenseId}" class="form-label">Categoria</label>
+                                        <select class="form-select" id="edit_category_${expenseId}" name="category" required>
+                                            ${data.categories.map(cat => `<option value="${cat.id}" ${cat.id === data.expense.category.id ? 'selected' : ''}>${cat.name}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_amount_${expenseId}" class="form-label">Valor (R$)</label>
+                                        <input type="number" class="form-control" id="edit_amount_${expenseId}" name="amount" min="0.01" step="0.01" required value="${data.expense.amount}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_description_${expenseId}" class="form-label">Descrição</label>
+                                        <input type="text" class="form-control" id="edit_description_${expenseId}" name="description" value="${data.expense.description || ''}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_date_${expenseId}" class="form-label">Data</label>
+                                        <input type="date" class="form-control" id="edit_date_${expenseId}" name="date" value="${data.expense.date}" required>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" id="edit_is_paid_${expenseId}" name="is_paid" ${data.expense.is_paid ? 'checked' : ''}>
+                                        <label class="form-check-label" for="edit_is_paid_${expenseId}">
+                                            Despesa já paga
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>`;
+                
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+                modal = document.getElementById(modalId);
+            }
+            
+            // Exibir o modal
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+        })
+        .catch(error => {
+            console.error('Erro ao obter dados da despesa:', error);
+            alert('Erro ao carregar os dados da despesa.');
+        });
+    }
+
+    // Excluir despesa
+    function deleteExpense(expenseId) {
+        if (confirm('Tem certeza que deseja excluir esta despesa?')) {
+            fetch('/dashboard/despesas/' + expenseId + '/excluir/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remover a linha da tabela
+                    const row = document.querySelector(`tr[data-expense-id="${expenseId}"]`);
+                    if (row) row.remove();
+                    
+                    // Atualizar cards do dashboard
+                    updateDashboardCards(data);
+                    
+                    // Atualizar gráficos
+                    updateExpensesChart(data.chart_data);
+                    updateCategoryChart(data.category_data);
+                    
+                    // Mostrar mensagem
+                    alert('Despesa excluída com sucesso!');
+                } else {
+                    alert(data.error || 'Erro ao excluir a despesa.');
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao excluir despesa:', error);
+                alert('Erro ao excluir a despesa.');
+            });
+        }
+    }
+
+    // Configuração do gráfico de despesas
+    let expensesChart;
+    function setupExpensesChart(data) {
+        const ctx = document.getElementById('expensesChart').getContext('2d');
+        
+        expensesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Despesas Diárias',
+                    data: data.values,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#007bff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        bodyFont: {
+                            size: 14
+                        },
+                        callbacks: {
+                            label: function(context) {
+                                return 'R$ ' + context.raw.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value;
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Atualizar gráfico de despesas
+    function updateExpensesChart(data) {
+        if (expensesChart) {
+            expensesChart.data.labels = data.labels;
+            expensesChart.data.datasets[0].data = data.values;
+            expensesChart.update();
+        }
+    }
+
+    // Configuração do gráfico de categorias
+    let categoryChart;
+    function setupCategoryChart(data) {
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        
+        categoryChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: data.colors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        bodyFont: {
+                            size: 14
+                        },
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.raw;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${context.label}: R$ ${value.toFixed(2)} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // Atualizar gráfico de categorias
+    function updateCategoryChart(data) {
+        if (categoryChart) {
+            categoryChart.data.labels = data.labels;
+            categoryChart.data.datasets[0].data = data.values;
+            categoryChart.data.datasets[0].backgroundColor = data.colors;
+            categoryChart.update();
+        }
+    }
+
+    // Inicialização quando o DOM estiver pronto
+    document.addEventListener('DOMContentLoaded', function() {
+        // Seletor de cores para categorias
+        const colorInputs = document.querySelectorAll('input[name="color"]');
+        colorInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                colorInputs.forEach(inp => {
+                    const label = inp.nextElementSibling;
+                    if (inp.checked) {
+                        label.style.borderColor = '#000';
+                    } else {
+                        label.style.borderColor = 'transparent';
+                    }
+                });
+            });
+        });
+        
+        // Seletor de ícones para categorias
+        const iconInputs = document.querySelectorAll('input[name="icon"]');
+        iconInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                iconInputs.forEach(inp => {
+                    const label = inp.nextElementSibling;
+                    if (inp.checked) {
+                        label.style.borderColor = '#007bff';
+                        label.style.backgroundColor = '#e9f5ff';
+                    } else {
+                        label.style.borderColor = 'transparent';
+                        label.style.backgroundColor = '#f8f9fa';
+                    }
+                });
+            });
+        });
+        
+        // Configurar gráficos se os dados estiverem disponíveis
+        if (typeof expensesChartData !== 'undefined') {
+            setupExpensesChart(expensesChartData);
+        }
+        
+        if (typeof categoryChartData !== 'undefined') {
+            setupCategoryChart(categoryChartData);
+        }
+        
+        // Inicializar tooltips do Bootstrap
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Adicionar IDs de despesas às linhas da tabela
+        document.querySelectorAll('table.expense-table tbody tr').forEach(tr => {
+            // Obter o ID da despesa a partir do botão de edição
+            const editButton = tr.querySelector('button[onclick^="editExpense("]');
+            if (editButton) {
+                const match = editButton.getAttribute('onclick').match(/editExpense\((\d+)\)/);
+                if (match && match[1]) {
+                    tr.setAttribute('data-expense-id', match[1]);
+                }
+            }
+        });
+        
+        // Mudar visualização do gráfico (diário, semanal, mensal)
+        document.querySelectorAll('[data-view]').forEach(button => {
+            button.addEventListener('click', function() {
+                const view = this.getAttribute('data-view');
+                
+                // Atualizar classe ativa
+                document.querySelectorAll('[data-view]').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // Fazer solicitação AJAX para atualizar os dados do gráfico
+                fetch(`/dashboard/despesas/chart-data/?view=${view}&period={{ period }}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateExpensesChart(data.chart_data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao atualizar visualização do gráfico:', error);
+                });
+            });
+        });
+    });
+</script>
+{% endblock %} 
