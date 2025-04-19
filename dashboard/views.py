@@ -14,18 +14,6 @@ from .models import ExpenseCategory, Expense
 import json
 import logging
 import traceback
-from django.core.paginator import Paginator, EmptyPage
-from django.db.models import Q
-import calendar
-
-def get_tenant(request):
-    """
-    Helper function to get the tenant (company) for the current request.
-    This allows for consistent access to the company across the application.
-    """
-    if hasattr(request, 'user') and hasattr(request.user, 'company'):
-        return request.user.company
-    return None
 
 # Função para verificar a autenticação do usuário via AJAX
 @require_http_methods(["GET"])
@@ -598,136 +586,119 @@ def diagnose_payment_update_issue(request, expense_id):
             }
         }, status=500)
 
-@login_required
-def expense_chart_data(request):
-    """AJAX endpoint to return chart data for expenses dashboard"""
-    user = request.user
-    tenant = get_tenant(request)
-    
-    # Get the view type (daily, weekly, monthly)
-    view_type = request.GET.get('view', 'monthly')
-    # Get period filter if present
-    period = request.GET.get('period', None)
-    # Get category filter if present
-    category_id = request.GET.get('category', None)
-    # Get payment status filter if present
-    payment_status = request.GET.get('payment_status', None)
-    
-    # Base queryset
-    expenses = Expense.objects.filter(company=tenant)
-    
-    # Apply filters
-    if period:
-        if period == 'this_month':
-            today = timezone.now().date()
-            start_date = today.replace(day=1)
-            next_month = today.replace(day=28) + datetime.timedelta(days=4)
-            end_date = next_month.replace(day=1) - datetime.timedelta(days=1)
-            expenses = expenses.filter(date__range=[start_date, end_date])
-        elif period == 'last_month':
-            today = timezone.now().date()
-            end_date = today.replace(day=1) - datetime.timedelta(days=1)
-            start_date = end_date.replace(day=1)
-            expenses = expenses.filter(date__range=[start_date, end_date])
-        elif period == 'this_year':
-            today = timezone.now().date()
-            start_date = today.replace(month=1, day=1)
-            end_date = today.replace(month=12, day=31)
-            expenses = expenses.filter(date__range=[start_date, end_date])
-    
-    # Apply category filter
-    if category_id and category_id != 'all':
-        expenses = expenses.filter(category_id=category_id)
-    
-    # Apply payment status filter
-    if payment_status:
-        if payment_status == 'paid':
-            expenses = expenses.filter(is_paid=True)
-        elif payment_status == 'pending':
-            expenses = expenses.filter(is_paid=False)
-    
-    # Data structure depends on view type
-    chart_data = {'labels': [], 'datasets': [{'label': 'Despesas', 'data': [], 'backgroundColor': '#4e73df'}]}
-    
-    if view_type == 'daily':
-        # Group by day for the last 30 days
-        end_date = timezone.now().date()
-        start_date = end_date - datetime.timedelta(days=29)
-        
-        date_range = [start_date + datetime.timedelta(days=i) for i in range(30)]
-        for day in date_range:
-            day_expenses = expenses.filter(date=day)
-            total = day_expenses.aggregate(Sum('amount'))['amount__sum'] or 0
-            chart_data['labels'].append(day.strftime('%d/%m'))
-            chart_data['datasets'][0]['data'].append(float(total))
-            
-    elif view_type == 'weekly':
-        # Group by week for the last 12 weeks
-        end_date = timezone.now().date()
-        start_date = end_date - datetime.timedelta(weeks=11)
-        
-        for i in range(12):
-            week_start = start_date + datetime.timedelta(weeks=i)
-            week_end = week_start + datetime.timedelta(days=6)
-            week_expenses = expenses.filter(date__range=[week_start, week_end])
-            total = week_expenses.aggregate(Sum('amount'))['amount__sum'] or 0
-            chart_data['labels'].append(f"{week_start.strftime('%d/%m')} - {week_end.strftime('%d/%m')}")
-            chart_data['datasets'][0]['data'].append(float(total))
-            
-    else:  # Monthly (default)
-        # Group by month for the last 12 months
-        end_month = timezone.now().date().replace(day=1)
-        
-        for i in range(12):
-            # Calculate month start and end dates
-            month_start = (end_month - datetime.timedelta(days=1)).replace(day=1) - datetime.timedelta(days=(i * 31))
-            month_end = month_start.replace(
-                day=calendar.monthrange(month_start.year, month_start.month)[1]
-            )
-            
-            # Get expenses for this month
-            month_expenses = expenses.filter(date__range=[month_start, month_end])
-            total = month_expenses.aggregate(Sum('amount'))['amount__sum'] or 0
-            
-            # Add to chart data
-            month_name = month_start.strftime('%b/%Y')
-            chart_data['labels'].append(month_name)
-            chart_data['datasets'][0]['data'].append(float(total))
-        
-        # Reverse the data to show chronological order
-        chart_data['labels'].reverse()
-        chart_data['datasets'][0]['data'].reverse()
-    
-    return JsonResponse(chart_data)
-
-@login_required
+@require_http_methods(["POST"])
 def toggle_expense_payment(request, expense_id):
-    """Toggle the payment status of an expense and return updated total data"""
-    if request.method == "POST":
-        tenant = get_tenant(request)
-        try:
-            expense = Expense.objects.get(id=expense_id, company=tenant)
-            expense.is_paid = not expense.is_paid
-            expense.save()
-            
-            # Calculate updated totals
-            all_expenses = Expense.objects.filter(company=tenant)
-            total_expenses = all_expenses.aggregate(Sum('amount'))['amount__sum'] or 0
-            paid_expenses = all_expenses.filter(is_paid=True).aggregate(Sum('amount'))['amount__sum'] or 0
-            pending_expenses = all_expenses.filter(is_paid=False).aggregate(Sum('amount'))['amount__sum'] or 0
-            
+    """Função para alternar o status de pagamento de uma despesa"""
+    try:
+        expense = Expense.objects.get(id=expense_id)
+        
+        # Verificar permissões do usuário
+        if expense.company != request.user.company:
             return JsonResponse({
-                'success': True,
-                'expense_id': expense_id,
-                'is_paid': expense.is_paid,
-                'total_expenses': float(total_expenses),
-                'paid_expenses': float(paid_expenses),
-                'pending_expenses': float(pending_expenses)
-            })
-        except Expense.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Despesa não encontrada'}, status=404)
-    
-    return JsonResponse({'success': False, 'error': 'Método não permitido'}, status=405)
+                'success': False, 
+                'error': 'Você não tem permissão para modificar esta despesa',
+                'diagnostic_url': f'/dashboard/despesas/diagnostico/{expense_id}/'
+            }, status=403)
+            
+        # Registrar o valor anterior
+        old_status = expense.is_paid
+        
+        # Alternar o status
+        expense.is_paid = not expense.is_paid
+        expense.save()
+        
+        # Registrar a operação em log
+        logger = logging.getLogger('dashboard.expenses')
+        logger.info(
+            f"STATUS DE PAGAMENTO ALTERADO: Despesa ID={expense.id}, "
+            f"Valor={expense.amount}, Antigo={old_status}, Novo={expense.is_paid}, "
+            f"Usuário={request.user.email}, Empresa={request.user.company.name}"
+        )
+        
+        # Recalcular totais para o dashboard
+        company = request.user.company
+        total_expenses = Expense.objects.filter(company=company).aggregate(Sum('amount'))['amount__sum'] or 0
+        paid_expenses = Expense.objects.filter(company=company, is_paid=True).aggregate(Sum('amount'))['amount__sum'] or 0
+        pending_expenses = total_expenses - paid_expenses
+        
+        # Calcular percentual de pagamento para evitar divisão por zero
+        payment_percentage = 0
+        if total_expenses > 0:
+            payment_percentage = (paid_expenses / total_expenses) * 100
+        
+        # Calcular lucratividade atualizada - últimos 30 dias
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=29)
+        
+        # Calcular receita total
+        sales_data = Sale.objects.filter(
+            company=company,
+            status='paid', 
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        )
+        total_revenue = float(sales_data.aggregate(total=Sum('total'))['total'] or 0)
+        
+        # Cálculo da lucratividade baseada no custo dos produtos
+        profit_data = (
+            SaleItem.objects
+            .filter(
+                sale__company=company,
+                sale__status='paid', 
+                sale__created_at__date__gte=start_date,
+                sale__created_at__date__lte=end_date
+            )
+            .annotate(
+                profit=ExpressionWrapper(
+                    (F('price') - F('cost_price')) * F('quantity'),
+                    output_field=DecimalField()
+                )
+            )
+            .aggregate(total_profit=Sum('profit'))
+        )
+        
+        total_profit = float(profit_data['total_profit'] or 0)
+        
+        # Calcular lucro descontando as despesas
+        profit_after_expenses = total_profit - float(total_expenses)
+        
+        # Calcular margem de lucro
+        profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+        margin_after_expenses = (profit_after_expenses / total_revenue * 100) if total_revenue > 0 else 0
+        
+        return JsonResponse({
+            'success': True,
+            'is_paid': expense.is_paid,
+            'total_expenses': float(total_expenses),
+            'paid_expenses': float(paid_expenses),
+            'pending_expenses': float(pending_expenses),
+            'payment_percentage': payment_percentage,
+            'total_revenue': total_revenue,
+            'total_profit': total_profit,
+            'profit_after_expenses': profit_after_expenses,
+            'profit_margin': profit_margin,
+            'margin_after_expenses': margin_after_expenses
+        })
+    except Expense.DoesNotExist:
+        return JsonResponse({
+            'success': False, 
+            'error': 'Despesa não encontrada',
+            'diagnostic_url': f'/dashboard/despesas/diagnostico/{expense_id}/'
+        }, status=404)
+    except Exception as e:
+        # Registrar erro detalhado em log
+        logger = logging.getLogger('dashboard.expenses')
+        logger.error(
+            f"ERRO ao alternar status de pagamento: Despesa ID={expense_id}, "
+            f"Usuário={request.user.email}, Erro={str(e)}", 
+            exc_info=True
+        )
+        return JsonResponse({
+            'success': False, 
+            'error': f'Erro ao atualizar pagamento: {str(e)}',
+            'details': traceback.format_exc(),
+            'diagnostic_url': f'/dashboard/despesas/diagnostico/{expense_id}/'
+        }, status=500)
 
 @login_required
 def expenses_dashboard(request):
@@ -801,6 +772,7 @@ def expenses_dashboard(request):
     
     return render(request, 'dashboard/expenses_dashboard.html', context)
 
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def add_expense(request):
@@ -860,6 +832,7 @@ def add_expense(request):
     
     # Para requisições GET, redirecionar para o dashboard de despesas
     return redirect('dashboard:expenses')
+
 
 @login_required
 @require_http_methods(["GET", "POST"])
@@ -929,6 +902,7 @@ def edit_expense(request, expense_id):
     
     return render(request, 'dashboard/edit_expense.html', context)
 
+
 @login_required
 def delete_expense(request, expense_id):
     """
@@ -944,6 +918,7 @@ def delete_expense(request, expense_id):
         messages.error(request, f'Erro ao excluir despesa: {str(e)}')
     
     return redirect('dashboard:expenses')
+
 
 @login_required
 @require_http_methods(["GET", "POST"])
@@ -979,6 +954,7 @@ def add_expense_category(request):
             messages.error(request, f'Erro ao adicionar categoria: {str(e)}')
     
     return redirect('dashboard:expenses')
+
 
 @login_required
 @require_http_methods(["GET", "POST"])
@@ -1021,6 +997,7 @@ def edit_expense_category(request, category_id):
     
     return render(request, 'dashboard/edit_expense_category.html', context)
 
+
 @login_required
 def delete_expense_category(request, category_id):
     """
@@ -1042,6 +1019,7 @@ def delete_expense_category(request, category_id):
         messages.error(request, f'Erro ao excluir categoria: {str(e)}')
     
     return redirect('dashboard:expenses')
+
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
@@ -1119,119 +1097,3 @@ def add_saas_expense(request):
     }
     
     return render(request, 'dashboard/add_saas_expense.html', context)
-
-@login_required
-def expenses_dashboard_new(request):
-    """View for the new expenses dashboard interface"""
-    tenant = get_tenant(request)
-    
-    # Get expense categories for the filter dropdown
-    categories = ExpenseCategory.objects.filter(company=tenant)
-    
-    # Get basic expense statistics
-    expenses = Expense.objects.filter(company=tenant)
-    total_expenses = expenses.aggregate(Sum('amount'))['amount__sum'] or 0
-    paid_expenses = expenses.filter(is_paid=True).aggregate(Sum('amount'))['amount__sum'] or 0
-    pending_expenses = expenses.filter(is_paid=False).aggregate(Sum('amount'))['amount__sum'] or 0
-    
-    # Get recent expenses (last 10)
-    recent_expenses = expenses.order_by('-date')[:10]
-    
-    # Get expenses by category for the table
-    expenses_by_category = []
-    for category in categories:
-        category_expenses = expenses.filter(category=category)
-        category_total = category_expenses.aggregate(Sum('amount'))['amount__sum'] or 0
-        category_paid = category_expenses.filter(is_paid=True).aggregate(Sum('amount'))['amount__sum'] or 0
-        category_pending = category_total - category_paid
-        
-        expenses_by_category.append({
-            'category': category,
-            'total': category_total,
-            'paid': category_paid,
-            'pending': category_pending,
-            'count': category_expenses.count()
-        })
-    
-    context = {
-        'categories': categories,
-        'total_expenses': total_expenses,
-        'paid_expenses': paid_expenses,
-        'pending_expenses': pending_expenses,
-        'expenses_by_category': expenses_by_category,
-        'recent_expenses': recent_expenses,
-    }
-    
-    return render(request, 'dashboard/expenses_dashboard_new.html', context)
-
-@login_required
-def expenses_dashboard_simple(request):
-    """View for the simplified expenses dashboard interface"""
-    tenant = get_tenant(request)
-    
-    # Get period (default: last 30 days)
-    period = request.GET.get('period', '30')
-    try:
-        days = int(period)
-    except ValueError:
-        days = 30
-    
-    # Date range for the filter
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days-1)
-    
-    # Get expense categories for the filter dropdown
-    categories = ExpenseCategory.objects.filter(company=tenant)
-    
-    # Get basic expense statistics
-    expenses = Expense.objects.filter(company=tenant)
-    total_expenses = expenses.aggregate(Sum('amount'))['amount__sum'] or 0
-    paid_expenses = expenses.filter(is_paid=True).aggregate(Sum('amount'))['amount__sum'] or 0
-    pending_expenses = expenses.filter(is_paid=False).aggregate(Sum('amount'))['amount__sum'] or 0
-    
-    # Calculate total revenue from sales for the same period
-    from sales.models import Sale
-    sales = Sale.objects.filter(
-        company=tenant,
-        status='paid',
-        created_at__date__gte=start_date,
-        created_at__date__lte=end_date
-    )
-    total_revenue = sales.aggregate(Sum('total'))['total__sum'] or 0
-    
-    # Calculate total profit (revenue minus paid expenses)
-    total_profit = float(total_revenue) - float(paid_expenses)
-    
-    # Get recent expenses (last 15)
-    recent_expenses = expenses.order_by('-date')[:15]
-    
-    # Get expenses by category for the table
-    expenses_by_category = []
-    for category in categories:
-        category_expenses = expenses.filter(category=category)
-        category_total = category_expenses.aggregate(Sum('amount'))['amount__sum'] or 0
-        category_paid = category_expenses.filter(is_paid=True).aggregate(Sum('amount'))['amount__sum'] or 0
-        category_pending = category_total - category_paid
-        
-        expenses_by_category.append({
-            'category': category,
-            'total': category_total,
-            'paid': category_paid,
-            'pending': category_pending,
-            'count': category_expenses.count()
-        })
-    
-    context = {
-        'categories': categories,
-        'total_expenses': total_expenses,
-        'paid_expenses': paid_expenses,
-        'pending_expenses': pending_expenses,
-        'total_revenue': total_revenue,
-        'total_profit': total_profit,
-        'expenses_by_category': expenses_by_category,
-        'recent_expenses': recent_expenses,
-        'today': timezone.now().date(),
-        'period': period,
-    }
-    
-    return render(request, 'dashboard/expenses_dashboard_simple.html', context)
