@@ -320,6 +320,38 @@
     .product-item.not-selected {
         opacity: 0.5;
     }
+
+    /* Estilo para produtos sem estoque */
+    .product-item.out-of-stock {
+        opacity: 0.5;
+        background-color: #f8f8f8;
+        cursor: not-allowed;
+    }
+
+    .product-item.out-of-stock td {
+        text-decoration: line-through;
+        color: #999;
+    }
+
+    .product-item.out-of-stock .badge {
+        background-color: #dc3545 !important; /* Vermelho */
+    }
+
+    /* Sobreescrever o hover para itens sem estoque */
+    .table-hover tbody tr.product-item.out-of-stock:hover {
+        background-color: #f8f8f8 !important;
+        cursor: not-allowed;
+    }
+
+    /* Adicionar estilos CSS para animação de destaque */
+    @keyframes highlightItem {
+        0% { background-color: rgba(25, 135, 84, 0.3); }
+        100% { background-color: white; }
+    }
+    
+    .highlight-animation {
+        animation: highlightItem 1.5s ease-out;
+    }
 </style>
 {% endblock %}
 
@@ -692,6 +724,17 @@
     // Array para armazenar itens do carrinho
     let cart = [];
     
+    // Função para verificar se já existe um produto no carrinho e retornar seu índice
+    function findProductInCart(productId) {
+        return cart.findIndex(item => item.id === productId);
+    }
+
+    // Função para obter a quantidade total de um produto no carrinho
+    function getProductQuantityInCart(productId) {
+        const index = findProductInCart(productId);
+        return index >= 0 ? cart[index].quantity : 0;
+    }
+
     // Função para renderizar os itens do carrinho
     function renderCartItems() {
         const cartItems = document.getElementById('cart-items');
@@ -708,20 +751,29 @@
         
         let cartHtml = '';
         cart.forEach((item, index) => {
+            const qtdHighlight = item.quantity > 1 ? 'bg-primary text-white' : 'bg-light text-dark';
+            
             cartHtml += `
-                <div class="cart-item d-flex justify-content-between align-items-center p-2 mb-2 border rounded bg-white shadow-sm">
+                <div class="cart-item d-flex justify-content-between align-items-center p-2 mb-2 border rounded bg-white shadow-sm" 
+                     id="cart-item-${item.id}" data-product-id="${item.id}">
                     <div>
                         <div class="fw-medium mb-1">${item.name}</div>
                         <div class="d-flex align-items-center text-muted small">
-                            <span class="badge bg-light text-dark me-2">${item.quantity}x</span>
+                            <span class="badge ${qtdHighlight} me-2">${item.quantity}x</span>
                             <span>R$ ${item.price}</span>
                             <span class="mx-1">•</span>
                             <span class="text-success fw-bold">Total: R$ ${(item.quantity * item.price).toFixed(2)}</span>
                         </div>
                         <div class="small text-muted mt-1">Código: ${item.code}</div>
                     </div>
-                    <div>
-                        <button class="btn btn-sm btn-outline-danger rounded-circle" onclick="removeCartItem(${index})">
+                    <div class="d-flex">
+                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="adjustCartItemQuantity(${index}, -1)" title="Diminuir quantidade">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="adjustCartItemQuantity(${index}, 1)" title="Aumentar quantidade">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeCartItem(${index})" title="Remover item">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     </div>
@@ -730,6 +782,100 @@
         });
         
         cartItems.innerHTML = cartHtml;
+    }
+    
+    // Função para ajustar a quantidade de um item no carrinho
+    function adjustCartItemQuantity(index, delta) {
+        if (index < 0 || index >= cart.length) return;
+        
+        const item = cart[index];
+        const newQuantity = item.quantity + delta;
+        
+        if (newQuantity <= 0) {
+            // Se nova quantidade for zero ou negativa, remover o item
+            removeCartItem(index);
+            return;
+        }
+        
+        // Verificar estoque antes de aumentar a quantidade
+        if (delta > 0) {
+            fetch("{% url 'sales:check_stock' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    product_id: item.id,
+                    quantity: newQuantity
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Estoque disponível, atualizar quantidade
+                    item.quantity = newQuantity;
+                    renderCartItems();
+                    updateTotals();
+                    
+                    // Destacar o item atualizado
+                    highlightCartItem(item.id);
+                    
+                    // Mostrar toast de confirmação
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 1000,
+                        timerProgressBar: true
+                    });
+                    
+                    Toast.fire({
+                        icon: 'success',
+                        title: `Quantidade atualizada (${newQuantity}x)`
+                    });
+                } else {
+                    // Estoque insuficiente
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Estoque Insuficiente',
+                        text: data.error || `Estoque insuficiente. Disponível: ${data.available || 0}`,
+                        confirmButtonText: 'OK'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao verificar estoque:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Ocorreu um erro ao verificar o estoque. Tente novamente.',
+                    confirmButtonText: 'OK'
+                });
+            });
+        } else {
+            // Reduzir quantidade não precisa verificar estoque
+            item.quantity = newQuantity;
+            renderCartItems();
+            updateTotals();
+            
+            // Destacar o item atualizado
+            highlightCartItem(item.id);
+            
+            // Mostrar toast de confirmação
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 1000,
+                timerProgressBar: true
+            });
+            
+            Toast.fire({
+                icon: 'success',
+                title: `Quantidade atualizada (${newQuantity}x)`
+            });
+        }
     }
     
     // Função para calcular e atualizar os totais
@@ -969,6 +1115,15 @@
         const productsTable = document.getElementById('products-grid');
         let selectedRow = null;
 
+        // Marcar produtos sem estoque
+        const allRows = productsTable.querySelectorAll('tbody tr.product-item');
+        allRows.forEach(row => {
+            const stock = parseInt(row.getAttribute('data-stock'));
+            if (stock <= 0) {
+                row.classList.add('out-of-stock');
+            }
+        });
+
         // Função para limpar todas as seleções
         function clearAllSelections() {
             const allRows = productsTable.querySelectorAll('tbody tr.product-item');
@@ -1003,7 +1158,7 @@
             clearAllSelections();
             
             // Reset completo se a busca estiver vazia
-                if (!searchTerm) {
+            if (!searchTerm) {
                 resetProductDisplay();
                 return;
             }
@@ -1033,22 +1188,39 @@
             
             // Se houver correspondência exata, selecionar esse produto
             if (exactMatch) {
-                selectedRow = exactMatch;
-                selectedRow.classList.add('selected');
-                selectedRow.style.outline = '2px solid #198754';
-                selectedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                
-                // Se for uma correspondência exata, abrir o modal automaticamente
-                if (searchTerm.length > 2) {
-                    selectProduct(exactMatch);
+                // Verificar se o produto tem estoque antes de selecionar
+                if (exactMatch.classList.contains('out-of-stock')) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Produto Indisponível',
+                        text: 'Este produto está sem estoque.',
+                        confirmButtonText: 'OK'
+                    });
+                    // Destacar visualmente, mas não selecionar para adicionar
+                    exactMatch.classList.add('selected');
+                    exactMatch.style.outline = '2px solid #dc3545'; // Borda vermelha
+                    exactMatch.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    selectedRow = exactMatch;
+                    selectedRow.classList.add('selected');
+                    selectedRow.style.outline = '2px solid #198754';
+                    selectedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    
+                    // Se for uma correspondência exata, abrir o modal automaticamente
+                    if (searchTerm.length > 2) {
+                        selectProduct(exactMatch);
+                    }
                 }
             }
             // Caso contrário, destacar o primeiro produto visível se houver apenas um
             else if (visibleRows.length === 1) {
-                selectedRow = visibleRows[0];
-                selectedRow.classList.add('selected');
-                selectedRow.style.outline = '2px solid #198754';
-                selectedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                // Verificar se o produto tem estoque antes de selecionar
+                if (!visibleRows[0].classList.contains('out-of-stock')) {
+                    selectedRow = visibleRows[0];
+                    selectedRow.classList.add('selected');
+                    selectedRow.style.outline = '2px solid #198754';
+                    selectedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
             }
             
             // Marcar outros produtos como não selecionados se houver seleção
@@ -1070,8 +1242,36 @@
                 const rows = Array.from(productsTable.querySelectorAll('tbody tr.product-item')).filter(row => row.style.display !== 'none');
                 
                 if (rows.length > 0) {
-                    // Se não há produto selecionado, selecione o primeiro
-                    const selectedProduct = selectedRow || rows[0];
+                    // Se não há produto selecionado, selecione o primeiro que tenha estoque
+                    let selectedProduct = selectedRow;
+                    
+                    if (!selectedProduct) {
+                        // Buscar o primeiro produto com estoque
+                        selectedProduct = rows.find(row => !row.classList.contains('out-of-stock'));
+                        
+                        if (!selectedProduct) {
+                            // Se nenhum produto tem estoque, mostrar mensagem
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Produtos Indisponíveis',
+                                text: 'Nenhum dos produtos encontrados possui estoque disponível.',
+                                confirmButtonText: 'OK'
+                            });
+                            return;
+                        }
+                    }
+                    
+                    // Verificar se o produto selecionado tem estoque
+                    if (selectedProduct.classList.contains('out-of-stock')) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Produto Indisponível',
+                            text: 'Este produto está sem estoque.',
+                            confirmButtonText: 'OK'
+                        });
+                        return;
+                    }
+                    
                     selectProduct(selectedProduct);
                     
                     // Limpar campo após selecionar para a próxima busca
@@ -1093,6 +1293,17 @@
         const productItems = productsTable.querySelectorAll('tbody tr.product-item');
         productItems.forEach(item => {
             item.addEventListener('click', function() {
+                // Não selecionar produtos sem estoque
+                if (this.classList.contains('out-of-stock')) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Produto Indisponível',
+                        text: 'Este produto está sem estoque.',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
                 // Limpar seleções anteriores
                 clearAllSelections();
                 
@@ -1147,6 +1358,17 @@
     
     // Função para selecionar um produto e abrir o modal de quantidade
     function selectProduct(productRow) {
+        // Não selecionar produtos sem estoque
+        if (productRow.classList.contains('out-of-stock')) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Produto Indisponível',
+                text: 'Este produto está sem estoque.',
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+
         const id = productRow.getAttribute('data-id');
         const name = productRow.getAttribute('data-name');
         const price = parseFloat(productRow.getAttribute('data-price'));
@@ -1190,9 +1412,9 @@
     function handleShortcutKeys(e) {
         // Evitar atalhos se algum modal estiver aberto
         if (document.querySelector('.modal.show')) {
-                return;
-            }
-            
+            return;
+        }
+        
         // F1 - Focar no campo de busca de produtos
         if (e.key === 'F1') {
             e.preventDefault();
@@ -1220,7 +1442,7 @@
             e.preventDefault();
             if (cart.length > 0) {
                 document.getElementById('finish-sale').click();
-                } else {
+            } else {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Carrinho Vazio',
@@ -1229,6 +1451,61 @@
                 });
             }
         }
+    }
+
+    // Função para verificar o estoque de todos os produtos no carrinho
+    function verifyAllProductsStock() {
+        return new Promise((resolve, reject) => {
+            if (cart.length === 0) {
+                resolve({ success: true });
+                return;
+            }
+
+            // Criar uma lista de verificações de estoque
+            const stockChecks = cart.map(item => {
+                return fetch("{% url 'sales:check_stock' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        product_id: item.id,
+                        quantity: item.quantity
+                    })
+                }).then(response => response.json());
+            });
+
+            // Executar todas as verificações em paralelo
+            Promise.all(stockChecks)
+                .then(results => {
+                    // Verificar se algum produto tem estoque insuficiente
+                    const stockErrors = [];
+                    results.forEach((result, index) => {
+                        if (!result.success) {
+                            const item = cart[index];
+                            stockErrors.push({
+                                product: item.name,
+                                error: result.error,
+                                available: result.available,
+                                requested: item.quantity
+                            });
+                        }
+                    });
+
+                    if (stockErrors.length > 0) {
+                        resolve({ 
+                            success: false, 
+                            errors: stockErrors 
+                        });
+                    } else {
+                        resolve({ success: true });
+                    }
+                })
+                .catch(error => {
+                    reject(error);
+                });
+        });
     }
 
     // Configurar o botão finalizar venda
@@ -1260,39 +1537,82 @@
             return false;
         }
         
-        // Preencher os dados no modal de confirmação
-        document.getElementById('confirm-total').textContent = document.getElementById('total').textContent;
-        document.getElementById('confirm-payment-method').textContent = paymentMethod.textContent.trim();
-        
-        // Cliente selecionado
-        const customerId = document.getElementById('customer-id').value;
-        const customerName = document.getElementById('customer-search').value;
-        if (customerId && customerName) {
-            document.getElementById('confirm-customer').textContent = customerName;
-            document.getElementById('confirm-customer-container').style.display = 'block';
-        } else {
-            document.getElementById('confirm-customer').textContent = '-';
-            document.getElementById('confirm-customer-container').style.display = 'block';
-        }
-        
-        // Abrir o modal de confirmação
-        const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
-        modal.show();
+        // Primeiro verificar o estoque de todos os produtos no carrinho
+        Swal.fire({
+            title: 'Verificando estoque...',
+            text: 'Por favor, aguarde enquanto verificamos o estoque dos produtos.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+                Swal.showLoading();
+                
+                verifyAllProductsStock()
+                    .then(result => {
+                        Swal.close();
+                        
+                        if (result.success) {
+                            // Tudo ok, prosseguir com a finalização da venda
+                            // Preencher os dados no modal de confirmação
+                            document.getElementById('confirm-total').textContent = document.getElementById('total').textContent;
+                            document.getElementById('confirm-payment-method').textContent = paymentMethod.textContent.trim();
+                            
+                            // Cliente selecionado
+                            const customerId = document.getElementById('customer-id').value;
+                            const customerName = document.getElementById('customer-search').value;
+                            if (customerId && customerName) {
+                                document.getElementById('confirm-customer').textContent = customerName;
+                                document.getElementById('confirm-customer-container').style.display = 'block';
+                            } else {
+                                document.getElementById('confirm-customer').textContent = '-';
+                                document.getElementById('confirm-customer-container').style.display = 'block';
+                            }
+                            
+                            // Abrir o modal de confirmação
+                            const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+                            modal.show();
+                        } else {
+                            // Há problemas de estoque, mostrar mensagem para o usuário
+                            let errorMessage = "Existem produtos com estoque insuficiente:\n\n";
+                            result.errors.forEach(error => {
+                                errorMessage += `• ${error.product}: Disponível ${error.available}, Requisitado ${error.requested}\n`;
+                            });
+                            
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Estoque Insuficiente',
+                                html: errorMessage.replace(/\n/g, '<br>'),
+                                confirmButtonText: 'OK'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        Swal.close();
+                        console.error('Erro ao verificar estoque:', error);
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Erro',
+                            text: 'Ocorreu um erro ao verificar o estoque. Tente novamente.',
+                            confirmButtonText: 'OK'
+                        });
+                    });
+            }
+        });
     });
 
     // Configurar o botão de confirmar venda no modal
     document.getElementById('confirm-sale').addEventListener('click', function() {
         // Desabilitar o botão durante o processamento
-            this.disabled = true;
+        this.disabled = true;
         this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processando...';
         
         // Preparar os dados da venda
         const items = [];
         cart.forEach(item => {
             items.push({
-                    product_id: item.id,
-                    quantity: item.quantity,
-                    price: item.price
+                product_id: item.id,
+                quantity: item.quantity,
+                price: item.price
             });
         });
         
@@ -1307,48 +1627,48 @@
 
         // Enviar a venda para o servidor via AJAX
         fetch("{% url 'sales:confirm_sale' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify(saleData)
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(data => {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(saleData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
                     throw new Error(data.error || 'Erro ao processar a venda');
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
             if (!data.success) {
                 throw new Error(data.error || 'Erro ao processar a venda');
             }
             console.log("Venda registrada com sucesso:", data);
-                
+            
             // Limpar o PDV imediatamente após o sucesso
             resetPDV();
-                
-                // Mostrar mensagem de sucesso
+            
+            // Mostrar mensagem de sucesso
             document.getElementById('sale-success-message').style.display = 'block';
-                
+            
             // Esconder botão de confirmar e mostrar botão de fechar
             this.style.display = 'none';
             document.getElementById('view-sales-history').style.display = 'inline-block';
             document.getElementById('view-sales-history').href = "{% url 'sales:sale_list' %}";
-                
+            
             // Mostrar toast de confirmação
             const toast = new bootstrap.Toast(document.getElementById('successToast'));
             toast.show();
-                
+            
             // Ativar fechamento do modal com Enter
             activateSuccessCloseWithEnter();
-                
+            
             // Se tiver uma URL de recibo e o cliente escolheu enviar por WhatsApp
             if (data.has_phone && saleData.send_whatsapp) {
-                    setTimeout(() => {
+                setTimeout(() => {
                     window.open(`/sistema/vendas/${data.sale_id}/whatsapp/`, '_blank');
                 }, 500);
             }
@@ -1356,7 +1676,7 @@
             // Fechar o modal após um breve delay
             setTimeout(() => {
                 bootstrap.Modal.getInstance(document.getElementById('confirmationModal')).hide();
-                    
+                
                 // Mostrar alerta de sucesso
                 Swal.fire({
                     icon: 'success',
@@ -1366,21 +1686,82 @@
                     showConfirmButton: false
                 });
             }, 500);
-            })
-            .catch(error => {
+        })
+        .catch(error => {
             console.error('Erro:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Erro na Venda',
-                text: error.message || 'Ocorreu um erro ao processar a venda. Por favor, tente novamente.',
-                confirmButtonText: 'OK'
-            });
+            
+            // Fechar o modal de confirmação
+            bootstrap.Modal.getInstance(document.getElementById('confirmationModal')).hide();
+            
+            // Verificar se o erro é relacionado a estoque
+            const errorMessage = error.message || 'Ocorreu um erro ao processar a venda. Por favor, tente novamente.';
+            
+            if (errorMessage.includes('Estoque insuficiente')) {
+                // Erro de estoque - vamos verificar novamente o estoque de todos os produtos
+                verifyAllProductsStock()
+                    .then(result => {
+                        // Atualizar os dados do carrinho com base nas informações mais recentes
+                        if (!result.success) {
+                            // Formatar mensagem de erro
+                            let errorHtml = '<div class="text-start mb-3">Os seguintes produtos têm problemas de estoque:</div><ul class="text-start">';
+                            
+                            result.errors.forEach(error => {
+                                errorHtml += `<li><strong>${error.product}</strong>: Disponível ${error.available}, Requisitado ${error.requested}</li>`;
+                                
+                                // Atualizar o carrinho automaticamente se o produto ainda tiver algum estoque
+                                const itemIndex = cart.findIndex(item => item.name === error.product);
+                                if (itemIndex >= 0 && error.available > 0) {
+                                    cart[itemIndex].quantity = error.available;
+                                }
+                            });
+                            
+                            errorHtml += '</ul><div class="mt-3">O carrinho foi atualizado automaticamente com as quantidades disponíveis.</div>';
+                            
+                            // Renderizar o carrinho atualizado
+                            renderCartItems();
+                            updateTotals();
+                            
+                            // Mostrar mensagem ao usuário
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Estoque Atualizado',
+                                html: errorHtml,
+                                confirmButtonText: 'OK'
+                            });
+                        } else {
+                            // Outro erro não relacionado a estoque
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro na Venda',
+                                text: errorMessage,
+                                confirmButtonText: 'OK'
+                            });
+                        }
+                    })
+                    .catch(() => {
+                        // Falha ao verificar estoque, mostrar mensagem genérica
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Erro na Venda',
+                            text: errorMessage,
+                            confirmButtonText: 'OK'
+                        });
+                    });
+            } else {
+                // Outro tipo de erro
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro na Venda',
+                    text: errorMessage,
+                    confirmButtonText: 'OK'
+                });
+            }
             
             // Restaurar o botão
             this.disabled = false;
             this.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Venda';
-            });
         });
+    });
 
     // Configurar o desconto para atualizar totais
     document.getElementById('discount').addEventListener('input', updateTotals);
@@ -1437,8 +1818,8 @@
     function resetPDV() {
         // Limpar o carrinho
         cart = [];
-            renderCartItems();
-            updateTotals();
+        renderCartItems();
+        updateTotals();
 
         // Resetar campos de entrada
         document.getElementById('product-search').value = '';
@@ -1491,6 +1872,36 @@
         document.addEventListener('keydown', handleShortcutKeys);
     }
 
+    // Adicionar estilos CSS para animação de destaque
+    document.addEventListener('DOMContentLoaded', function() {
+        const styleElement = document.createElement('style');
+        styleElement.textContent = `
+            @keyframes highlightItem {
+                0% { background-color: rgba(25, 135, 84, 0.3); }
+                100% { background-color: white; }
+            }
+            
+            .highlight-animation {
+                animation: highlightItem 1.5s ease-out;
+            }
+        `;
+        document.head.appendChild(styleElement);
+    });
+
+    // Função para dar destaque a um item do carrinho
+    function highlightCartItem(productId) {
+        setTimeout(() => {
+            const item = document.getElementById(`cart-item-${productId}`);
+            if (item) {
+                item.classList.add('highlight-animation');
+                // Remover classe após a animação para permitir repetições
+                setTimeout(() => {
+                    item.classList.remove('highlight-animation');
+                }, 1500);
+            }
+        }, 100); // Pequeno atraso para garantir que o item já está renderizado
+    }
+
     // Configurar o botão de adicionar ao carrinho
     document.getElementById('add-to-cart').addEventListener('click', function() {
         const id = this.getAttribute('data-id');
@@ -1510,52 +1921,132 @@
             return;
         }
         
-        const stock = parseInt(document.getElementById('modal-product-stock').textContent);
-        if (quantity > stock) {
+        // Verificar quantidade atual no carrinho
+        const quantityInCart = getProductQuantityInCart(id);
+        const totalQuantity = quantityInCart + quantity;
+        
+        // Verificar estoque no back-end antes de adicionar ao carrinho
+        fetch("{% url 'sales:check_stock' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                product_id: id,
+                quantity: totalQuantity  // Considerar o que já está no carrinho
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Estoque disponível, adicionar ao carrinho
+                const productIndex = findProductInCart(id);
+                
+                if (productIndex >= 0) {
+                    // Produto já existe no carrinho, atualizar quantidade
+                    cart[productIndex].quantity = totalQuantity;
+                    
+                    // Mostrar mensagem de atualização
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 1500,
+                        timerProgressBar: true
+                    });
+                    
+                    Toast.fire({
+                        icon: 'success',
+                        title: `Produto atualizado (${totalQuantity}x)`
+                    });
+                } else {
+                    // Produto não existe no carrinho, adicionar novo item
+                    cart.push({
+                        id: id,
+                        name: name,
+                        price: price,
+                        quantity: quantity,
+                        code: code
+                    });
+                    
+                    // Mostrar mensagem de adição
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 1500,
+                        timerProgressBar: true
+                    });
+                    
+                    Toast.fire({
+                        icon: 'success',
+                        title: 'Produto adicionado ao carrinho'
+                    });
+                }
+                
+                // Atualizar interface
+                renderCartItems();
+                updateTotals();
+                
+                // Destacar o item adicionado/atualizado
+                highlightCartItem(id);
+                
+                // Fechar modal
+                bootstrap.Modal.getInstance(document.getElementById('quantityModal')).hide();
+                
+                // Remover backdrops para evitar escurecimento progressivo
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+                    backdrop.remove();
+                });
+                
+                // Limpar seleções e reexibir todos os produtos
+                const productsTable = document.getElementById('products-grid');
+                const allRows = productsTable.querySelectorAll('tbody tr.product-item');
+                allRows.forEach(row => {
+                    row.classList.remove('selected');
+                    row.classList.remove('not-selected');
+                    row.style.outline = '';
+                    row.style.display = '';
+                });
+                
+                // Limpar e focar no campo de busca
+                const searchInput = document.getElementById('product-search');
+                searchInput.value = '';
+                searchInput.focus();
+            } else {
+                // Estoque insuficiente, mostrar mensagem de erro
+                let availableForNew = data.available - quantityInCart;
+                let errorMessage = data.error;
+                
+                // Se já tem no carrinho, mostrar informação mais detalhada
+                if (quantityInCart > 0) {
+                    errorMessage = `Estoque insuficiente. Você já tem ${quantityInCart} unidades deste produto no carrinho e está tentando adicionar mais ${quantity}.
+                    Estoque disponível: ${data.available}. Você pode adicionar no máximo mais ${Math.max(0, availableForNew)} unidades.`;
+                }
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Estoque Insuficiente',
+                    text: errorMessage,
+                    confirmButtonText: 'OK'
+                });
+                
+                // Atualizar a informação de estoque no modal
+                if (data.available !== undefined) {
+                    document.getElementById('modal-product-stock').textContent = data.available;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao verificar estoque:', error);
             Swal.fire({
-                icon: 'warning',
-                title: 'Estoque Insuficiente',
-                text: `Estoque insuficiente. Disponível: ${stock}`,
+                icon: 'error',
+                title: 'Erro',
+                text: 'Ocorreu um erro ao verificar o estoque. Tente novamente.',
                 confirmButtonText: 'OK'
             });
-            return;
-        }
-        
-        // Adicionar ao carrinho
-        cart.push({
-            id: id,
-            name: name,
-            price: price,
-            quantity: quantity,
-            code: code
         });
-        
-        // Atualizar interface
-        renderCartItems();
-        updateTotals();
-        
-        // Fechar modal
-        bootstrap.Modal.getInstance(document.getElementById('quantityModal')).hide();
-        
-        // Remover backdrops para evitar escurecimento progressivo
-        document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
-            backdrop.remove();
-        });
-        
-        // Limpar seleções e reexibir todos os produtos
-        const productsTable = document.getElementById('products-grid');
-        const allRows = productsTable.querySelectorAll('tbody tr.product-item');
-        allRows.forEach(row => {
-            row.classList.remove('selected');
-            row.classList.remove('not-selected');
-            row.style.outline = '';
-            row.style.display = '';
-        });
-        
-        // Limpar e focar no campo de busca
-        const searchInput = document.getElementById('product-search');
-        searchInput.value = '';
-        searchInput.focus();
     });
 
     // Configurar a captura da tecla Enter no modal de quantidade

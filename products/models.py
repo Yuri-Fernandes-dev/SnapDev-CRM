@@ -83,6 +83,12 @@ class Product(models.Model):
         if self.has_variations:
             return any(variation.is_stock_low() for variation in self.variations.all())
         return self.stock_quantity <= self.stock_alert_level
+    
+    def save(self, *args, **kwargs):
+        # Garantir que o estoque nunca fique negativo
+        if self.stock_quantity < 0:
+            self.stock_quantity = 0
+        super().save(*args, **kwargs)
 
 class ProductVariation(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Produto', related_name='variations')
@@ -107,3 +113,9 @@ class ProductVariation(models.Model):
     
     def get_final_price(self):
         return self.product.price + self.price_adjustment
+    
+    def save(self, *args, **kwargs):
+        # Garantir que o estoque nunca fique negativo
+        if self.stock_quantity < 0:
+            self.stock_quantity = 0
+        super().save(*args, **kwargs)

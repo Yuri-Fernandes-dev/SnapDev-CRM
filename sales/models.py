@@ -139,5 +139,10 @@ class SaleItem(models.Model):
                 # Se o produto tem variações, deve ser tratado de forma diferente
                 pass  # TODO: Implementar lógica para produtos com variações
             else:
-                self.product.stock_quantity = models.F('stock_quantity') - self.quantity
+                # Ler o valor atual do estoque antes de atualizar
+                current_stock = Product.objects.get(pk=self.product.pk).stock_quantity
+                # Calcular novo valor do estoque
+                new_stock = max(0, current_stock - self.quantity)
+                # Atualizar o estoque
+                self.product.stock_quantity = new_stock
                 self.product.save()

@@ -701,6 +701,78 @@ def toggle_expense_payment(request, expense_id):
         }, status=500)
 
 @login_required
+def expenses_dashboard_simple(request):
+    """
+    View do dashboard de despesas com visualização simplificada
+    """
+    # Obter período de filtro (padrão: últimos 30 dias)
+    period = request.GET.get('period', '30')
+    
+    try:
+        days = int(period)
+    except ValueError:
+        days = 30
+    
+    # Configuração do filtro de data
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=days-1)
+    
+    # Filtrar despesas da empresa do usuário
+    expenses = Expense.objects.filter(
+        company=request.user.company,
+        date__gte=start_date,
+        date__lte=end_date
+    )
+    
+    # Total de despesas no período
+    total_expenses = float(expenses.aggregate(total=Sum('amount'))['total'] or 0)
+    
+    # Despesas pagas vs não pagas
+    paid_expenses = float(expenses.filter(is_paid=True).aggregate(total=Sum('amount'))['total'] or 0)
+    unpaid_expenses = float(expenses.filter(is_paid=False).aggregate(total=Sum('amount'))['total'] or 0)
+    
+    # Despesas por categoria
+    expenses_by_category = expenses.values(
+        'category__name'
+    ).annotate(
+        total=Sum('amount')
+    ).order_by('-total')
+    
+    # Calcular porcentagens para o gráfico
+    for item in expenses_by_category:
+        item['percentage'] = (float(item['total']) / total_expenses * 100) if total_expenses > 0 else 0
+    
+    # Dados para o gráfico de despesas diárias
+    expense_chart_data = []
+    for i in range(days):
+        date = start_date + timedelta(days=i)
+        
+        # Somar despesas do dia
+        day_expenses = expenses.filter(date=date)
+        day_total = float(day_expenses.aggregate(total=Sum('amount'))['total'] or 0)
+        
+        expense_chart_data.append({
+            'date': date.strftime('%d/%m'),
+            'total': day_total
+        })
+    
+    # Obter todas as categorias de despesas para o formulário de adição
+    categories = ExpenseCategory.objects.filter(company=request.user.company)
+    
+    context = {
+        'period': period,
+        'total_expenses': total_expenses,
+        'paid_expenses': paid_expenses,
+        'unpaid_expenses': unpaid_expenses,
+        'expenses_by_category': expenses_by_category,
+        'expense_chart_data': json.dumps(expense_chart_data),
+        'categories': categories,
+        'expenses': expenses.order_by('-date'),  # Todas as despesas para a visualização simplificada
+    }
+    
+    return render(request, 'dashboard/expenses_dashboard_simple.html', context)
+
+@login_required
 def expenses_dashboard(request):
     """
     View do dashboard de despesas com resumo e análise de gastos

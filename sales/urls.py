@@ -16,4 +16,5 @@ urlpatterns = [
     path('criar/', views.create_sale, name='create_sale'),
     path('api/criar-venda/', views.create_sale, name='sale_create_api'),
     path('confirmar-venda/', views.create_sale, name='confirm_sale'),
+    path('verificar-estoque/', views.check_stock, name='check_stock'),  # Nova URL para verificação de estoque
 ]

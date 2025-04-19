@@ -216,6 +216,23 @@ def create_sale(request):
                     'error': 'Nenhum item foi adicionado à venda'
                 }, status=400)
 
+            # Verificar estoque de todos os itens primeiro (antes de iniciar a transação)
+            stock_errors = []
+            for item in data['items']:
+                try:
+                    product = Product.objects.get(id=item['product_id'], company=request.user.company)
+                    if product.stock_quantity < item['quantity']:
+                        stock_errors.append(f'Estoque insuficiente para o produto {product.name}. Disponível: {product.stock_quantity}, Requisitado: {item["quantity"]}')
+                except Product.DoesNotExist:
+                    stock_errors.append(f'Produto não encontrado: {item["product_id"]}')
+            
+            # Se houver algum erro de estoque, retornar imediatamente
+            if stock_errors:
+                return JsonResponse({
+                    'success': False,
+                    'error': '\n'.join(stock_errors)
+                }, status=400)
+
             # Criar a venda
             with transaction.atomic():
                 sale = Sale.objects.create(
@@ -233,13 +250,18 @@ def create_sale(request):
                 total = Decimal('0')
                 for item in data['items']:
                     try:
-                        product = Product.objects.get(id=item['product_id'], company=request.user.company)
+                        # Usar SELECT FOR UPDATE para bloquear a linha do produto durante a transação
+                        product = Product.objects.select_for_update().get(id=item['product_id'], company=request.user.company)
                         
-                        if product.stock_quantity < item['quantity']:
-                            raise ValidationError(f'Estoque insuficiente para o produto {product.name}')
+                        # Garantir que a quantidade do pedido seja um inteiro positivo
+                        quantity = max(1, int(item['quantity']))
+                        
+                        # Verificar novamente o estoque com a linha bloqueada
+                        if product.stock_quantity < quantity:
+                            # Erro dentro da transação, causará rollback automático
+                            raise ValidationError(f'Estoque insuficiente para o produto {product.name}. Disponível: {product.stock_quantity}, Requisitado: {quantity}')
                             
                         price = Decimal(str(item['price']))
-                        quantity = int(item['quantity'])
                         subtotal = price * quantity
                         
                         SaleItem.objects.create(
@@ -253,11 +275,13 @@ def create_sale(request):
                         
                         total += subtotal
                         
-                        # Atualizar estoque
-                        product.stock_quantity -= quantity
+                        # Atualizar estoque - método seguro para evitar o erro de CombinedExpression
+                        new_stock = product.stock_quantity - quantity
+                        product.stock_quantity = max(0, new_stock)  # Garantir que não fique negativo
                         product.save()
                         
                     except Product.DoesNotExist:
+                        # Erro dentro da transação, causará rollback automático
                         raise ValidationError(f'Produto não encontrado: {item["product_id"]}')
 
                 # Atualizar o total da venda
@@ -667,3 +691,60 @@ def public_receipt(request, token):
             'error_message': 'O recibo solicitado não foi encontrado ou expirou.'
         }
         return render(request, 'sales/receipt_error.html', context)
+
+@login_required
+def check_stock(request):
+    """
+    View para verificar se há estoque disponível para um produto
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        product_id = data.get('product_id')
+        quantity = int(data.get('quantity', 1))
+        
+        if not product_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'ID do produto não fornecido'
+            }, status=400)
+        
+        try:
+            product = Product.objects.get(id=product_id, company=request.user.company)
+            
+            if product.stock_quantity < quantity:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Estoque insuficiente para o produto {product.name}',
+                    'available': product.stock_quantity,
+                    'requested': quantity
+                }, status=200)  # Retornamos 200 mesmo com erro para processamento no frontend
+            
+            return JsonResponse({
+                'success': True,
+                'product': {
+                    'id': product.id,
+                    'name': product.name,
+                    'available': product.stock_quantity,
+                    'requested': quantity
+                }
+            })
+            
+        except Product.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Produto não encontrado'
+            }, status=404)
+            
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Dados inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao verificar estoque: {str(e)}'
+        }, status=500)
