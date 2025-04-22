@@ -597,23 +597,23 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="add-to-cart-form" onsubmit="document.getElementById('add-to-cart').click(); return false;">
-                <div class="modal-body">
-                    <p class="mb-3">Preço: <span class="fw-bold" id="modal-product-price">R$ 0,00</span></p>
-                    <p class="mb-3">Estoque disponível: <span class="fw-bold" id="modal-product-stock">0</span></p>
-                    
-                    <div class="mb-3">
-                        <label for="product-quantity" class="form-label">Quantidade</label>
-                        <div class="input-group">
+            <div class="modal-body">
+                <p class="mb-3">Preço: <span class="fw-bold" id="modal-product-price">R$ 0,00</span></p>
+                <p class="mb-3">Estoque disponível: <span class="fw-bold" id="modal-product-stock">0</span></p>
+                
+                <div class="mb-3">
+                    <label for="product-quantity" class="form-label">Quantidade</label>
+                    <div class="input-group">
                             <button type="button" class="btn btn-outline-secondary" id="decrease-qty">-</button>
-                            <input type="number" id="product-quantity" class="form-control text-center" value="1" min="1">
+                        <input type="number" id="product-quantity" class="form-control text-center" value="1" min="1">
                             <button type="button" class="btn btn-outline-secondary" id="increase-qty">+</button>
-                        </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary" id="add-to-cart">Adicionar ao Carrinho</button>
-                </div>
+            </div>
             </form>
         </div>
     </div>
@@ -879,7 +879,7 @@
     }
     
     // Função para calcular e atualizar os totais
-    function updateTotals() {
+        function updateTotals() {
         const subtotalEl = document.getElementById('subtotal');
         const totalEl = document.getElementById('total');
         const discountEl = document.getElementById('discount');
@@ -889,15 +889,15 @@
             subtotal += item.quantity * item.price;
         });
         
-        const discount = parseFloat(discountEl.value) || 0;
+            const discount = parseFloat(discountEl.value) || 0;
         const total = Math.max(0, subtotal - discount);
-        
-        subtotalEl.textContent = `R$ ${subtotal.toFixed(2)}`;
-        totalEl.textContent = `R$ ${total.toFixed(2)}`;
+            
+            subtotalEl.textContent = `R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            totalEl.textContent = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         
         // Atualizar o total no modal de confirmação
         if (document.getElementById('confirm-total')) {
-            document.getElementById('confirm-total').textContent = `R$ ${total.toFixed(2)}`;
+            document.getElementById('confirm-total').textContent = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         }
     }
     
@@ -953,7 +953,7 @@
             const changeAmount = Math.max(0, paymentAmount - total);
             
             console.log('Calculando troco:', total, paymentAmount, changeAmount);
-            document.getElementById('change-amount').textContent = `R$ ${changeAmount.toFixed(2)}`;
+            document.getElementById('change-amount').textContent = `R$ ${changeAmount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         });
 
         // Configurar a busca de clientes por AJAX
@@ -968,9 +968,9 @@
                 customerSuggestions.style.display = 'none';
                 customerId.value = '';
                 this.classList.remove('is-valid');
-                return;
-            }
-            
+                    return;
+                }
+                
             // Buscar clientes via AJAX
             fetch(`/sistema/clientes/busca-ajax/?term=${encodeURIComponent(searchTerm)}`)
                 .then(response => response.json())
@@ -1008,35 +1008,33 @@
                                 if (document.getElementById('confirm-customer')) {
                                     document.getElementById('confirm-customer').textContent = name;
                                     document.getElementById('confirm-customer-container').style.display = 'block';
-                                }
-                                
-                                // Habilitar opção de WhatsApp se o cliente tiver telefone
-                                const whatsappCheck = document.getElementById('send-whatsapp-receipt');
-                                if (whatsappCheck) {
-                                    whatsappCheck.disabled = !hasPhone;
-                                    whatsappCheck.checked = false; // Sempre começa desmarcado
-                                }
+            } else {
+                                document.getElementById('confirm-customer').textContent = '-';
+                                document.getElementById('confirm-customer-container').style.display = 'block';
+            }
+                            
+                            // Abrir o modal de confirmação
+                            const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+                            modal.show();
+            } else {
+                            // Nenhum cliente encontrado - oferecer opção de cadastro
+                            customerSuggestions.innerHTML = `
+                                <div class="p-2 text-primary new-customer-option" style="cursor: pointer;">
+                                    <i class="fas fa-plus-circle me-1"></i> Cadastrar novo cliente "${searchTerm}"
+                                </div>
+                            `;
+                            customerSuggestions.style.display = 'block';
+                            
+                            // Adicionar evento para cadastro de novo cliente
+                            document.querySelector('.new-customer-option')?.addEventListener('click', function() {
+                                window.open('/sistema/clientes/novo/?name=' + encodeURIComponent(searchTerm), '_blank');
                             });
-                        });
-                    } else {
-                        // Nenhum cliente encontrado - oferecer opção de cadastro
-                        customerSuggestions.innerHTML = `
-                            <div class="p-2 text-primary new-customer-option" style="cursor: pointer;">
-                                <i class="fas fa-plus-circle me-1"></i> Cadastrar novo cliente "${searchTerm}"
-                            </div>
-                        `;
-                        customerSuggestions.style.display = 'block';
-                        
-                        // Adicionar evento para cadastro de novo cliente
-                        document.querySelector('.new-customer-option')?.addEventListener('click', function() {
-                            window.open('/sistema/clientes/novo/?name=' + encodeURIComponent(searchTerm), '_blank');
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('Erro na busca de clientes:', error);
-                    customerSuggestions.style.display = 'none';
-                });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro na busca de clientes:', error);
+                        customerSuggestions.style.display = 'none';
+                    });
         });
         
         // Fechar sugestões ao clicar fora
@@ -1158,7 +1156,7 @@
             clearAllSelections();
             
             // Reset completo se a busca estiver vazia
-            if (!searchTerm) {
+                if (!searchTerm) {
                 resetProductDisplay();
                 return;
             }
@@ -1228,11 +1226,11 @@
                 visibleRows.forEach(row => {
                     if (row !== selectedRow) {
                         row.classList.add('not-selected');
-                    }
-                });
-            }
+                }
+            });
+        }
         });
-        
+
         // Evento de tecla para o campo de busca
         searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
@@ -1301,9 +1299,9 @@
                         text: 'Este produto está sem estoque.',
                         confirmButtonText: 'OK'
                     });
-                    return;
-                }
-
+                return;
+            }
+            
                 // Limpar seleções anteriores
                 clearAllSelections();
                 
@@ -1377,7 +1375,7 @@
         
         // Atualizar dados no modal
         document.getElementById('modal-product-name').textContent = name;
-        document.getElementById('modal-product-price').textContent = `R$ ${price.toFixed(2)}`;
+        document.getElementById('modal-product-price').textContent = `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         document.getElementById('modal-product-stock').textContent = stock;
         document.getElementById('product-quantity').value = 1;
         
@@ -1415,43 +1413,44 @@
             return;
         }
         
-        // F1 - Focar no campo de busca de produtos
+        // Evitar atalhos se o foco estiver em um campo de entrada de texto (exceto para F1)
+        if (e.key !== 'F1' && 
+            document.activeElement.tagName === 'INPUT' && 
+            document.activeElement.type !== 'button') {
+            return;
+        }
+        
+        // F1 - Abrir o modal de busca de produtos
         if (e.key === 'F1') {
             e.preventDefault();
-            const searchInput = document.getElementById('product-search');
-            searchInput.value = '';
-            searchInput.focus();
-            searchInput.select();
+            abrirModalBuscaProduto();
             return false;
         }
         
-        // F2 - Focar no método de pagamento
+        // F2 - Abrir o modal de método de pagamento
         else if (e.key === 'F2') {
             e.preventDefault();
-            document.getElementById('payment-method').focus();
+            abrirModalFormaPagamento();
+            return false;
         }
         
-        // F3 - Focar no campo de desconto
+        // F3 - Abrir modal de desconto
         else if (e.key === 'F3') {
             e.preventDefault();
-            document.getElementById('discount').focus();
+            abrirModalDesconto();
+            return false;
         }
         
-        // F4 - Finalizar a venda (se houver produtos no carrinho)
+        // F4 - Finalizar a venda
         else if (e.key === 'F4') {
             e.preventDefault();
-            if (cart.length > 0) {
-                document.getElementById('finish-sale').click();
-            } else {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Carrinho Vazio',
-                    text: 'Adicione produtos ao carrinho antes de finalizar a venda.',
-                    confirmButtonText: 'OK'
-                });
-            }
+            finalizarVenda();
+            return false;
         }
     }
+
+    // Adicionar o evento de escuta de teclas ao documento
+    document.addEventListener('keydown', handleShortcutKeys);
 
     // Função para verificar o estoque de todos os produtos no carrinho
     function verifyAllProductsStock() {
@@ -1510,8 +1509,8 @@
 
     // Configurar o botão finalizar venda
     document.getElementById('finish-sale').addEventListener('click', function(e) {
-        // Verificar se há itens no carrinho
-        if (cart.length === 0) {
+            // Verificar se há itens no carrinho
+            if (cart.length === 0) {
             e.preventDefault();
             Swal.fire({
                 icon: 'warning',
@@ -1562,15 +1561,15 @@
                             if (customerId && customerName) {
                                 document.getElementById('confirm-customer').textContent = customerName;
                                 document.getElementById('confirm-customer-container').style.display = 'block';
-                            } else {
+                } else {
                                 document.getElementById('confirm-customer').textContent = '-';
                                 document.getElementById('confirm-customer-container').style.display = 'block';
-                            }
+                }
                             
                             // Abrir o modal de confirmação
                             const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
                             modal.show();
-                        } else {
+            } else {
                             // Há problemas de estoque, mostrar mensagem para o usuário
                             let errorMessage = "Existem produtos com estoque insuficiente:\n\n";
                             result.errors.forEach(error => {
@@ -1603,16 +1602,16 @@
     // Configurar o botão de confirmar venda no modal
     document.getElementById('confirm-sale').addEventListener('click', function() {
         // Desabilitar o botão durante o processamento
-        this.disabled = true;
+            this.disabled = true;
         this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processando...';
         
         // Preparar os dados da venda
         const items = [];
         cart.forEach(item => {
             items.push({
-                product_id: item.id,
-                quantity: item.quantity,
-                price: item.price
+                    product_id: item.id,
+                    quantity: item.quantity,
+                    price: item.price
             });
         });
         
@@ -1627,22 +1626,22 @@
 
         // Enviar a venda para o servidor via AJAX
         fetch("{% url 'sales:confirm_sale' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(saleData)
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(data => {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(saleData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
                     throw new Error(data.error || 'Erro ao processar a venda');
-                });
-            }
-            return response.json();
-        })
-        .then(data => {
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
             if (!data.success) {
                 throw new Error(data.error || 'Erro ao processar a venda');
             }
@@ -1650,8 +1649,8 @@
             
             // Limpar o PDV imediatamente após o sucesso
             resetPDV();
-            
-            // Mostrar mensagem de sucesso
+                
+                // Mostrar mensagem de sucesso
             document.getElementById('sale-success-message').style.display = 'block';
             
             // Esconder botão de confirmar e mostrar botão de fechar
@@ -1668,7 +1667,7 @@
             
             // Se tiver uma URL de recibo e o cliente escolheu enviar por WhatsApp
             if (data.has_phone && saleData.send_whatsapp) {
-                setTimeout(() => {
+                    setTimeout(() => {
                     window.open(`/sistema/vendas/${data.sale_id}/whatsapp/`, '_blank');
                 }, 500);
             }
@@ -1686,8 +1685,8 @@
                     showConfirmButton: false
                 });
             }, 500);
-        })
-        .catch(error => {
+            })
+            .catch(error => {
             console.error('Erro:', error);
             
             // Fechar o modal de confirmação
@@ -1718,8 +1717,8 @@
                             errorHtml += '</ul><div class="mt-3">O carrinho foi atualizado automaticamente com as quantidades disponíveis.</div>';
                             
                             // Renderizar o carrinho atualizado
-                            renderCartItems();
-                            updateTotals();
+            renderCartItems();
+            updateTotals();
                             
                             // Mostrar mensagem ao usuário
                             Swal.fire({
@@ -1818,8 +1817,8 @@
     function resetPDV() {
         // Limpar o carrinho
         cart = [];
-        renderCartItems();
-        updateTotals();
+            renderCartItems();
+            updateTotals();
 
         // Resetar campos de entrada
         document.getElementById('product-search').value = '';
@@ -2014,7 +2013,7 @@
                 const searchInput = document.getElementById('product-search');
                 searchInput.value = '';
                 searchInput.focus();
-            } else {
+                } else {
                 // Estoque insuficiente, mostrar mensagem de erro
                 let availableForNew = data.available - quantityInCart;
                 let errorMessage = data.error;
@@ -2092,6 +2091,99 @@
             backdrop.remove();
         });
     });
+
+    // Ativar os atalhos de teclado (F1, F2, F3, F4) - Adicionado novamente aqui no final para garantir funcionamento
+    document.addEventListener('keydown', handleShortcutKeys);
+    console.log("Atalhos de teclado ativados! F1=Busca, F2=Pagamento, F3=Desconto, F4=Finalizar");
+
+    // Funções para abrir os modais específicos requeridos pelos atalhos F1-F4
+    function abrirModalBuscaProduto() {
+        const searchInput = document.getElementById('product-search');
+        searchInput.value = '';
+        searchInput.focus();
+        searchInput.select();
+    }
+
+    function abrirModalFormaPagamento() {
+        const paymentMethodEl = document.getElementById('payment-method');
+        paymentMethodEl.focus();
+        setTimeout(() => {
+            // Abrir o dropdown programaticamente
+            const event = new MouseEvent('mousedown', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            });
+            paymentMethodEl.dispatchEvent(event);
+        }, 100);
+    }
+
+    function abrirModalDesconto() {
+        const discountEl = document.getElementById('discount');
+        discountEl.focus();
+        discountEl.select();
+    }
+
+    function finalizarVenda() {
+        if (cart.length > 0) {
+            document.getElementById('finish-sale').click();
+        } else {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Carrinho Vazio',
+                text: 'Adicione produtos ao carrinho antes de finalizar a venda.',
+                confirmButtonText: 'OK'
+            });
+        }
+    }
+
+    // Substituir o handleShortcutKeys para usar as novas funções
+    function handleShortcutKeys(e) {
+        // Evitar atalhos se algum modal estiver aberto
+        if (document.querySelector('.modal.show')) {
+            return;
+        }
+        
+        // Evitar atalhos se o foco estiver em um campo de entrada de texto (exceto para F1)
+        if (e.key !== 'F1' && 
+            document.activeElement.tagName === 'INPUT' && 
+            document.activeElement.type !== 'button') {
+            return;
+        }
+        
+        // F1 - Abrir o modal de busca de produtos
+        if (e.key === 'F1') {
+            e.preventDefault();
+            abrirModalBuscaProduto();
+            return false;
+        }
+        
+        // F2 - Abrir o modal de método de pagamento
+        else if (e.key === 'F2') {
+            e.preventDefault();
+            abrirModalFormaPagamento();
+            return false;
+        }
+        
+        // F3 - Abrir modal de desconto
+        else if (e.key === 'F3') {
+            e.preventDefault();
+            abrirModalDesconto();
+            return false;
+        }
+        
+        // F4 - Finalizar a venda
+        else if (e.key === 'F4') {
+            e.preventDefault();
+            finalizarVenda();
+            return false;
+        }
+    }
+
+    // Registrar novamente o event listener com a nova função
+    document.removeEventListener('keydown', handleShortcutKeys);
+    document.addEventListener('keydown', handleShortcutKeys);
+    console.log("Atalhos de teclado atualizados com novas funções dedicadas!");
 </script>
 </div>
 {% endblock %} 

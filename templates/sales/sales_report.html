@@ -445,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             beginAtZero: true,
                             ticks: {
                                 callback: function(value) {
-                                    return 'R$ ' + value.toFixed(2);
+                                    return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2});
                                 }
                             }
                         }
@@ -458,7 +458,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     let value = context.raw;
                                     
                                     if (label === 'Vendas Diárias' || label === 'Ticket Médio') {
-                                        return label + ': R$ ' + value.toFixed(2);
+                                        return label + ': R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2});
                                     } else if (label === 'Número de Itens') {
                                         return label + ': ' + value;
                                     }

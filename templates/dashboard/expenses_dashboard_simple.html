@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load humanize %}
 
 {% block title %}Despesas Simplificadas | SaaS CRM{% endblock %}
 
@@ -167,7 +168,7 @@
     }
     
     .chart-container {
-        height: 300px;
+        height: 200px;
         margin-bottom: 20px;
     }
 </style>
@@ -207,7 +208,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="text-white-50">Total de Despesas</h6>
-                        <h3 class="mb-0">R$ {{ total_expenses|floatformat:2 }}</h3>
+                        <h3 class="mb-0" id="total-expenses">R$ {{ total_expenses|floatformat:2|intcomma }}</h3>
                     </div>
                     <div class="expense-icon">
                         <i class="fas fa-money-bill-wave"></i>
@@ -221,7 +222,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="text-white-50">Despesas Pagas</h6>
-                        <h3 class="mb-0">R$ {{ paid_expenses|floatformat:2 }}</h3>
+                        <h3 class="mb-0" id="paid-expenses">R$ {{ paid_expenses|floatformat:2|intcomma }}</h3>
                     </div>
                     <div class="expense-icon">
                         <i class="fas fa-check-circle"></i>
@@ -235,7 +236,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="text-white-50">A Pagar</h6>
-                        <h3 class="mb-0">R$ {{ pending_expenses|floatformat:2 }}</h3>
+                        <h3 class="mb-0" id="pending-expenses">R$ {{ unpaid_expenses|floatformat:2|intcomma }}</h3>
                     </div>
                     <div class="expense-icon">
                         <i class="fas fa-clock"></i>
@@ -249,7 +250,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="text-white-50">Lucro Líquido</h6>
-                        <h3 class="mb-0">R$ {{ total_profit|floatformat:2 }}</h3>
+                        <h3 class="mb-0" id="profit-expenses">R$ {{ total_profit|floatformat:2|intcomma }}</h3>
                         <small class="text-white-50">Receita - Despesas Pagas</small>
                     </div>
                     <div class="expense-icon">
@@ -307,17 +308,21 @@
                                 <span class="category-badge">{{ expense.category.name }}</span>
                             </td>
                             <td>{{ expense.date|date:"d/m/Y" }}</td>
-                            <td>R$ {{ expense.amount|floatformat:2 }}</td>
+                            <td>R$ {{ expense.amount|floatformat:2|intcomma }}</td>
                             <td>
                                 {% if expense.is_paid %}
                                 <span>
-                                    <span class="status-badge badge-paid toggle-payment-status" onclick="togglePaymentStatus(this, {{ expense.id }})" data-status="paid">
+                                    <span class="status-badge badge-paid toggle-payment-status" 
+                                          data-status="paid"
+                                          data-expense-id="{{ expense.id }}">
                                         <i class="fas fa-check-circle me-1"></i> Pago
                                     </span>
                                 </span>
                                 {% else %}
                                 <span>
-                                    <span class="status-badge badge-pending toggle-payment-status" onclick="togglePaymentStatus(this, {{ expense.id }})" data-status="pending">
+                                    <span class="status-badge badge-pending toggle-payment-status" 
+                                          data-status="pending"
+                                          data-expense-id="{{ expense.id }}">
                                         <i class="fas fa-clock me-1"></i> A Pagar
                                     </span>
                                 </span>
@@ -329,8 +334,7 @@
                                     title="Editar" 
                                     data-bs-toggle="modal"
                                     data-bs-target="#editExpenseModal"
-                                    data-expense-id="{{ expense.id }}"
-                                    onclick="prepareEditExpense({{ expense.id }})">
+                                    data-expense-id="{{ expense.id }}">
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 
@@ -365,7 +369,7 @@
     
     <!-- Despesas por categoria -->
     <div class="row mt-4">
-        <div class="col-md-6 mb-4">
+        <div class="col-md-4 mb-4">
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-white py-3">
                     <h5 class="mb-0">Despesas por Categoria</h5>
@@ -378,7 +382,7 @@
             </div>
         </div>
         
-        <div class="col-md-6 mb-4">
+        <div class="col-md-8 mb-4">
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-white py-3">
                     <h5 class="mb-0">Categorias de Despesas</h5>
@@ -397,10 +401,10 @@
                             <tbody>
                                 {% for cat in expenses_by_category %}
                                 <tr>
-                                    <td class="ps-3">{{ cat.category.name }}</td>
-                                    <td>R$ {{ cat.total|floatformat:2 }}</td>
-                                    <td>R$ {{ cat.paid|floatformat:2 }}</td>
-                                    <td>R$ {{ cat.pending|floatformat:2 }}</td>
+                                    <td class="ps-3">{{ cat.category__name }}</td>
+                                    <td>R$ {{ cat.total|floatformat:2|intcomma }}</td>
+                                    <td>R$ {{ cat.paid|floatformat:2|intcomma }}</td>
+                                    <td>R$ {{ cat.pending|floatformat:2|intcomma }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
@@ -559,6 +563,7 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Controle do campo de nova categoria
@@ -580,19 +585,34 @@
         }
         
         // Gráfico de categorias
-        const categoryData = [
-            {% for cat in expenses_by_category %}
-                {
-                    category: '{{ cat.category.name }}',
-                    total: {{ cat.total|default:0 }},
-                    color: getRandomColor()
-                }{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ];
+        const categoryData = [];
         
-        if (categoryData.length > 0) {
-            renderCategoriesChart(categoryData);
+        // Processar dados das categorias do contexto Django
+        try {
+            let categoryData = JSON.parse('{{ expenses_by_category_json|escapejs }}');
+            if (categoryData.length > 0) {
+                renderCategoriesChart(categoryData);
+            }
+        } catch (e) {
+            console.error("Erro ao processar dados de categorias:", e);
         }
+        
+        // Inicializar botões de toggle pagamento
+        document.querySelectorAll('.toggle-payment-status').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const expenseId = this.getAttribute('data-expense-id');
+                togglePaymentStatus(this, expenseId);
+            });
+        });
+        
+        // Preparar botões para edição de despesa
+        document.querySelectorAll('[data-bs-target="#editExpenseModal"]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const expenseId = this.getAttribute('data-expense-id');
+                prepareEditExpense(expenseId);
+            });
+        });
         
         // Preparar modal de exclusão
         const deleteModal = document.getElementById('deleteExpenseModal');
@@ -613,9 +633,6 @@
         // Configurar o formulário com o ID correto para o envio
         const form = document.getElementById('editExpenseForm');
         form.action = '{% url "dashboard:edit_expense" 0 %}'.replace('0', expenseId);
-        
-        // Verificar se o botão que foi clicado tem dados do item diretamente nos atributos data-*
-        const button = document.querySelector(`[data-expense-id="${expenseId}"]`);
         
         // Em caso de falha na obtenção dos dados via AJAX, redirecionar para a página de edição
         form.addEventListener('submit', function(e) {
@@ -644,20 +661,21 @@
     
     // Renderizar gráfico de categorias
     function renderCategoriesChart(data) {
-        const ctx = document.getElementById('categoriesChart').getContext('2d');
+        const ctx = document.getElementById('categoriesChart');
+        if (!ctx) return;
         
         const labels = data.map(item => item.category);
         const values = data.map(item => item.total);
-        const colors = data.map(item => item.color);
+        const colors = generateChartColors(data.length);
         
         new Chart(ctx, {
-            type: 'doughnut',
+            type: 'pie',
             data: {
                 labels: labels,
                 datasets: [{
                     data: values,
                     backgroundColor: colors,
-                    borderWidth: 1
+                    hoverOffset: 4
                 }]
             },
             options: {
@@ -665,20 +683,40 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'right'
+                        position: 'right',
+                        align: 'center',
+                        labels: {
+                            boxWidth: 15,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.raw;
+                                return `R$ ${value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                            }
+                        }
                     }
                 }
             }
         });
     }
     
-    // Gerar cores aleatórias para o gráfico
-    function getRandomColor() {
-        const colors = [
-            '#4285F4', '#EA4335', '#FBBC05', '#34A853', '#FF6D01',
-            '#46BDC6', '#9C27B0', '#673AB7', '#3F51B5', '#009688'
+    // Função para gerar cores para o gráfico
+    function generateChartColors(count) {
+        const baseColors = [
+            '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+            '#5a5c69', '#6610f2', '#6f42c1', '#fd7e14', '#20c9a6'
         ];
-        return colors[Math.floor(Math.random() * colors.length)];
+        
+        let colors = [];
+        for (let i = 0; i < count; i++) {
+            colors.push(baseColors[i % baseColors.length]);
+        }
+        return colors;
     }
     
     // Função para obter o token CSRF da página
@@ -688,8 +726,12 @@
     
     // Função para alternar o status de pagamento de uma despesa
     function togglePaymentStatus(element, expenseId) {
-        const isPaid = element.classList.contains('badge-paid');
-        const newStatus = isPaid ? 'pending' : 'paid';
+        if (!element || !expenseId) {
+            console.error('Elemento ou ID de despesa inválido');
+            return;
+        }
+        
+        const isPaid = element.getAttribute('data-status') === 'paid';
         
         // Mostrar indicador de carregamento
         const originalContent = element.innerHTML;
@@ -705,75 +747,88 @@
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-CSRFToken': csrfToken
-            },
-            body: 'is_paid=' + (newStatus === 'paid' ? 'true' : 'false')
+            }
         })
-        .then(function(response) {
+        .then(response => {
             if (!response.ok) {
-                throw new Error('Falha ao atualizar status');
+                throw new Error('Falha ao atualizar status: ' + response.status);
             }
             return response.json();
         })
-        .then(function(data) {
-            // Atualizar o elemento com o novo status
+        .then(data => {
             if (data.success) {
+                console.log('Status atualizado com sucesso:', data);
+                
+                // Atualizar o elemento com o novo status
                 if (data.is_paid) {
                     // Mudar para Pago (verde)
                     element.classList.remove('badge-pending');
                     element.classList.add('badge-paid');
                     element.setAttribute('data-status', 'paid');
                     element.innerHTML = '<i class="fas fa-check-circle me-1"></i> Pago';
-                    element.style.backgroundColor = '#d1e7dd';
-                    element.style.color = '#0f5132';
                 } else {
                     // Mudar para A Pagar (bege/amarelo)
                     element.classList.remove('badge-paid');
                     element.classList.add('badge-pending');
                     element.setAttribute('data-status', 'pending');
                     element.innerHTML = '<i class="fas fa-clock me-1"></i> A Pagar';
-                    element.style.backgroundColor = '#fff3cd';
-                    element.style.color = '#664d03';
                 }
                 
                 // Atualizar os cards com os novos valores
-                updateSummaryCards(data);
+                document.getElementById('total-expenses').innerText = `R$ ${data.total_expenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                document.getElementById('paid-expenses').innerText = `R$ ${data.paid_expenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                document.getElementById('pending-expenses').innerText = `R$ ${data.pending_expenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                document.getElementById('profit-expenses').innerText = `R$ ${data.total_profit.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                
+                // Habilitar novamente o botão
+                element.style.pointerEvents = 'auto';
+                
+                // Se estiver disponível, mostrar uma notificação de sucesso
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Status atualizado!',
+                        text: data.is_paid ? 'Despesa marcada como paga.' : 'Despesa marcada como pendente.',
+                        icon: 'success',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000
+                    });
+                }
             } else {
                 // Restaurar o conteúdo original em caso de erro
                 element.innerHTML = originalContent;
-                alert('Erro ao atualizar o status: ' + (data.error || 'Erro desconhecido'));
+                element.style.pointerEvents = 'auto';
+                
+                const errorMsg = data.error || 'Erro ao atualizar status';
+                console.error('Erro retornado pelo servidor:', errorMsg);
+                
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Erro!',
+                        text: errorMsg,
+                        icon: 'error'
+                    });
+                } else {
+                    alert('Erro ao atualizar status: ' + errorMsg);
+                }
             }
         })
-        .catch(function(error) {
-            console.error('Erro:', error);
+        .catch(error => {
+            console.error('Erro ao processar a requisição:', error);
             element.innerHTML = originalContent;
-            alert('Erro ao atualizar o status de pagamento: ' + error.message);
-        })
-        .finally(function() {
             element.style.pointerEvents = 'auto';
+            
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Erro!',
+                    text: 'Não foi possível atualizar o status. Tente novamente.',
+                    icon: 'error'
+                });
+            } else {
+                alert('Erro ao atualizar status: ' + error.message);
+            }
         });
-    }
-    
-    // Função para atualizar os cards com os novos valores
-    function updateSummaryCards(newTotals) {
-        if (newTotals) {
-            // Verificar se cada valor existe antes de usar toFixed
-            if (newTotals.total_expenses !== undefined) {
-                document.querySelector('.card-blue h3').textContent = 'R$ ' + newTotals.total_expenses.toFixed(2);
-            }
-            
-            if (newTotals.paid_expenses !== undefined) {
-                document.querySelector('.card-green h3').textContent = 'R$ ' + newTotals.paid_expenses.toFixed(2);
-            }
-            
-            if (newTotals.pending_expenses !== undefined) {
-                document.querySelector('.card-orange h3').textContent = 'R$ ' + newTotals.pending_expenses.toFixed(2);
-            }
-            
-            // O lucro total pode não estar sendo retornado pela API
-            if (newTotals.total_profit !== undefined) {
-                document.querySelector('.card-red h3').textContent = 'R$ ' + newTotals.total_profit.toFixed(2);
-            }
-        }
     }
 </script>
 {% endblock %} 

@@ -76,25 +76,25 @@
                                 <tr>
                                         <td>{{ item.product.name }}</td>
                                         <td class="text-center">{{ item.quantity }}</td>
-                                        <td class="text-end">R$ {{ item.price }}</td>
-                                        <td class="text-end">R$ {{ item.subtotal }}</td>
+                                        <td class="text-end">R$ {{ item.price|floatformat:2|intcomma }}</td>
+                                        <td class="text-end">R$ {{ item.subtotal|floatformat:2|intcomma }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                                 <tfoot class="table-light">
                                 <tr>
                                         <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
-                                        <td class="text-end">R$ {{ sale.subtotal }}</td>
+                                        <td class="text-end">R$ {{ sale.subtotal|floatformat:2|intcomma }}</td>
                                 </tr>
                                     {% if sale.discount > 0 %}
                                 <tr>
                                         <td colspan="3" class="text-end"><strong>Desconto:</strong></td>
-                                        <td class="text-end">R$ {{ sale.discount }}</td>
+                                        <td class="text-end">R$ {{ sale.discount|floatformat:2|intcomma }}</td>
                                 </tr>
                                 {% endif %}
                                 <tr>
                                         <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                                        <td class="text-end fw-bold">R$ {{ sale.total }}</td>
+                                        <td class="text-end fw-bold">R$ {{ sale.total|floatformat:2|intcomma }}</td>
                                 </tr>
                             </tfoot>
                         </table>

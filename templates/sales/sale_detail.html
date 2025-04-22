@@ -50,9 +50,9 @@
                             <span class="text-muted">Não informado</span>
                         {% endif %}
                     </p>
-                    <p><strong>Subtotal:</strong> R$ {{ sale.subtotal }}</p>
-                    <p><strong>Desconto:</strong> R$ {{ sale.discount }}</p>
-                    <p><strong>Total:</strong> <span class="fw-bold text-success">R$ {{ sale.total }}</span></p>
+                    <p><strong>Subtotal:</strong> R$ {{ sale.subtotal|floatformat:2|intcomma }}</p>
+                    <p><strong>Desconto:</strong> R$ {{ sale.discount|floatformat:2|intcomma }}</p>
+                    <p><strong>Total:</strong> <span class="fw-bold text-success">R$ {{ sale.total|floatformat:2|intcomma }}</span></p>
                 </div>
             </div>
         </div>
@@ -81,15 +81,15 @@
                                         <small class="text-muted">{{ item.product.code }}</small>
                                     </td>
                                     <td class="text-center">{{ item.quantity }}</td>
-                                    <td class="text-end">R$ {{ item.price }}</td>
-                                    <td class="text-end fw-bold">R$ {{ item.subtotal }}</td>
+                                    <td class="text-end">R$ {{ item.price|floatformat:2|intcomma }}</td>
+                                    <td class="text-end fw-bold">R$ {{ item.subtotal|floatformat:2|intcomma }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
                                     <td colspan="3" class="text-end fw-bold">Total:</td>
-                                    <td class="text-end fw-bold text-success">R$ {{ sale.total }}</td>
+                                    <td class="text-end fw-bold text-success">R$ {{ sale.total|floatformat:2|intcomma }}</td>
                                 </tr>
                             </tfoot>
                         </table>

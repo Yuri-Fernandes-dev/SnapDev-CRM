@@ -14,6 +14,8 @@ from .models import ExpenseCategory, Expense
 import json
 import logging
 import traceback
+from django.db import models
+from django.core.serializers.json import DjangoJSONEncoder
 
 # Função para verificar a autenticação do usuário via AJAX
 @require_http_methods(["GET"])
@@ -617,8 +619,8 @@ def toggle_expense_payment(request, expense_id):
         
         # Recalcular totais para o dashboard
         company = request.user.company
-        total_expenses = Expense.objects.filter(company=company).aggregate(Sum('amount'))['amount__sum'] or 0
-        paid_expenses = Expense.objects.filter(company=company, is_paid=True).aggregate(Sum('amount'))['amount__sum'] or 0
+        total_expenses = float(Expense.objects.filter(company=company).aggregate(Sum('amount'))['amount__sum'] or 0)
+        paid_expenses = float(Expense.objects.filter(company=company, is_paid=True).aggregate(Sum('amount'))['amount__sum'] or 0)
         pending_expenses = total_expenses - paid_expenses
         
         # Calcular percentual de pagamento para evitar divisão por zero
@@ -660,7 +662,7 @@ def toggle_expense_payment(request, expense_id):
         total_profit = float(profit_data['total_profit'] or 0)
         
         # Calcular lucro descontando as despesas
-        profit_after_expenses = total_profit - float(total_expenses)
+        profit_after_expenses = total_profit - paid_expenses  # Usar apenas despesas pagas
         
         # Calcular margem de lucro
         profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
@@ -669,9 +671,9 @@ def toggle_expense_payment(request, expense_id):
         return JsonResponse({
             'success': True,
             'is_paid': expense.is_paid,
-            'total_expenses': float(total_expenses),
-            'paid_expenses': float(paid_expenses),
-            'pending_expenses': float(pending_expenses),
+            'total_expenses': total_expenses,
+            'paid_expenses': paid_expenses,
+            'pending_expenses': pending_expenses,
             'payment_percentage': payment_percentage,
             'total_revenue': total_revenue,
             'total_profit': total_profit,
@@ -735,12 +737,18 @@ def expenses_dashboard_simple(request):
     expenses_by_category = expenses.values(
         'category__name'
     ).annotate(
-        total=Sum('amount')
+        total=Sum('amount'),
+        paid=Sum('amount', filter=models.Q(is_paid=True)),
+        pending=Sum('amount', filter=models.Q(is_paid=False))
     ).order_by('-total')
     
     # Calcular porcentagens para o gráfico
     for item in expenses_by_category:
         item['percentage'] = (float(item['total']) / total_expenses * 100) if total_expenses > 0 else 0
+        # Garantir que os valores não sejam None
+        item['total'] = float(item['total'] or 0)
+        item['paid'] = float(item['paid'] or 0)
+        item['pending'] = float(item['pending'] or 0)
     
     # Dados para o gráfico de despesas diárias
     expense_chart_data = []
@@ -759,15 +767,48 @@ def expenses_dashboard_simple(request):
     # Obter todas as categorias de despesas para o formulário de adição
     categories = ExpenseCategory.objects.filter(company=request.user.company)
     
+    # Calcular o lucro estimado (baseado em vendas recentes)
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=30)
+    
+    # Obter total de vendas pagas no período
+    sales_data = Sale.objects.filter(
+        company=request.user.company,
+        status='paid',
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date
+    )
+    total_revenue = float(sales_data.aggregate(total=Sum('total'))['total'] or 0)
+    
+    # Calcular lucro bruto
+    profit_data = SaleItem.objects.filter(
+        sale__company=request.user.company,
+        sale__status='paid',
+        sale__created_at__date__gte=start_date,
+        sale__created_at__date__lte=end_date
+    ).annotate(
+        profit=ExpressionWrapper(
+            (F('price') - F('cost_price')) * F('quantity'),
+            output_field=DecimalField()
+        )
+    ).aggregate(total_profit=Sum('profit'))
+    
+    total_profit = float(profit_data['total_profit'] or 0)
+    profit_after_expenses = total_profit - paid_expenses
+    
     context = {
         'period': period,
+        'total_revenue': total_revenue,
         'total_expenses': total_expenses,
         'paid_expenses': paid_expenses,
         'unpaid_expenses': unpaid_expenses,
         'expenses_by_category': expenses_by_category,
+        'expenses_by_category_json': json.dumps(list(expenses_by_category.values()), cls=DjangoJSONEncoder),
         'expense_chart_data': json.dumps(expense_chart_data),
         'categories': categories,
         'expenses': expenses.order_by('-date'),  # Todas as despesas para a visualização simplificada
+        'recent_expenses': expenses.order_by('-date'),  # Usado no template para lista principal
+        'total_profit': profit_after_expenses,  # Lucro após despesas pagas
     }
     
     return render(request, 'dashboard/expenses_dashboard_simple.html', context)
@@ -854,14 +895,34 @@ def add_expense(request):
     if request.method == 'POST':
         try:
             category_id = request.POST.get('category')
+            new_category = request.POST.get('new_category', '').strip()
             description = request.POST.get('description')
             amount = request.POST.get('amount')
             date_str = request.POST.get('date')
             is_paid = request.POST.get('is_paid', '') == 'on'
             
             # Validar campos obrigatórios
-            if not all([category_id, description, amount, date_str]):
-                messages.error(request, 'Todos os campos são obrigatórios.')
+            if not description or not amount or not date_str:
+                messages.error(request, 'Descrição, valor e data são obrigatórios.')
+                return redirect('dashboard:expenses')
+            
+            # Verificar categoria ou criar nova
+            if category_id == 'nova' and new_category:
+                # Criar nova categoria
+                category, created = ExpenseCategory.objects.get_or_create(
+                    company=request.user.company,
+                    name=new_category,
+                    defaults={'description': f'Categoria {new_category} criada automaticamente'}
+                )
+            elif category_id:
+                # Obter categoria existente
+                try:
+                    category = ExpenseCategory.objects.get(id=category_id, company=request.user.company)
+                except ExpenseCategory.DoesNotExist:
+                    messages.error(request, 'Categoria não encontrada.')
+                    return redirect('dashboard:expenses')
+            else:
+                messages.error(request, 'Selecione ou crie uma categoria.')
                 return redirect('dashboard:expenses')
             
             # Processar a data
@@ -876,13 +937,6 @@ def add_expense(request):
                 amount = float(amount.replace(',', '.'))
             except ValueError:
                 messages.error(request, 'Valor inválido.')
-                return redirect('dashboard:expenses')
-            
-            # Obter a categoria
-            try:
-                category = ExpenseCategory.objects.get(id=category_id, company=request.user.company)
-            except ExpenseCategory.DoesNotExist:
-                messages.error(request, 'Categoria não encontrada.')
                 return redirect('dashboard:expenses')
             
             # Criar a despesa

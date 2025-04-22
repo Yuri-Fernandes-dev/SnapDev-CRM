@@ -87,7 +87,7 @@
                         </div>
                         <div>
                             <p class="text-muted mb-0">Receita Total</p>
-                            <h4 class="mb-0">R$ {{ total_revenue|floatformat:2 }}</h4>
+                            <h4 class="mb-0">R$ {{ total_revenue|floatformat:2|intcomma }}</h4>
                         </div>
                     </div>
                 </div>
@@ -104,7 +104,7 @@
                         </div>
                         <div>
                             <p class="text-muted mb-0">Ticket Médio</p>
-                            <h4 class="mb-0">R$ {{ avg_ticket|floatformat:2 }}</h4>
+                            <h4 class="mb-0">R$ {{ avg_ticket|floatformat:2|intcomma }}</h4>
                         </div>
                     </div>
                 </div>
@@ -160,7 +160,7 @@
                                 <span class="text-muted">Cliente não informado</span>
                                 {% endif %}
                             </td>
-                            <td>R$ {{ sale.total|floatformat:2 }}</td>
+                            <td>R$ {{ sale.total|floatformat:2|intcomma }}</td>
                             <td>{{ sale.items_count|default:0 }}</td>
                             <td>{{ sale.payment_method.name }}</td>
                             <td>

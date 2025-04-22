@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                     ticks: {
                         callback: function(value) {
-                            return 'R$ ' + value.toFixed(2);
+                            return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2});
                         }
                     }
                 },
@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (context.datasetIndex === 0) {
                                 label += 'R$ ' + context.parsed.y.toFixed(2);
                             } else {
-                                label += context.parsed.y;
+                                label += 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2});
                             }
                             return label;
                         }
