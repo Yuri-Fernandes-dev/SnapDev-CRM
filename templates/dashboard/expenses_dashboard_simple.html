@@ -375,7 +375,7 @@
                     <h5 class="mb-0">Despesas por Categoria</h5>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container">
+                    <div class="chart-container" style="height: 300px; position: relative;">
                         <canvas id="categoriesChart"></canvas>
                     </div>
                 </div>
@@ -566,6 +566,12 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        console.log("Document loaded - Iniciando configuração do gráfico de categorias");
+        
+        // Verificar se os dados brutos do gráfico estão disponíveis
+        const rawChartData = '{{ chart_data_json|escapejs }}';
+        console.log("Dados brutos do gráfico:", rawChartData);
+        
         // Controle do campo de nova categoria
         const categorySelect = document.getElementById('category');
         const newCategoryContainer = document.getElementById('newCategoryContainer');
@@ -584,26 +590,20 @@
             });
         }
         
-        // Gráfico de categorias
-        const categoryData = [];
-        
         // Processar dados das categorias do contexto Django
         try {
-            let categoryData = JSON.parse('{{ expenses_by_category_json|escapejs }}');
-            if (categoryData.length > 0) {
-                // Converter para o formato esperado pelo renderCategoriesChart
-                const formattedData = categoryData.map(item => ({
-                    category: item.category__name,
-                    total: parseFloat(item.total)
-                }));
-                console.log("Dados do gráfico formatados:", formattedData);
-                renderCategoriesChart(formattedData);
+            // Usar os dados formatados especificamente para o gráfico
+            const chartData = JSON.parse('{{ chart_data_json|escapejs }}');
+            console.log("Dados formatados para o gráfico:", chartData);
+            
+            if (chartData && chartData.labels && chartData.labels.length > 0) {
+                renderCategoriesChart(chartData);
             } else {
                 console.warn("Nenhum dado de categoria disponível para renderizar o gráfico");
             }
         } catch (e) {
             console.error("Erro ao processar dados de categorias:", e);
-            console.error("Dados recebidos:", '{{ expenses_by_category_json|escapejs }}');
+            console.error("Dados recebidos:", '{{ chart_data_json|escapejs }}');
         }
         
         // Inicializar botões de toggle pagamento
@@ -673,17 +673,22 @@
         const ctx = document.getElementById('categoriesChart');
         if (!ctx) return;
         
-        const labels = data.map(item => item.category);
-        const values = data.map(item => item.total);
-        const colors = generateChartColors(data.length);
+        const labels = data.labels;
+        const values = data.values;
+        const colors = data.colors;
+        const chartType = data.chart_type || 'pie'; // Default para pie se não especificado
         
-        new Chart(ctx, {
-            type: 'pie',
+        console.log("Renderizando gráfico do tipo:", chartType);
+        console.log("Labels:", labels);
+        
+        const chartConfig = {
+            type: chartType,
             data: {
                 labels: labels,
                 datasets: [{
                     data: values,
                     backgroundColor: colors,
+                    borderWidth: chartType === 'bar' ? 0 : 1,
                     hoverOffset: 4
                 }]
             },
@@ -692,6 +697,7 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
+                        display: chartType !== 'bar', // Ocultar legenda para gráficos de barra
                         position: 'right',
                         align: 'center',
                         labels: {
@@ -711,21 +717,23 @@
                     }
                 }
             }
-        });
-    }
-    
-    // Função para gerar cores para o gráfico
-    function generateChartColors(count) {
-        const baseColors = [
-            '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
-            '#5a5c69', '#6610f2', '#6f42c1', '#fd7e14', '#20c9a6'
-        ];
+        };
         
-        let colors = [];
-        for (let i = 0; i < count; i++) {
-            colors.push(baseColors[i % baseColors.length]);
+        // Opções específicas para gráfico de barras
+        if (chartType === 'bar') {
+            chartConfig.options.scales = {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                        }
+                    }
+                }
+            };
         }
-        return colors;
+        
+        new Chart(ctx, chartConfig);
     }
     
     // Função para obter o token CSRF da página

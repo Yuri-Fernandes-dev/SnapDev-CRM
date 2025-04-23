@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 label += ': ';
                             }
                             if (context.datasetIndex === 0) {
-                                label += 'R$ ' + context.parsed.y.toFixed(2);
+                                label += 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2});
                             } else {
                                 label += 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2});
                             }

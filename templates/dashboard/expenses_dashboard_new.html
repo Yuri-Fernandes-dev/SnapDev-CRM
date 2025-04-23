@@ -895,7 +895,7 @@
                         },
                         callbacks: {
                             label: function(context) {
-                                return 'R$ ' + context.raw.toFixed(2);
+                                return 'R$ ' + context.raw.toLocaleString('pt-BR', {minimumFractionDigits: 2});
                             }
                         }
                     }
@@ -910,7 +910,7 @@
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
-                                return 'R$ ' + value;
+                                return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2});
                             }
                         },
                         grid: {
@@ -963,7 +963,7 @@
                                 const value = context.raw;
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = ((value / total) * 100).toFixed(1);
-                                return `${context.label}: R$ ${value.toFixed(2)} (${percentage}%)`;
+                                return `${context.label}: R$ ${value.toLocaleString('pt-BR', {minimumFractionDigits: 2})} (${percentage}%)`;
                             }
                         }
                     }

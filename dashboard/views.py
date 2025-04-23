@@ -796,6 +796,39 @@ def expenses_dashboard_simple(request):
     total_profit = float(profit_data['total_profit'] or 0)
     profit_after_expenses = total_profit - paid_expenses
     
+    # Adicionar 'name' como um alias para 'category__name' para facilitar o acesso no JavaScript
+    expenses_by_category_list = list(expenses_by_category.values())
+    
+    # Preparar dados específicos para o gráfico de categorias
+    chart_labels = []
+    chart_data = []
+    chart_colors = [
+        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+        '#5a5c69', '#6610f2', '#6f42c1', '#fd7e14', '#20c9a6'
+    ]
+    
+    for index, item in enumerate(expenses_by_category):
+        category_name = item.get('category__name', 'Sem categoria')
+        if category_name:
+            chart_labels.append(category_name)
+            chart_data.append(float(item['total']))
+    
+    # Garantir que haja pelo menos um item para evitar gráfico vazio
+    if not chart_labels:
+        chart_labels = ['Sem despesas']
+        chart_data = [0]
+    
+    # Limitar as cores ao número de categorias
+    chart_colors = chart_colors[:len(chart_labels)]
+    
+    # Dados formatados para o gráfico
+    chart_data_json = {
+        'labels': chart_labels,
+        'values': chart_data,
+        'colors': chart_colors,
+        'chart_type': 'bar'  # Alterado para gráfico de barras
+    }
+    
     context = {
         'period': period,
         'total_revenue': total_revenue,
@@ -803,12 +836,15 @@ def expenses_dashboard_simple(request):
         'paid_expenses': paid_expenses,
         'unpaid_expenses': unpaid_expenses,
         'expenses_by_category': expenses_by_category,
-        'expenses_by_category_json': json.dumps(list(expenses_by_category.values()), cls=DjangoJSONEncoder),
+        'expenses_by_category_json': json.dumps(expenses_by_category_list, cls=DjangoJSONEncoder),
         'expense_chart_data': json.dumps(expense_chart_data),
         'categories': categories,
         'expenses': expenses.order_by('-date'),  # Todas as despesas para a visualização simplificada
         'recent_expenses': expenses.order_by('-date'),  # Usado no template para lista principal
         'total_profit': profit_after_expenses,  # Lucro após despesas pagas
+        
+        # Dados específicos para o gráfico de categorias
+        'chart_data_json': json.dumps(chart_data_json, cls=DjangoJSONEncoder),
     }
     
     return render(request, 'dashboard/expenses_dashboard_simple.html', context)
