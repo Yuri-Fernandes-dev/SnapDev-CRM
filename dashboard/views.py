@@ -935,7 +935,9 @@ def add_expense(request):
             description = request.POST.get('description')
             amount = request.POST.get('amount')
             date_str = request.POST.get('date')
-            is_paid = request.POST.get('is_paid', '') == 'on'
+            is_paid = request.POST.get('is_paid') == 'true'
+            is_recurring = request.POST.get('is_recurring') == 'on'
+            recurrence_period = request.POST.get('recurrence_period', '')
             
             # Validar campos obrigatórios
             if not description or not amount or not date_str:
@@ -947,8 +949,7 @@ def add_expense(request):
                 # Criar nova categoria
                 category, created = ExpenseCategory.objects.get_or_create(
                     company=request.user.company,
-                    name=new_category,
-                    defaults={'description': f'Categoria {new_category} criada automaticamente'}
+                    name=new_category
                 )
             elif category_id:
                 # Obter categoria existente
@@ -982,7 +983,9 @@ def add_expense(request):
                 description=description,
                 amount=amount,
                 date=expense_date,
-                is_paid=is_paid
+                is_paid=is_paid,
+                is_recurring=is_recurring,
+                recurrence_period=recurrence_period if is_recurring else ''
             )
             
             messages.success(request, 'Despesa adicionada com sucesso!')
@@ -1011,7 +1014,9 @@ def edit_expense(request, expense_id):
             description = request.POST.get('description')
             amount = request.POST.get('amount')
             date_str = request.POST.get('date')
-            is_paid = request.POST.get('is_paid', '') == 'on'
+            is_paid = request.POST.get('is_paid') == 'true'
+            is_recurring = request.POST.get('is_recurring') == 'on'
+            recurrence_period = request.POST.get('recurrence_period', '')
             
             # Validar campos obrigatórios
             if not all([category_id, description, amount, date_str]):
@@ -1045,6 +1050,8 @@ def edit_expense(request, expense_id):
             expense.amount = amount
             expense.date = expense_date
             expense.is_paid = is_paid
+            expense.is_recurring = is_recurring
+            expense.recurrence_period = recurrence_period if is_recurring else ''
             expense.save()
             
             messages.success(request, 'Despesa atualizada com sucesso!')
@@ -1091,7 +1098,6 @@ def add_expense_category(request):
     if request.method == 'POST':
         try:
             name = request.POST.get('name')
-            description = request.POST.get('description', '')
             
             # Validar campos obrigatórios
             if not name:
@@ -1106,8 +1112,7 @@ def add_expense_category(request):
             # Criar a categoria
             ExpenseCategory.objects.create(
                 company=request.user.company,
-                name=name,
-                description=description
+                name=name
             )
             
             messages.success(request, 'Categoria de despesa adicionada com sucesso!')
@@ -1130,7 +1135,6 @@ def edit_expense_category(request, category_id):
     if request.method == 'POST':
         try:
             name = request.POST.get('name')
-            description = request.POST.get('description', '')
             
             # Validar campos obrigatórios
             if not name:
@@ -1144,7 +1148,6 @@ def edit_expense_category(request, category_id):
             
             # Atualizar a categoria
             category.name = name
-            category.description = description
             category.save()
             
             messages.success(request, 'Categoria de despesa atualizada com sucesso!')
@@ -1229,8 +1232,7 @@ def add_saas_expense(request):
             # Obter ou criar categoria SaaS
             saas_category, created = ExpenseCategory.objects.get_or_create(
                 company=company,
-                name='Plataforma SaaS',
-                defaults={'description': 'Despesas relacionadas à plataforma SaaS'}
+                name='Plataforma SaaS'
             )
             
             # Criar a despesa

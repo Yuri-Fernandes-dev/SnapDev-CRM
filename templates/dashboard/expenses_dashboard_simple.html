@@ -464,6 +464,20 @@
                                 <option value="false" selected>A Pagar</option>
                             </select>
                         </div>
+                        <div class="mb-3 form-check">
+                            <input class="form-check-input" type="checkbox" id="is_recurring" name="is_recurring">
+                            <label class="form-check-label" for="is_recurring">
+                                Despesa Recorrente
+                            </label>
+                        </div>
+                        <div class="mb-3" id="recurrenceOptions" style="display: none;">
+                            <label for="recurrence_period" class="form-label">Período de Recorrência</label>
+                            <select class="form-select" id="recurrence_period" name="recurrence_period">
+                                <option value="monthly">Mensal</option>
+                                <option value="quarterly">Trimestral</option>
+                                <option value="yearly">Anual</option>
+                            </select>
+                        </div>
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="is_paid" name="is_paid_old" style="display:none;">
                             <label class="form-check-label" for="is_paid" style="display:none;">
@@ -516,6 +530,20 @@
                             <select class="form-select" id="edit_payment_status" name="is_paid">
                                 <option value="true">Pago</option>
                                 <option value="false">A Pagar</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input class="form-check-input" type="checkbox" id="edit_is_recurring" name="is_recurring">
+                            <label class="form-check-label" for="edit_is_recurring">
+                                Despesa Recorrente
+                            </label>
+                        </div>
+                        <div class="mb-3" id="edit_recurrenceOptions" style="display: none;">
+                            <label for="edit_recurrence_period" class="form-label">Período de Recorrência</label>
+                            <select class="form-select" id="edit_recurrence_period" name="recurrence_period">
+                                <option value="monthly">Mensal</option>
+                                <option value="quarterly">Trimestral</option>
+                                <option value="yearly">Anual</option>
                             </select>
                         </div>
                         <div class="form-check mb-3" style="display:none;">
@@ -590,6 +618,26 @@
             });
         }
         
+        // Controle de exibição dos campos de recorrência
+        const isRecurringCheckbox = document.getElementById('is_recurring');
+        const recurrenceOptions = document.getElementById('recurrenceOptions');
+        
+        if (isRecurringCheckbox && recurrenceOptions) {
+            isRecurringCheckbox.addEventListener('change', function() {
+                recurrenceOptions.style.display = this.checked ? 'block' : 'none';
+            });
+        }
+        
+        // Controle de exibição dos campos de recorrência na edição
+        const editIsRecurringCheckbox = document.getElementById('edit_is_recurring');
+        const editRecurrenceOptions = document.getElementById('edit_recurrenceOptions');
+        
+        if (editIsRecurringCheckbox && editRecurrenceOptions) {
+            editIsRecurringCheckbox.addEventListener('change', function() {
+                editRecurrenceOptions.style.display = this.checked ? 'block' : 'none';
+            });
+        }
+        
         // Processar dados das categorias do contexto Django
         try {
             // Usar os dados formatados especificamente para o gráfico
@@ -649,23 +697,64 @@
             return true;
         });
         
-        // Abrir a despesa diretamente em uma nova janela se o AJAX falhar
-        setTimeout(() => {
-            // Se após 2 segundos o formulário ainda não foi preenchido, habilitar um botão para edição direta
-            const footer = form.querySelector('.modal-footer');
-            if (footer) {
-                const directEditBtn = document.createElement('a');
-                directEditBtn.href = '{% url "dashboard:edit_expense" 0 %}'.replace('0', expenseId);
-                directEditBtn.className = 'btn btn-info';
-                directEditBtn.innerText = 'Editar Diretamente';
-                directEditBtn.target = '_self';
-                
-                // Adicionar apenas se ainda não existe
-                if (!footer.querySelector('.btn-info')) {
-                    footer.insertBefore(directEditBtn, footer.firstChild);
-                }
+        // Fazer uma requisição AJAX para obter os dados da despesa
+        fetch('{% url "dashboard:edit_expense" 0 %}'.replace('0', expenseId))
+        .then(response => {
+            if (response.ok) {
+                return response.text();
             }
-        }, 2000);
+            throw new Error('Falha ao obter os dados da despesa');
+        })
+        .then(html => {
+            // Extrair os dados do HTML retornado
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Preencher o formulário com os dados obtidos
+            const categoryId = doc.querySelector('#id_category').value;
+            const description = doc.querySelector('#id_description').value;
+            const amount = doc.querySelector('#id_amount').value;
+            const date = doc.querySelector('#id_date').value;
+            const isPaid = doc.querySelector('#id_is_paid').checked;
+            const isRecurring = doc.querySelector('#id_is_recurring').checked;
+            const recurrencePeriod = doc.querySelector('#id_recurrence_period')?.value || 'monthly';
+            
+            // Preencher o formulário modal
+            document.getElementById('edit_category').value = categoryId;
+            document.getElementById('edit_description').value = description;
+            document.getElementById('edit_amount').value = amount;
+            document.getElementById('edit_date').value = date;
+            document.getElementById('edit_payment_status').value = isPaid ? 'true' : 'false';
+            document.getElementById('edit_is_recurring').checked = isRecurring;
+            
+            // Mostrar/esconder as opções de recorrência e definir o valor
+            const recurrenceOptions = document.getElementById('edit_recurrenceOptions');
+            if (recurrenceOptions) {
+                recurrenceOptions.style.display = isRecurring ? 'block' : 'none';
+                document.getElementById('edit_recurrence_period').value = recurrencePeriod;
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao obter os dados da despesa:', error);
+            
+            // Abrir a despesa diretamente em uma nova janela se o AJAX falhar
+            setTimeout(() => {
+                // Se após 2 segundos o formulário ainda não foi preenchido, habilitar um botão para edição direta
+                const footer = form.querySelector('.modal-footer');
+                if (footer) {
+                    const directEditBtn = document.createElement('a');
+                    directEditBtn.href = '{% url "dashboard:edit_expense" 0 %}'.replace('0', expenseId);
+                    directEditBtn.className = 'btn btn-info';
+                    directEditBtn.innerText = 'Editar Diretamente';
+                    directEditBtn.target = '_self';
+                    
+                    // Adicionar apenas se ainda não existe
+                    if (!footer.querySelector('.btn-info')) {
+                        footer.insertBefore(directEditBtn, footer.firstChild);
+                    }
+                }
+            }, 2000);
+        });
     }
     
     // Renderizar gráfico de categorias
