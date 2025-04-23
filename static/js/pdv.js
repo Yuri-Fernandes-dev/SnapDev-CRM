@@ -5,10 +5,16 @@ document.addEventListener("DOMContentLoaded", function () {
     let etapa = 0;
 
     window.addEventListener("keydown", function (event) {
+        // Evitar atalhos se algum modal estiver aberto
+        if (document.querySelector('.modal.show')) {
+            return;
+        }
+        
         // Atalho F1: foco no input
         if (event.key === "F1") {
             event.preventDefault();
             document.getElementById("codigo_produto")?.focus();
+            document.getElementById("codigo_produto")?.select();
             etapa = 1;
         }
 
@@ -30,19 +36,40 @@ document.addEventListener("DOMContentLoaded", function () {
         // F2: método de pagamento
         if (event.key === "F2") {
             event.preventDefault();
-            document.getElementById("metodo_pagamento")?.focus();
+            const pagamento = document.getElementById("metodo_pagamento");
+            if (pagamento) {
+                pagamento.focus();
+                // Se tiver a função nativa para abrir o modal de pagamento, chamá-la
+                if (typeof abrirModalFormaPagamento === 'function') {
+                    abrirModalFormaPagamento();
+                }
+            }
         }
 
         // F3: desconto
         if (event.key === "F3") {
             event.preventDefault();
-            document.getElementById("desconto")?.focus();
+            const desconto = document.getElementById("desconto");
+            if (desconto) {
+                desconto.focus();
+                // Se tiver a função nativa para abrir o modal de desconto, chamá-la
+                if (typeof abrirModalDesconto === 'function') {
+                    abrirModalDesconto();
+                }
+            }
         }
 
         // F4: finalizar venda
         if (event.key === "F4") {
             event.preventDefault();
-            document.getElementById("btn-finalizar")?.click();
+            const botaoFinalizar = document.getElementById("btn-finalizar");
+            if (botaoFinalizar) {
+                botaoFinalizar.click();
+                // Se tiver a função nativa para finalizar a venda, chamá-la
+                if (typeof finalizarVenda === 'function') {
+                    finalizarVenda();
+                }
+            }
         }
     });
 
@@ -54,33 +81,77 @@ document.addEventListener("DOMContentLoaded", function () {
         const codigo = document.getElementById("codigo_produto").value.trim();
         if (!codigo) return;
         
-        // Buscar produtos visíveis
-        const produtos = Array.from(document.querySelectorAll('#products-grid tbody tr.product-item'))
-            .filter(row => row.style.display !== 'none');
+        // Buscar todos os produtos
+        const produtos = Array.from(document.querySelectorAll('#products-grid tbody tr.product-item'));
         
-        // Selecionar o primeiro produto visível ou um que corresponda exatamente
-        if (produtos.length > 0) {
-            // Tentar encontrar correspondência exata com código
-            const produtoExato = produtos.find(p => {
-                const prodCodigo = p.getAttribute('data-code')?.toLowerCase() || '';
-                return prodCodigo === codigo.toLowerCase();
+        // MODIFICADO: Buscar apenas correspondências exatas (não palavras parciais)
+        const produtoExato = produtos.find(p => {
+            const prodCodigo = p.getAttribute('data-code')?.toLowerCase() || '';
+            const prodNome = p.getAttribute('data-name')?.toLowerCase() || '';
+            const prodCodigoBarras = p.getAttribute('data-barcode')?.toLowerCase() || '';
+            
+            // Buscar correspondência exata com código, nome ou código de barras
+            return prodCodigo === codigo.toLowerCase() || 
+                   prodNome === codigo.toLowerCase() || 
+                   prodCodigoBarras === codigo.toLowerCase();
+        });
+        
+        // Se encontrou correspondência exata, selecionar apenas esse produto
+        if (produtoExato) {
+            // Mostrar apenas o produto exato (ocultar os outros)
+            produtos.forEach(p => {
+                if (p !== produtoExato) {
+                    p.style.display = 'none';
+                    p.classList.remove('selected');
+                    p.style.outline = '';
+                } else {
+                    p.style.display = '';
+                }
             });
             
-            // Selecionar produto encontrado ou o primeiro disponível
-            const produtoSelecionado = produtoExato || produtos[0];
+            // Selecionar o produto encontrado
+            produtoExato.classList.add('selected');
+            produtoExato.style.outline = '2px solid #198754';
+            produtoExato.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             
-            // Limpar seleções anteriores
+            console.log("Produto exato selecionado:", produtoExato.getAttribute('data-name'));
+            
+            // Se não estiver sem estoque, abrir modal de quantidade
+            if (!produtoExato.classList.contains('out-of-stock')) {
+                // Verificar se existe a função de selecionar produto do sistema
+                if (typeof selectProduct === 'function') {
+                    setTimeout(() => selectProduct(produtoExato), 100);
+                } else {
+                    abrirModalQuantidade();
+                }
+            } else {
+                // Mostrar aviso de produto sem estoque
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Produto Indisponível',
+                    text: 'Este produto está sem estoque.',
+                    confirmButtonText: 'OK'
+                });
+            }
+        } else {
+            // Nenhum produto exato encontrado - limpar seleção
             produtos.forEach(p => {
                 p.classList.remove('selected');
                 p.style.outline = '';
             });
             
-            // Destacar o produto selecionado
-            produtoSelecionado.classList.add('selected');
-            produtoSelecionado.style.outline = '2px solid #198754';
-            produtoSelecionado.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // Mostrar todos os produtos e aviso
+            produtos.forEach(p => p.style.display = '');
             
-            console.log("Produto selecionado:", produtoSelecionado.getAttribute('data-name'));
+            console.log("Nenhum produto exato encontrado para:", codigo);
+            
+            // Mostrar aviso de produto não encontrado
+            Swal.fire({
+                icon: 'info',
+                title: 'Produto Não Encontrado',
+                text: 'Nenhum produto corresponde exatamente à busca. Tente um código ou nome exato.',
+                confirmButtonText: 'OK'
+            });
         }
     }
 

@@ -436,7 +436,7 @@
 
                                 <div class="finish-sale-container">
                                     <div class="d-grid">
-                                        <button id="btn-finalizar" class="btn btn-success">
+                                        <button id="btn-finalizar" class="btn btn-success" onclick="finalizarVenda()">
                                             <i class="fas fa-check-circle me-1"></i> Finalizar Venda
                                         </button>
                                     </div>
@@ -1075,18 +1075,31 @@
                     const code = row.getAttribute('data-code').toLowerCase();
                     const barcode = row.getAttribute('data-barcode')?.toLowerCase() || '';
                     
-                    // Verificar correspondência exata com código
-                    if (code === searchTerm) {
+                    // Verificar correspondência exata (código, nome ou código de barras)
+                    if (code === searchTerm || name === searchTerm || barcode === searchTerm) {
                         exactMatch = row;
-                    }
-                    
-                    if (name.includes(searchTerm) || code.includes(searchTerm) || barcode.includes(searchTerm)) {
                         row.style.display = '';
                         visibleRows.push(row);
                     } else {
                         row.style.display = 'none';
                     }
                 });
+                
+                // Se não houver correspondência exata, mas a busca for maior que 2 caracteres, 
+                // exibir produtos que contenham o texto da busca
+                if (!exactMatch && searchTerm.length > 2) {
+                    rows.forEach(row => {
+                        const name = row.getAttribute('data-name').toLowerCase();
+                        const code = row.getAttribute('data-code').toLowerCase();
+                        const barcode = row.getAttribute('data-barcode')?.toLowerCase() || '';
+                        
+                        // Busca parcial apenas como fallback se não houver correspondência exata
+                        if (name.includes(searchTerm) || code.includes(searchTerm) || barcode.includes(searchTerm)) {
+                            row.style.display = '';
+                            visibleRows.push(row);
+                        }
+                    });
+                }
                 
                 // Se houver correspondência exata, selecionar esse produto
                 if (exactMatch) {
