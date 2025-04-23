@@ -1040,6 +1040,37 @@
         // Configurar a busca de produtos
         setupProductSearch();
 
+        // Adicionar evento de clique direto nos produtos para garantir funcionamento
+        const allProductRows = document.querySelectorAll('#products-grid tbody tr.product-item');
+        allProductRows.forEach(row => {
+            row.addEventListener('click', function() {
+                // Verificar se tem estoque
+                if (this.classList.contains('out-of-stock')) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Produto Indisponível',
+                        text: 'Este produto está sem estoque.',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+                
+                // Limpar seleções anteriores
+                const selectedRows = document.querySelectorAll('.selected');
+                selectedRows.forEach(r => {
+                    r.classList.remove('selected');
+                    r.style.outline = '';
+                });
+                
+                // Selecionar este produto
+                this.classList.add('selected');
+                this.style.outline = '2px solid #198754';
+                
+                // Abrir modal de quantidade
+                selectProduct(this);
+            });
+        });
+
         // Configurar o método de pagamento para mostrar o campo de valor pago quando Dinheiro for selecionado
         const paymentMethodSelect = document.getElementById('payment-method');
         paymentMethodSelect.addEventListener('change', function() {
@@ -1400,30 +1431,37 @@
         // Adicionar eventos de clique aos produtos
         const productItems = productsTable.querySelectorAll('tbody tr.product-item');
         productItems.forEach(item => {
-            item.addEventListener('click', function() {
-                // Não selecionar produtos sem estoque
-                if (this.classList.contains('out-of-stock')) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Produto Indisponível',
-                        text: 'Este produto está sem estoque.',
-                        confirmButtonText: 'OK'
-                    });
-                return;
-            }
+            // Remover qualquer evento de clique existente
+            item.removeEventListener('click', handleProductClick);
             
-                // Limpar seleções anteriores
-                clearAllSelections();
-                
-                // Selecionar o produto clicado
-                this.classList.add('selected');
-                this.style.outline = '2px solid #198754';
-                selectedRow = this;
-                
-                // Selecionar o produto
-                selectProduct(this);
-            });
+            // Adicionar novo evento de clique
+            item.addEventListener('click', handleProductClick);
         });
+    });
+
+    // Função de handler para clique nos produtos
+    function handleProductClick() {
+        // Não selecionar produtos sem estoque
+        if (this.classList.contains('out-of-stock')) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Produto Indisponível',
+                text: 'Este produto está sem estoque.',
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+        
+        // Limpar seleções anteriores
+        clearAllSelections();
+        
+        // Selecionar o produto clicado
+        this.classList.add('selected');
+        this.style.outline = '2px solid #198754';
+        selectedRow = this;
+        
+        // Selecionar o produto
+        selectProduct(this);
     }
     
     // Função para navegar na lista de produtos com as setas
@@ -1530,10 +1568,11 @@
             return;
         }
         
-        // F1 - Abrir o modal de busca de produtos
+        // F1 - Focar no campo de busca de produtos
         if (e.key === 'F1') {
             e.preventDefault();
-            abrirModalBuscaProduto();
+            // Focar diretamente no campo de busca em vez de abrir o modal
+            document.getElementById('product-search').focus();
             return false;
         }
         
@@ -2285,10 +2324,11 @@
             return;
         }
         
-        // F1 - Abrir o modal de busca de produtos
+        // F1 - Focar no campo de busca de produtos
         if (e.key === 'F1') {
             e.preventDefault();
-            abrirModalBuscaProduto();
+            // Focar diretamente no campo de busca em vez de abrir o modal
+            document.getElementById('product-search').focus();
             return false;
         }
         
@@ -2318,6 +2358,39 @@
     document.removeEventListener('keydown', handleShortcutKeys);
     document.addEventListener('keydown', handleShortcutKeys);
     console.log("Atalhos de teclado atualizados com novas funções dedicadas!");
+
+    // Configurar o botão de confirmar desconto
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmDiscountBtn = document.getElementById('confirm-discount');
+        if (confirmDiscountBtn) {
+            confirmDiscountBtn.addEventListener('click', function() {
+                // Obter valor de desconto do modal
+                const discountValue = parseFloat(document.getElementById('modal-discount').value) || 0;
+                
+                // Aplicar o desconto no campo principal
+                document.getElementById('discount').value = discountValue;
+                
+                // Atualizar totais
+                updateTotals();
+                
+                // Fechar o modal
+                bootstrap.Modal.getInstance(document.getElementById('modalDesconto')).hide();
+            });
+        }
+        
+        // Atualizar display do desconto no modal quando o valor mudar
+        const modalDiscount = document.getElementById('modal-discount');
+        if (modalDiscount) {
+            modalDiscount.addEventListener('input', function() {
+                const subtotalText = document.getElementById('modal-subtotal').textContent;
+                const subtotal = parseFloat(subtotalText.replace('R$ ', '').replace('.', '').replace(',', '.')) || 0;
+                const discount = parseFloat(this.value) || 0;
+                
+                document.getElementById('modal-discount-display').textContent = `R$ ${discount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                document.getElementById('modal-total-after-discount').textContent = `R$ ${(subtotal - discount).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            });
+        }
+    });
 </script>
 </div>
 {% endblock %} 
