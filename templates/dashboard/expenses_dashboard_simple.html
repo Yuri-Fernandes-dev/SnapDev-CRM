@@ -1,7 +1,7 @@
 {% extends 'core/base.html' %}
 {% load humanize %}
 
-{% block title %}Despesas Simplificadas | SaaS CRM{% endblock %}
+{% block title %}Despesas | SaaS CRM{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -171,27 +171,97 @@
         height: 200px;
         margin-bottom: 20px;
     }
+    
+    /* Estilos para DatePicker */
+    .date-picker-container {
+        position: relative;
+    }
+    
+    .date-picker-container .input-group-text {
+        cursor: pointer;
+        background-color: #f8f9fa;
+    }
+    
+    .date-picker-container .form-control:focus {
+        box-shadow: none;
+        border-color: #2196F3;
+    }
+    
+    /* Estilos para garantir que o calendário tenha espaço para datas futuras */
+    .flatpickr-calendar {
+        width: 307px !important;
+    }
+    
+    .flatpickr-month {
+        background-color: #2196F3 !important;
+        color: white !important;
+    }
+    
+    .flatpickr-current-month {
+        padding-top: 10px !important;
+    }
+    
+    .flatpickr-day.selected, 
+    .flatpickr-day.startRange, 
+    .flatpickr-day.endRange, 
+    .flatpickr-day.selected.inRange, 
+    .flatpickr-day.startRange.inRange, 
+    .flatpickr-day.endRange.inRange, 
+    .flatpickr-day.selected:focus, 
+    .flatpickr-day.startRange:focus, 
+    .flatpickr-day.endRange:focus, 
+    .flatpickr-day.selected:hover, 
+    .flatpickr-day.startRange:hover, 
+    .flatpickr-day.endRange:hover {
+        background: #2196F3 !important;
+        border-color: #2196F3 !important;
+    }
 </style>
+<!-- Flatpickr CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="h3 mb-0">Despesas Simplificadas</h1>
-            <p class="text-muted">Visualização simplificada das suas despesas</p>
+            <h1 class="h3 mb-0">Despesas</h1>
+            <p class="text-muted">Gerenciamento e análise de despesas</p>
+            {% if start_date and end_date %}
+            <p class="badge bg-info">Período: {{ start_date|date:"d/m/Y" }} a {{ end_date|date:"d/m/Y" }}</p>
+            {% endif %}
         </div>
         
         <div class="d-flex">
             <div class="dropdown me-2">
                 <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="periodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-calendar me-1"></i> Período
+                    <i class="fas fa-calendar me-1"></i> 
+                    {% if period == '7' %}
+                        Últimos 7 dias
+                    {% elif period == '30' %}
+                        Últimos 30 dias
+                    {% elif period == '90' %}
+                        Últimos 90 dias
+                    {% elif period == '365' %}
+                        Último ano
+                    {% else %}
+                        Período: {{ period }} dias
+                    {% endif %}
                 </button>
                 <ul class="dropdown-menu" aria-labelledby="periodDropdown">
                     <li><a class="dropdown-item" href="?period=7">Últimos 7 dias</a></li>
                     <li><a class="dropdown-item" href="?period=30">Últimos 30 dias</a></li>
                     <li><a class="dropdown-item" href="?period=90">Últimos 90 dias</a></li>
                     <li><a class="dropdown-item" href="?period=365">Último ano</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">Períodos Específicos</h6></li>
+                    <li><a class="dropdown-item" href="#" id="current-month">Mês Atual</a></li>
+                    <li><a class="dropdown-item" href="#" id="last-month">Mês Anterior</a></li>
+                    <li><a class="dropdown-item" href="#" id="next-month">Próximo Mês</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#customPeriodModal">
+                        <i class="fas fa-calendar-alt me-1"></i> Período Personalizado
+                    </a></li>
                 </ul>
             </div>
             
@@ -250,8 +320,13 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="text-white-50">Lucro Líquido</h6>
+                        {% if is_future_period %}
+                        <h3 class="mb-0" id="profit-expenses">--</h3>
+                        <small class="text-white-50">Não disponível para períodos futuros</small>
+                        {% else %}
                         <h3 class="mb-0" id="profit-expenses">R$ {{ total_profit|floatformat:2|intcomma }}</h3>
                         <small class="text-white-50">Receita - Despesas Pagas</small>
+                        {% endif %}
                     </div>
                     <div class="expense-icon">
                         <i class="fas fa-chart-line"></i>
@@ -288,7 +363,7 @@
         </div>
         
         <div class="card-body p-0">
-            <div class="table-responsive">
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                 <table class="table table-expenses mb-0">
                     <thead>
                         <tr>
@@ -388,7 +463,7 @@
                     <h5 class="mb-0">Categorias de Despesas</h5>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                         <table class="table table-expenses mb-0">
                             <thead>
                                 <tr>
@@ -447,7 +522,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="description" class="form-label">Descrição</label>
-                            <input type="text" class="form-control" id="description" name="description" required>
+                            <input type="text" class="form-control" id="description" name="description">
                         </div>
                         <div class="mb-3">
                             <label for="amount" class="form-label">Valor (R$)</label>
@@ -455,7 +530,12 @@
                         </div>
                         <div class="mb-3">
                             <label for="date" class="form-label">Data</label>
-                            <input type="date" class="form-control" id="date" name="date" value="{{ today|date:'Y-m-d' }}" required>
+                            <div class="date-picker-container">
+                                <div class="input-group">
+                                    <input type="text" class="form-control date-picker" id="date" name="date" value="{{ today|date:'Y-m-d' }}" required>
+                                    <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                </div>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="payment_status" class="form-label">Status de Pagamento</label>
@@ -515,7 +595,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="edit_description" class="form-label">Descrição</label>
-                            <input type="text" class="form-control" id="edit_description" name="description" required>
+                            <input type="text" class="form-control" id="edit_description" name="description">
                         </div>
                         <div class="mb-3">
                             <label for="edit_amount" class="form-label">Valor (R$)</label>
@@ -523,7 +603,12 @@
                         </div>
                         <div class="mb-3">
                             <label for="edit_date" class="form-label">Data</label>
-                            <input type="date" class="form-control" id="edit_date" name="date" required>
+                            <div class="date-picker-container">
+                                <div class="input-group">
+                                    <input type="text" class="form-control date-picker" id="edit_date" name="date" required>
+                                    <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                </div>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="edit_payment_status" class="form-label">Status de Pagamento</label>
@@ -586,15 +671,164 @@
     <a href="#" class="add-button" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
         <i class="fas fa-plus"></i>
     </a>
+    
+    <!-- Modal para Período Personalizado -->
+    <div class="modal fade" id="customPeriodModal" tabindex="-1" aria-labelledby="customPeriodModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="customPeriodModalLabel">Selecionar Período Personalizado</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="customPeriodForm">
+                        <div class="mb-3">
+                            <label for="startDate" class="form-label">Data Inicial</label>
+                            <div class="date-picker-container">
+                                <div class="input-group">
+                                    <input type="text" class="form-control date-picker" id="startDate" name="startDate" required>
+                                    <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="endDate" class="form-label">Data Final</label>
+                            <div class="date-picker-container">
+                                <div class="input-group">
+                                    <input type="text" class="form-control date-picker" id="endDate" name="endDate" required>
+                                    <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="applyCustomPeriod">Aplicar Filtro</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         console.log("Document loaded - Iniciando configuração do gráfico de categorias");
+        
+        // Inicializar datepickers
+        const datePickerOptions = {
+            locale: 'pt',
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            disableMobile: true, // Previne problemas em dispositivos móveis
+            showMonths: 1,
+            static: true,
+            monthSelectorType: 'dropdown',
+            nextArrow: '<i class="fas fa-chevron-right"></i>',
+            prevArrow: '<i class="fas fa-chevron-left"></i>',
+            enableTime: false
+        };
+        
+        // Inicializar o datepicker para adicionar despesa
+        flatpickr('.date-picker', datePickerOptions);
+        
+        // Inicializar datepickers de período personalizado com valores padrão
+        const today = new Date();
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        const formatDateForInput = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        
+        // Definir valores padrão para os campos de data no modal de período personalizado
+        document.getElementById('startDate').value = formatDateForInput(firstDayOfMonth);
+        document.getElementById('endDate').value = formatDateForInput(lastDayOfMonth);
+        
+        // Reinicializar após definir os valores
+        flatpickr('#startDate', datePickerOptions);
+        flatpickr('#endDate', datePickerOptions);
+        
+        // Configuração de períodos específicos
+        const currentMonthEl = document.getElementById('current-month');
+        const lastMonthEl = document.getElementById('last-month');
+        const nextMonthEl = document.getElementById('next-month');
+        const applyCustomPeriodBtn = document.getElementById('applyCustomPeriod');
+        
+        if (currentMonthEl) {
+            currentMonthEl.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Calcular o primeiro e último dia do mês atual
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                
+                // Redirecionar para a URL com os parâmetros de data
+                window.location.href = `?start_date=${formatDate(firstDay)}&end_date=${formatDate(lastDay)}`;
+            });
+        }
+        
+        if (lastMonthEl) {
+            lastMonthEl.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Calcular o primeiro e último dia do mês anterior
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+                
+                // Redirecionar para a URL com os parâmetros de data
+                window.location.href = `?start_date=${formatDate(firstDay)}&end_date=${formatDate(lastDay)}`;
+            });
+        }
+        
+        if (nextMonthEl) {
+            nextMonthEl.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Calcular o primeiro e último dia do próximo mês
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                const lastDay = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+                
+                // Redirecionar para a URL com os parâmetros de data
+                window.location.href = `?start_date=${formatDate(firstDay)}&end_date=${formatDate(lastDay)}`;
+            });
+        }
+        
+        if (applyCustomPeriodBtn) {
+            applyCustomPeriodBtn.addEventListener('click', function() {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                
+                if (startDate && endDate) {
+                    // Redirecionar para a URL com os parâmetros de data
+                    window.location.href = `?start_date=${startDate}&end_date=${endDate}`;
+                } else {
+                    Swal.fire({
+                        title: 'Erro!',
+                        text: 'Por favor, selecione as datas inicial e final.',
+                        icon: 'error'
+                    });
+                }
+            });
+        }
+        
+        // Função auxiliar para formatar data como YYYY-MM-DD
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
         
         // Verificar se os dados brutos do gráfico estão disponíveis
         const rawChartData = '{{ chart_data_json|escapejs }}';

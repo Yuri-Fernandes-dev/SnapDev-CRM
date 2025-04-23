@@ -707,17 +707,35 @@ def expenses_dashboard_simple(request):
     """
     View do dashboard de despesas com visualização simplificada
     """
-    # Obter período de filtro (padrão: últimos 30 dias)
-    period = request.GET.get('period', '30')
+    # Verificar se existem parâmetros de data específicos
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    custom_period = False
     
-    try:
-        days = int(period)
-    except ValueError:
-        days = 30
+    if start_date_str and end_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            period = f"custom:{start_date_str}:{end_date_str}"
+            custom_period = True
+        except ValueError:
+            # Se houver erro no formato da data, usar o padrão
+            start_date = None
+            end_date = None
     
-    # Configuração do filtro de data
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days-1)
+    # Se não tiver datas específicas, usar o filtro por período em dias
+    if not custom_period:
+        # Obter período de filtro (padrão: últimos 30 dias)
+        period = request.GET.get('period', '30')
+        
+        try:
+            days = int(period)
+        except ValueError:
+            days = 30
+        
+        # Configuração do filtro de data
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days-1)
     
     # Filtrar despesas da empresa do usuário
     expenses = Expense.objects.filter(
@@ -752,6 +770,11 @@ def expenses_dashboard_simple(request):
     
     # Dados para o gráfico de despesas diárias
     expense_chart_data = []
+    
+    # Calcular dias entre as datas
+    delta = end_date - start_date
+    days = delta.days + 1
+    
     for i in range(days):
         date = start_date + timedelta(days=i)
         
@@ -767,16 +790,21 @@ def expenses_dashboard_simple(request):
     # Obter todas as categorias de despesas para o formulário de adição
     categories = ExpenseCategory.objects.filter(company=request.user.company)
     
+    # Data de hoje para o formulário
+    today = timezone.now().date()
+    
+    # Verificar se o período é futuro (data início maior que hoje)
+    is_future_period = start_date > today
+    
     # Calcular o lucro estimado (baseado em vendas recentes)
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=30)
+    profit_start_date = today - timedelta(days=30)
     
     # Obter total de vendas pagas no período
     sales_data = Sale.objects.filter(
         company=request.user.company,
         status='paid',
-        created_at__date__gte=start_date,
-        created_at__date__lte=end_date
+        created_at__date__gte=profit_start_date,
+        created_at__date__lte=today
     )
     total_revenue = float(sales_data.aggregate(total=Sum('total'))['total'] or 0)
     
@@ -784,8 +812,8 @@ def expenses_dashboard_simple(request):
     profit_data = SaleItem.objects.filter(
         sale__company=request.user.company,
         sale__status='paid',
-        sale__created_at__date__gte=start_date,
-        sale__created_at__date__lte=end_date
+        sale__created_at__date__gte=profit_start_date,
+        sale__created_at__date__lte=today
     ).annotate(
         profit=ExpressionWrapper(
             (F('price') - F('cost_price')) * F('quantity'),
@@ -794,7 +822,12 @@ def expenses_dashboard_simple(request):
     ).aggregate(total_profit=Sum('profit'))
     
     total_profit = float(profit_data['total_profit'] or 0)
-    profit_after_expenses = total_profit - paid_expenses
+    
+    # Se o período for futuro, lucro líquido é zero, caso contrário calculamos normalmente
+    if is_future_period:
+        profit_after_expenses = 0
+    else:
+        profit_after_expenses = total_profit - paid_expenses
     
     # Adicionar 'name' como um alias para 'category__name' para facilitar o acesso no JavaScript
     expenses_by_category_list = list(expenses_by_category.values())
@@ -831,6 +864,10 @@ def expenses_dashboard_simple(request):
     
     context = {
         'period': period,
+        'start_date': start_date,
+        'end_date': end_date,
+        'today': today,
+        'is_future_period': is_future_period,
         'total_revenue': total_revenue,
         'total_expenses': total_expenses,
         'paid_expenses': paid_expenses,
@@ -940,8 +977,8 @@ def add_expense(request):
             recurrence_period = request.POST.get('recurrence_period', '')
             
             # Validar campos obrigatórios
-            if not description or not amount or not date_str:
-                messages.error(request, 'Descrição, valor e data são obrigatórios.')
+            if not amount or not date_str:
+                messages.error(request, 'Valor e data são obrigatórios.')
                 return redirect('dashboard:expenses')
             
             # Verificar categoria ou criar nova
@@ -1019,8 +1056,8 @@ def edit_expense(request, expense_id):
             recurrence_period = request.POST.get('recurrence_period', '')
             
             # Validar campos obrigatórios
-            if not all([category_id, description, amount, date_str]):
-                messages.error(request, 'Todos os campos são obrigatórios.')
+            if not all([category_id, amount, date_str]):
+                messages.error(request, 'Categoria, valor e data são obrigatórios.')
                 return redirect('dashboard:expenses')
             
             # Processar a data
