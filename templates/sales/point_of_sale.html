@@ -357,13 +357,123 @@
 
 {% block content %}
 <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
-    <div id="successToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
-        <div class="d-flex">
-            <div class="toast-body">
-                <i class="fas fa-check-circle me-2"></i>
-                <strong>Sucesso!</strong> Venda realizada com sucesso!
+    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" id="successToast">
+        <div class="toast-header bg-success text-white">
+            <i class="fas fa-check-circle me-2"></i>
+            <strong class="me-auto">Venda Realizada</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            Venda finalizada com sucesso!
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Busca Rápida de Produtos -->
+<div class="modal fade" id="modalBuscaProduto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Busca Rápida de Produtos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            <div class="modal-body">
+                <div class="input-group mb-3">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="modal-product-search" placeholder="Digite o código ou nome do produto..." autofocus>
+                </div>
+                <div id="modal-search-results" class="list-group" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Resultados serão inseridos aqui -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="modal-search-btn">Buscar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Pagamento -->
+<div class="modal fade" id="modalFormaPagamento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Forma de Pagamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label for="modal-payment-method" class="form-label">Selecione o método de pagamento</label>
+                    <select id="modal-payment-method" class="form-select">
+                        <option value="" disabled selected>Selecione o método de pagamento</option>
+                        {% for method in payment_methods %}
+                        <option value="{{ method.id }}" data-type="{{ method.name|lower }}">
+                            {% if method.name == 'Dinheiro' %}💵
+                            {% elif method.name == 'Cartão de Crédito' %}💳
+                            {% elif method.name == 'Cartão de Débito' %}💳
+                            {% elif method.name == 'PIX' %}📱
+                            {% endif %}
+                            {{ method.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="modal-change-container" style="display: none;" class="mt-3">
+                    <label for="modal-payment-amount" class="form-label">Valor Pago (R$)</label>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text">R$</span>
+                        <input type="number" id="modal-payment-amount" class="form-control" step="0.01" min="0">
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i> Troco: <span id="modal-change-amount">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirm-payment-method">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Desconto -->
+<div class="modal fade" id="modalDesconto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Aplicar Desconto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="modal-discount" class="form-label">Valor do Desconto (R$)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input type="number" id="modal-discount" class="form-control" value="0" min="0" step="0.01">
+                    </div>
+                </div>
+                <div class="alert alert-info">
+                    <div class="d-flex justify-content-between">
+                        <span>Subtotal:</span>
+                        <span id="modal-subtotal">R$ 0,00</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Desconto:</span>
+                        <span id="modal-discount-display">R$ 0,00</span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between fw-bold">
+                        <span>Total:</span>
+                        <span id="modal-total-after-discount">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirm-discount">Aplicar Desconto</button>
+            </div>
         </div>
     </div>
 </div>
@@ -2098,30 +2208,54 @@
 
     // Funções para abrir os modais específicos requeridos pelos atalhos F1-F4
     function abrirModalBuscaProduto() {
-        const searchInput = document.getElementById('product-search');
-        searchInput.value = '';
-        searchInput.focus();
-        searchInput.select();
+        // Abrir o modal de busca de produtos
+        const modalBusca = new bootstrap.Modal(document.getElementById('modalBuscaProduto'));
+        modalBusca.show();
+        
+        // Focar no campo de busca
+        setTimeout(() => {
+            const searchInput = document.getElementById('modal-product-search');
+            searchInput.value = '';
+            searchInput.focus();
+        }, 300);
     }
 
     function abrirModalFormaPagamento() {
-        const paymentMethodEl = document.getElementById('payment-method');
-        paymentMethodEl.focus();
+        // Abrir o modal de pagamento
+        const modalPagamento = new bootstrap.Modal(document.getElementById('modalFormaPagamento'));
+        modalPagamento.show();
+        
+        // Preparar os dados do modal
+        document.getElementById('modal-payment-method').selectedIndex = 0;
+        document.getElementById('modal-change-container').style.display = 'none';
+        
+        // Focar no método de pagamento
         setTimeout(() => {
-            // Abrir o dropdown programaticamente
-            const event = new MouseEvent('mousedown', {
-                bubbles: true,
-                cancelable: true,
-                view: window
-            });
-            paymentMethodEl.dispatchEvent(event);
-        }, 100);
+            document.getElementById('modal-payment-method').focus();
+        }, 300);
     }
 
     function abrirModalDesconto() {
-        const discountEl = document.getElementById('discount');
-        discountEl.focus();
-        discountEl.select();
+        // Obter o valor atual de subtotal e desconto
+        const subtotal = parseFloat(document.getElementById('subtotal').textContent.replace('R$ ', '').replace('.', '').replace(',', '.'));
+        const currentDiscount = parseFloat(document.getElementById('discount').value || 0);
+        
+        // Abrir o modal de desconto
+        const modalDesconto = new bootstrap.Modal(document.getElementById('modalDesconto'));
+        modalDesconto.show();
+        
+        // Preparar os dados do modal
+        document.getElementById('modal-discount').value = currentDiscount;
+        document.getElementById('modal-subtotal').textContent = `R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('modal-discount-display').textContent = `R$ ${currentDiscount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('modal-total-after-discount').textContent = `R$ ${(subtotal - currentDiscount).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        
+        // Focar no campo de desconto
+        setTimeout(() => {
+            const discountInput = document.getElementById('modal-discount');
+            discountInput.focus();
+            discountInput.select();
+        }, 300);
     }
 
     function finalizarVenda() {

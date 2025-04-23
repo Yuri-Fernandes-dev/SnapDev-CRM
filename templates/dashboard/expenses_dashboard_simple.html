@@ -591,10 +591,19 @@
         try {
             let categoryData = JSON.parse('{{ expenses_by_category_json|escapejs }}');
             if (categoryData.length > 0) {
-                renderCategoriesChart(categoryData);
+                // Converter para o formato esperado pelo renderCategoriesChart
+                const formattedData = categoryData.map(item => ({
+                    category: item.category__name,
+                    total: parseFloat(item.total)
+                }));
+                console.log("Dados do gráfico formatados:", formattedData);
+                renderCategoriesChart(formattedData);
+            } else {
+                console.warn("Nenhum dado de categoria disponível para renderizar o gráfico");
             }
         } catch (e) {
             console.error("Erro ao processar dados de categorias:", e);
+            console.error("Dados recebidos:", '{{ expenses_by_category_json|escapejs }}');
         }
         
         // Inicializar botões de toggle pagamento
