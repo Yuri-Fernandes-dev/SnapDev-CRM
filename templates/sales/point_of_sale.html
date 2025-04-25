@@ -106,7 +106,7 @@
 
 {% block content %}
 <div class="container-fluid py-3">
-    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
         <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" id="successToast">
             <div class="toast-header bg-success text-white">
                 <i class="fas fa-check-circle me-2"></i>
@@ -115,9 +115,9 @@
             </div>
             <div class="toast-body">
                 Venda finalizada com sucesso!
-            </div>
         </div>
     </div>
+</div>
 
     <!-- Modal de Busca Rápida de Produtos -->
     <div class="modal fade" id="modalBuscaProduto" tabindex="-1" aria-hidden="true">
@@ -234,354 +234,354 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div class="d-flex align-items-center">
-            <h1 class="h2 mb-0">Ponto de Venda (PDV)</h1>
-            <span class="text-muted ms-3 d-none d-md-inline-flex align-items-center">
-                <span class="me-2"><kbd class="bg-light text-secondary border">F1</kbd> busca</span>
-                <span class="me-2"><kbd class="bg-light text-secondary border">F2</kbd> pagto</span>
-                <span class="me-2"><kbd class="bg-light text-secondary border">F3</kbd> desc</span>
-                <span class="me-2"><kbd class="bg-light text-secondary border">F4</kbd> fim</span>
-            </span>
-            <button type="button" class="btn btn-link ms-1 text-muted p-0" data-bs-toggle="modal" data-bs-target="#shortcutsModal" title="Mais atalhos">
-                <i class="fas fa-keyboard"></i>
-            </button>
-        </div>
-        <a href="{% url 'sales:sale_list' %}" class="btn btn-outline-primary">
-            <i class="fas fa-list me-1"></i> Histórico de Vendas
-        </a>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex align-items-center">
+        <h1 class="h2 mb-0">Ponto de Venda (PDV)</h1>
+        <span class="text-muted ms-3 d-none d-md-inline-flex align-items-center">
+            <span class="me-2"><kbd class="bg-light text-secondary border">F1</kbd> busca</span>
+            <span class="me-2"><kbd class="bg-light text-secondary border">F2</kbd> pagto</span>
+            <span class="me-2"><kbd class="bg-light text-secondary border">F3</kbd> desc</span>
+            <span class="me-2"><kbd class="bg-light text-secondary border">F4</kbd> fim</span>
+        </span>
+        <button type="button" class="btn btn-link ms-1 text-muted p-0" data-bs-toggle="modal" data-bs-target="#shortcutsModal" title="Mais atalhos">
+            <i class="fas fa-keyboard"></i>
+        </button>
     </div>
+    <a href="{% url 'sales:sale_list' %}" class="btn btn-outline-primary">
+        <i class="fas fa-list me-1"></i> Histórico de Vendas
+    </a>
+</div>
 
-    <div class="row g-4">
-        <!-- Produtos e Carrinho -->
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 py-3">
-                    <div class="row g-2">
-                        <div class="col-md-6">
-                            <div class="input-group">
-                                <span class="input-group-text bg-transparent">
-                                    <i class="fas fa-search"></i>
-                                </span>
+<div class="row g-4">
+    <!-- Produtos e Carrinho -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 py-3">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text bg-transparent">
+                                <i class="fas fa-search"></i>
+                            </span>
                                 <input type="text" id="codigo_produto" class="form-control" placeholder="Digite o código do produto..."
                                        name="codigo_produto">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <select id="category-filter" class="form-select">
-                                <option value="">Todas as categorias</option>
-                                {% for category in categories %}
-                                <option value="{{ category }}">{{ category }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <button id="barcode-scan" class="btn btn-primary w-100">
-                                <i class="fas fa-barcode"></i> Scan
-                            </button>
                         </div>
                     </div>
-                </div>
-                
-                <div class="card-body p-0">
-                    <!-- Produtos -->
-                    <div class="product-section p-3">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle" id="products-grid">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 60px">Imagem</th>
-                                        <th class="code-column">Código</th>
-                                        <th>Produto</th>
-                                        <th style="width: 100px">Preço</th>
-                                        <th style="width: 70px">Estoque</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for product in products %}
-                                    <tr class="product-item" 
-                                        data-id="{{ product.id }}" 
-                                        data-name="{{ product.name }}" 
-                                        data-price="{{ product.price }}" 
-                                        data-stock="{{ product.stock_quantity }}"
-                                        data-code="{{ product.code }}"
-                                        data-barcode="{{ product.barcode }}"
-                                        data-category="{{ product.category.name }}">
-                                        <td>
-                                            {% if product.image %}
-                                                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
-                                            {% else %}
-                                                <div class="bg-light d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                                                    <i class="fas fa-tshirt text-muted"></i>
-                                                </div>
-                                            {% endif %}
-                                        </td>
-                                        <td class="code-cell"><span class="product-code" title="{{ product.code }}">{{ product.code|default:"-" }}</span></td>
-                                        <td>
-                                            <div class="fw-medium">{{ product.name }}</div>
-                                            {% if product.has_variations %}
-                                            <small class="text-muted">Com variações</small>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-primary">R$ {{ product.price }}</span>
-                                        </td>
-                                        <td>
-                                            {% if product.stock_quantity <= product.stock_alert_level %}
-                                            <span class="badge bg-danger">{{ product.stock_quantity }}</span>
-                                            {% else %}
-                                            <span class="badge bg-light text-dark border">{{ product.stock_quantity }}</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr>
-                                        <td colspan="5" class="text-center py-4">
-                                            <p class="mb-0 text-muted">Nenhum produto encontrado. <a href="{% url 'products:product_create' %}">Cadastre um produto</a>.</p>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="col-md-4">
+                        <select id="category-filter" class="form-select">
+                            <option value="">Todas as categorias</option>
+                            {% for category in categories %}
+                            <option value="{{ category }}">{{ category }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
-
-                    <!-- Itens do Carrinho -->
-                    <div class="cart-items-section p-3">
-                        <h6 class="mb-3">
-                            <i class="fas fa-shopping-cart me-2"></i>Itens no Carrinho
-                        </h6>
-                        <div id="cart-items">
-                            <div class="text-center text-muted py-4" id="empty-cart-message">
-                                <i class="fas fa-shopping-cart fa-2x mb-2"></i>
-                                <p class="mb-0">Adicione produtos ao carrinho</p>
-                            </div>
-                        </div>
+                    <div class="col-md-2">
+                        <button id="barcode-scan" class="btn btn-primary w-100">
+                            <i class="fas fa-barcode"></i> Scan
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Resumo e Finalização -->
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-0">
-                    <div class="cart-wrapper">
-                        <div class="cart-summary">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span>Subtotal:</span>
-                                <span class="fw-bold" id="subtotal">R$ 0,00</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span>Desconto:</span>
-                                <div class="input-group input-group-sm" style="width: 120px;">
-                                    <input type="number" id="desconto" class="form-control" value="0" min="0" step="0.01">
-                                    <span class="input-group-text">R$</span>
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span>Total:</span>
-                                <span class="total-value" id="total">R$ 0,00</span>
-                            </div>
-                        </div>
-                        
-                        <div class="cart-footer">
-                            <div class="cart-actions">
-                                <div class="form-group-compact">
-                                    <label for="payment-method" class="form-label-sm">Método de Pagamento</label>
-                                    <select id="metodo_pagamento" class="form-select form-select-sm">
-                                        <option value="" disabled selected>Selecione o método de pagamento</option>
-                                        {% for method in payment_methods %}
-                                        <option value="{{ method.id }}" data-type="{{ method.name|lower }}">
-                                            {% if method.name == 'Dinheiro' %}💵
-                                            {% elif method.name == 'Cartão de Crédito' %}💳
-                                            {% elif method.name == 'Cartão de Débito' %}💳
-                                            {% elif method.name == 'PIX' %}📱
-                                            {% endif %}
-                                            {{ method.name }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                
-                                <div id="change-container" style="display: none;" class="form-group-compact mt-2">
-                                    <label for="payment-amount" class="form-label-sm">Valor Pago</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text">R$</span>
-                                        <input type="number" id="payment-amount" class="form-control" step="0.01" min="0">
-                                    </div>
-                                    <div class="mt-1">
-                                        <small>Troco: <span class="change-value" id="change-amount">R$ 0,00</span></small>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group-compact mt-3">
-                                    <label for="customer-search" class="form-label-sm">
-                                        <i class="fas fa-user me-1"></i>Cliente (opcional)
-                                    </label>
-                                    <div class="position-relative">
-                                        <input type="text" id="customer-search" class="form-control form-control-sm" placeholder="Digite o nome do cliente...">
-                                        <input type="hidden" id="customer-id">
-                                        <div id="customer-suggestions" class="position-absolute w-100 bg-white border rounded shadow-sm" style="display: none; z-index: 1000; max-height: 150px; overflow-y: auto;">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group-compact mt-3">
-                                    <label for="notes" class="form-label-sm">
-                                        <i class="fas fa-sticky-note me-1"></i>Observações
-                                    </label>
-                                    <textarea id="notes" class="form-control form-control-sm" rows="2" placeholder="Adicione observações sobre a venda..."></textarea>
-                                </div>
-
-                                <div class="finish-sale-container">
-                                    <div class="d-grid">
-                                        <button id="btn-finalizar" class="btn btn-success" onclick="finalizarVenda()">
-                                            <i class="fas fa-check-circle me-1"></i> Finalizar Venda
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Quantidade -->
-    <div class="modal fade" id="modalQuantidade" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modal-product-name">Nome do Produto</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form id="add-to-cart-form" onsubmit="document.getElementById('add-to-cart').click(); return false;">
-                <div class="modal-body">
-                    <p class="mb-3">Preço: <span class="fw-bold" id="modal-product-price">R$ 0,00</span></p>
-                    <p class="mb-3">Estoque disponível: <span class="fw-bold" id="modal-product-stock">0</span></p>
-                    
-                    <div class="mb-3">
-                        <label for="product-quantity" class="form-label">Quantidade</label>
-                        <div class="input-group">
-                                <button type="button" class="btn btn-outline-secondary" id="decrease-qty">-</button>
-                            <input type="number" id="product-quantity" class="form-control text-center" value="1" min="1">
-                                <button type="button" class="btn btn-outline-secondary" id="increase-qty">+</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" id="add-to-cart">Adicionar ao Carrinho</button>
-                </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Confirmação -->
-    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Confirmar Venda</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Total a pagar: <span class="fw-bold" id="confirm-total">R$ 0,00</span></p>
-                    <p>Método de pagamento: <span id="confirm-payment-method">Dinheiro</span></p>
-                    <p id="confirm-customer-container">Cliente: <span id="confirm-customer">-</span></p>
-                    
-                    <div class="mt-3 form-check">
-                        <input class="form-check-input" type="checkbox" id="send-whatsapp-receipt" disabled>
-                        <label class="form-check-label" for="send-whatsapp-receipt">
-                            <i class="fab fa-whatsapp text-success me-1"></i> Enviar recibo por WhatsApp
-                        </label>
-                        <small class="form-text text-muted d-block">
-                            Apenas disponível se o cliente tiver telefone cadastrado
-                        </small>
-                    </div>
-                    
-                    <div class="alert alert-success mt-3" id="sale-success-message" style="display: none;">
-                        <i class="fas fa-check-circle me-2"></i> Venda realizada com sucesso!
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <a class="btn btn-outline-primary" style="display: none;" id="view-sales-history" data-bs-dismiss="modal">
-                        <i class="fas fa-check me-1"></i> Fechar
-                    </a>
-                    <button type="button" class="btn btn-primary" id="confirm-sale">Confirmar Venda</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Atalhos de Teclado -->
-    <div class="modal fade" id="shortcutsModal" tabindex="-1" aria-labelledby="shortcutsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="shortcutsModalLabel">
-                        <i class="fas fa-keyboard me-2"></i> Atalhos de Teclado
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
+            
+            <div class="card-body p-0">
+                <!-- Produtos -->
+                <div class="product-section p-3">
                     <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
+                        <table class="table table-hover align-middle" id="products-grid">
+                            <thead class="table-light">
                                 <tr>
-                                    <th style="width: 100px">Tecla</th>
-                                    <th>Função</th>
+                                    <th style="width: 60px">Imagem</th>
+                                    <th class="code-column">Código</th>
+                                    <th>Produto</th>
+                                    <th style="width: 100px">Preço</th>
+                                    <th style="width: 70px">Estoque</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td><kbd>F1</kbd></td>
-                                    <td>Focar na busca de produtos</td>
+                                {% for product in products %}
+                                <tr class="product-item" 
+                                    data-id="{{ product.id }}" 
+                                    data-name="{{ product.name }}" 
+                                    data-price="{{ product.price }}" 
+                                    data-stock="{{ product.stock_quantity }}"
+                                    data-code="{{ product.code }}"
+                                    data-barcode="{{ product.barcode }}"
+                                    data-category="{{ product.category.name }}">
+                                    <td>
+                                        {% if product.image %}
+                                            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="bg-light d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                                <i class="fas fa-tshirt text-muted"></i>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="code-cell"><span class="product-code" title="{{ product.code }}">{{ product.code|default:"-" }}</span></td>
+                                    <td>
+                                        <div class="fw-medium">{{ product.name }}</div>
+                                        {% if product.has_variations %}
+                                        <small class="text-muted">Com variações</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">R$ {{ product.price }}</span>
+                                    </td>
+                                    <td>
+                                        {% if product.stock_quantity <= product.stock_alert_level %}
+                                        <span class="badge bg-danger">{{ product.stock_quantity }}</span>
+                                        {% else %}
+                                        <span class="badge bg-light text-dark border">{{ product.stock_quantity }}</span>
+                                        {% endif %}
+                                    </td>
                                 </tr>
+                                {% empty %}
                                 <tr>
-                                    <td><kbd>F2</kbd></td>
-                                    <td>Focar no método de pagamento</td>
+                                    <td colspan="5" class="text-center py-4">
+                                        <p class="mb-0 text-muted">Nenhum produto encontrado. <a href="{% url 'products:product_create' %}">Cadastre um produto</a>.</p>
+                                    </td>
                                 </tr>
-                                <tr>
-                                    <td><kbd>F3</kbd></td>
-                                    <td>Focar no campo de desconto</td>
-                                </tr>
-                                <tr>
-                                    <td><kbd>F4</kbd></td>
-                                    <td>Finalizar venda</td>
-                                </tr>
-                                <tr>
-                                    <td><kbd>↑</kbd> / <kbd>↓</kbd></td>
-                                    <td>Navegar entre produtos</td>
-                                </tr>
-                                <tr>
-                                    <td><kbd>Enter</kbd></td>
-                                    <td>Selecionar produto / confirmar</td>
-                                </tr>
-                                <tr>
-                                    <td><kbd>Esc</kbd></td>
-                                    <td>Limpar campo de busca</td>
-                                </tr>
-                                <tr>
-                                    <td><kbd>Alt</kbd>+<kbd>X</kbd></td>
-                                    <td>Limpar carrinho</td>
-                                </tr>
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+
+                <!-- Itens do Carrinho -->
+                <div class="cart-items-section p-3">
+                    <h6 class="mb-3">
+                        <i class="fas fa-shopping-cart me-2"></i>Itens no Carrinho
+                    </h6>
+                    <div id="cart-items">
+                        <div class="text-center text-muted py-4" id="empty-cart-message">
+                            <i class="fas fa-shopping-cart fa-2x mb-2"></i>
+                            <p class="mb-0">Adicione produtos ao carrinho</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- Resumo e Finalização -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="cart-wrapper">
+                    <div class="cart-summary">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Subtotal:</span>
+                            <span class="fw-bold" id="subtotal">R$ 0,00</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Desconto:</span>
+                            <div class="input-group input-group-sm" style="width: 120px;">
+                                    <input type="number" id="desconto" class="form-control" value="0" min="0" step="0.01">
+                                <span class="input-group-text">R$</span>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Total:</span>
+                            <span class="total-value" id="total">R$ 0,00</span>
+                        </div>
+                    </div>
+                    
+                    <div class="cart-footer">
+                        <div class="cart-actions">
+                            <div class="form-group-compact">
+                                <label for="payment-method" class="form-label-sm">Método de Pagamento</label>
+                                    <select id="metodo_pagamento" class="form-select form-select-sm">
+                                    <option value="" disabled selected>Selecione o método de pagamento</option>
+                                    {% for method in payment_methods %}
+                                    <option value="{{ method.id }}" data-type="{{ method.name|lower }}">
+                                        {% if method.name == 'Dinheiro' %}💵
+                                        {% elif method.name == 'Cartão de Crédito' %}💳
+                                        {% elif method.name == 'Cartão de Débito' %}💳
+                                        {% elif method.name == 'PIX' %}📱
+                                        {% endif %}
+                                        {{ method.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div id="change-container" style="display: none;" class="form-group-compact mt-2">
+                                <label for="payment-amount" class="form-label-sm">Valor Pago</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="number" id="payment-amount" class="form-control" step="0.01" min="0">
+                                </div>
+                                <div class="mt-1">
+                                    <small>Troco: <span class="change-value" id="change-amount">R$ 0,00</span></small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group-compact mt-3">
+                                <label for="customer-search" class="form-label-sm">
+                                    <i class="fas fa-user me-1"></i>Cliente (opcional)
+                                </label>
+                                <div class="position-relative">
+                                    <input type="text" id="customer-search" class="form-control form-control-sm" placeholder="Digite o nome do cliente...">
+                                    <input type="hidden" id="customer-id">
+                                    <div id="customer-suggestions" class="position-absolute w-100 bg-white border rounded shadow-sm" style="display: none; z-index: 1000; max-height: 150px; overflow-y: auto;">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group-compact mt-3">
+                                <label for="notes" class="form-label-sm">
+                                    <i class="fas fa-sticky-note me-1"></i>Observações
+                                </label>
+                                <textarea id="notes" class="form-control form-control-sm" rows="2" placeholder="Adicione observações sobre a venda..."></textarea>
+                            </div>
 
-    <script>
+                            <div class="finish-sale-container">
+                                <div class="d-grid">
+                                        <button id="btn-finalizar" class="btn btn-success" onclick="finalizarVenda()">
+                                        <i class="fas fa-check-circle me-1"></i> Finalizar Venda
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Quantidade -->
+    <div class="modal fade" id="modalQuantidade" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-product-name">Nome do Produto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+                <form id="add-to-cart-form" onsubmit="document.getElementById('add-to-cart').click(); return false;">
+            <div class="modal-body">
+                <p class="mb-3">Preço: <span class="fw-bold" id="modal-product-price">R$ 0,00</span></p>
+                <p class="mb-3">Estoque disponível: <span class="fw-bold" id="modal-product-stock">0</span></p>
+                
+                <div class="mb-3">
+                    <label for="product-quantity" class="form-label">Quantidade</label>
+                    <div class="input-group">
+                                <button type="button" class="btn btn-outline-secondary" id="decrease-qty">-</button>
+                        <input type="number" id="product-quantity" class="form-control text-center" value="1" min="1">
+                                <button type="button" class="btn btn-outline-secondary" id="increase-qty">+</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="add-to-cart">Adicionar ao Carrinho</button>
+            </div>
+                </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Venda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Total a pagar: <span class="fw-bold" id="confirm-total">R$ 0,00</span></p>
+                <p>Método de pagamento: <span id="confirm-payment-method">Dinheiro</span></p>
+                <p id="confirm-customer-container">Cliente: <span id="confirm-customer">-</span></p>
+                
+                <div class="mt-3 form-check">
+                        <input class="form-check-input" type="checkbox" id="send-whatsapp-receipt" disabled>
+                    <label class="form-check-label" for="send-whatsapp-receipt">
+                        <i class="fab fa-whatsapp text-success me-1"></i> Enviar recibo por WhatsApp
+                    </label>
+                    <small class="form-text text-muted d-block">
+                        Apenas disponível se o cliente tiver telefone cadastrado
+                    </small>
+                </div>
+                
+                <div class="alert alert-success mt-3" id="sale-success-message" style="display: none;">
+                    <i class="fas fa-check-circle me-2"></i> Venda realizada com sucesso!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <a class="btn btn-outline-primary" style="display: none;" id="view-sales-history" data-bs-dismiss="modal">
+                    <i class="fas fa-check me-1"></i> Fechar
+                </a>
+                <button type="button" class="btn btn-primary" id="confirm-sale">Confirmar Venda</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Atalhos de Teclado -->
+<div class="modal fade" id="shortcutsModal" tabindex="-1" aria-labelledby="shortcutsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shortcutsModalLabel">
+                    <i class="fas fa-keyboard me-2"></i> Atalhos de Teclado
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th style="width: 100px">Tecla</th>
+                                <th>Função</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><kbd>F1</kbd></td>
+                                <td>Focar na busca de produtos</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>F2</kbd></td>
+                                <td>Focar no método de pagamento</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>F3</kbd></td>
+                                <td>Focar no campo de desconto</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>F4</kbd></td>
+                                <td>Finalizar venda</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>↑</kbd> / <kbd>↓</kbd></td>
+                                <td>Navegar entre produtos</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Enter</kbd></td>
+                                <td>Selecionar produto / confirmar</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Esc</kbd></td>
+                                <td>Limpar campo de busca</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Alt</kbd>+<kbd>X</kbd></td>
+                                <td>Limpar carrinho</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
         // SOLUÇÃO DEFINITIVA PARA BLOQUEAR F1-F12 DE ABRIR PÁGINAS PADRÃO DO BROWSER
         // Interceptar as teclas de função o mais cedo possível
         // REMOVIDO: Substituído pelo código em pdv.js
@@ -610,7 +610,7 @@
 
         // Função para renderizar os itens do carrinho
         function renderCartItems() {
-            const cartItems = document.getElementById('cart-items');
+        const cartItems = document.getElementById('cart-items');
             
             if (cart.length === 0) {
                 cartItems.innerHTML = `
@@ -815,9 +815,9 @@
                             text: 'Este produto está sem estoque.',
                             confirmButtonText: 'OK'
                         });
-                        return;
-                    }
-                    
+                    return;
+                }
+                
                     // Limpar seleções anteriores
                     const selectedRows = document.querySelectorAll('.selected');
                     selectedRows.forEach(r => {
@@ -872,9 +872,9 @@
                     customerSuggestions.style.display = 'none';
                     customerId.value = '';
                     this.classList.remove('is-valid');
-                        return;
-                    }
-                    
+                    return;
+                }
+                
                 // Buscar clientes via AJAX
                 fetch(`/sistema/clientes/busca-ajax/?term=${encodeURIComponent(searchTerm)}`)
                     .then(response => response.json())
@@ -1060,7 +1060,7 @@
                 clearAllSelections();
                 
                 // Reset completo se a busca estiver vazia
-                    if (!searchTerm) {
+                if (!searchTerm) {
                     resetProductDisplay();
                     return;
                 }
@@ -1080,7 +1080,7 @@
                         exactMatch = row;
                         row.style.display = '';
                         visibleRows.push(row);
-                    } else {
+                } else {
                         row.style.display = 'none';
                     }
                 });
@@ -1115,7 +1115,7 @@
                         exactMatch.classList.add('selected');
                         exactMatch.style.outline = '2px solid #dc3545'; // Borda vermelha
                         exactMatch.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    } else {
+                } else {
                         selectedRow = exactMatch;
                         selectedRow.classList.add('selected');
                         selectedRow.style.outline = '2px solid #198754';
@@ -1143,15 +1143,15 @@
                     visibleRows.forEach(row => {
                         if (row !== selectedRow) {
                             row.classList.add('not-selected');
-                    }
-                });
-            }
+                }
+            });
+        }
             });
 
             // Evento de tecla para o campo de busca
             searchInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
+            if (e.key === 'Enter') {
+                e.preventDefault();
                     
                     // Selecionar produto destacado ou primeiro visível
                     const rows = Array.from(productsTable.querySelectorAll('tbody tr.product-item')).filter(row => row.style.display !== 'none');
@@ -1191,8 +1191,8 @@
                         selectProduct(selectedProduct);
                         
                         // Limpar campo após selecionar para a próxima busca
-                        this.value = '';
-                    }
+                    this.value = '';
+                }
                 } else if (e.key === 'ArrowDown') {
                     e.preventDefault();
                     navigateProductList('down');
@@ -1291,7 +1291,7 @@
                 });
                 return;
             }
-
+            
             const id = productRow.getAttribute('data-id');
             const name = productRow.getAttribute('data-name');
         const price = parseFloat(productRow.getAttribute('data-price'));
@@ -1646,7 +1646,7 @@
                                 html: errorHtml,
                                 confirmButtonText: 'OK'
                             });
-                        } else {
+                } else {
                             // Outro erro não relacionado a estoque
                             Swal.fire({
                                 icon: 'error',
@@ -1678,8 +1678,8 @@
             // Restaurar o botão
             this.disabled = false;
             this.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Venda';
+            });
         });
-    });
 
     // Configurar o desconto para atualizar totais
     document.getElementById('desconto').addEventListener('input', updateTotals);
@@ -2043,7 +2043,7 @@
         document.getElementById('modal-change-container').style.display = 'none';
         
         // Focar no método de pagamento
-        setTimeout(() => {
+                setTimeout(() => {
             document.getElementById('modal-payment-method').focus();
         }, 300);
     }
@@ -2088,12 +2088,12 @@
     function handleShortcutKeys(e) {
         // Evitar atalhos se algum modal estiver aberto
         if (document.querySelector('.modal.show')) {
-            return;
-        }
-        
+                return;
+            }
+            
         // F1 - Focar no campo de busca de produtos
         if (e.key === 'F1') {
-            e.preventDefault();
+                e.preventDefault();
             document.getElementById('codigo_produto').focus();
             document.getElementById('codigo_produto').select();
             return false;
@@ -2273,7 +2273,7 @@
             
             document.getElementById('change-amount').textContent = `R$ ${changeAmount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
             document.getElementById('change-container').style.display = 'block';
-        } else {
+                } else {
             document.getElementById('change-container').style.display = 'none';
         }
         
