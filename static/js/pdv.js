@@ -16,7 +16,6 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById("codigo_produto")?.focus();
             document.getElementById("codigo_produto")?.select();
             etapa = 1;
-            
         }
 
         // ENTER: ação de acordo com etapa
@@ -431,102 +430,112 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
     
-    // Configuração dos botões e eventos do modal de quantidade
-    const configurarModal = function() {
-        console.log("Configurando modal e botões");
+    // Função para configurar os eventos do modal
+    function configurarEventosModal() {
+        console.log("Configurando eventos do modal de quantidade");
         
-        // Configurar botão Adicionar ao Carrinho
-        const botaoConfirmar = document.getElementById('add-to-cart');
-        if (botaoConfirmar) {
-            // Remover listeners anteriores para evitar duplicação
-            const novoBotao = botaoConfirmar.cloneNode(true);
-            botaoConfirmar.parentNode.replaceChild(novoBotao, botaoConfirmar);
-            
-            // Adicionar novo listener
-            novoBotao.addEventListener('click', function(e) {
-                // Não chamar preventDefault para permitir que o botão execute sua ação padrão
-                console.log("Botão Adicionar ao Carrinho clicado");
-                // confirmarQuantidade();
-            });
-        }
-        
-        // Configurar botões +/- para quantidade
-        const botaoMais = document.getElementById('increase-qty');
-        const botaoMenos = document.getElementById('decrease-qty');
+        // 1. Configurar o input de quantidade para responder ao ENTER
         const inputQuantidade = document.getElementById('product-quantity');
-        
-        if (botaoMais && inputQuantidade) {
-            // Remover listeners anteriores
-            const novoBotaoMais = botaoMais.cloneNode(true);
-            botaoMais.parentNode.replaceChild(novoBotaoMais, botaoMais);
+        if (inputQuantidade) {
+            // Remover eventos anteriores para evitar duplicação
+            const novoInput = inputQuantidade.cloneNode(true);
+            if (inputQuantidade.parentNode) {
+                inputQuantidade.parentNode.replaceChild(novoInput, inputQuantidade);
+            }
             
-            // Adicionar novo listener
-            novoBotaoMais.addEventListener('click', function() {
-                const currentValue = parseInt(inputQuantidade.value) || 1;
-                inputQuantidade.value = currentValue + 1;
-            });
-        }
-        
-        if (botaoMenos && inputQuantidade) {
-            // Remover listeners anteriores
-            const novoBotaoMenos = botaoMenos.cloneNode(true);
-            botaoMenos.parentNode.replaceChild(novoBotaoMenos, botaoMenos);
-            
-            // Adicionar novo listener
-            novoBotaoMenos.addEventListener('click', function() {
-                const currentValue = parseInt(inputQuantidade.value) || 2;
-                if (currentValue > 1) {
-                    inputQuantidade.value = currentValue - 1;
+            // Adicionar evento de ENTER
+            novoInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    console.log("Enter pressionado no input de quantidade");
+                    confirmarQuantidade();
                 }
             });
         }
         
-        // Configurar formulário de quantidade
-        const formQuantidade = document.getElementById('add-to-cart-form');
-        if (formQuantidade) {
-            // Remover listeners anteriores
-            const novoForm = formQuantidade.cloneNode(true);
-            formQuantidade.parentNode.replaceChild(novoForm, formQuantidade);
+        // 2. Configurar o botão de adicionar ao carrinho
+        const botaoAdicionar = document.getElementById('add-to-cart');
+        if (botaoAdicionar) {
+            // Não vamos clonar o botão para preservar seus handlers nativos
+            // Apenas garantimos que ele tenha as propriedades corretas
             
-            // Adicionar novo listener
-            novoForm.addEventListener('submit', function(e) {
+            // Garantir que a quantidade do input seja usada
+            botaoAdicionar.addEventListener('click', function() {
+                const quantidade = parseInt(document.getElementById('product-quantity')?.value) || 1;
+                // Atualizar o atributo de quantidade se necessário
+                this.setAttribute('data-quantity', quantidade);
+                
+                // Fechar o modal após um breve atraso
+                setTimeout(() => {
+                    const modal = document.getElementById('modalQuantidade');
+                    if (modal) {
+                        const bsModal = bootstrap.Modal.getInstance(modal);
+                        if (bsModal) bsModal.hide();
+                    }
+                }, 300);
+            });
+        }
+        
+        // 3. Configurar os botões de aumentar/diminuir quantidade
+        const botaoMais = document.getElementById('increase-qty');
+        const botaoMenos = document.getElementById('decrease-qty');
+        
+        if (botaoMais) {
+            botaoMais.addEventListener('click', function() {
+                const input = document.getElementById('product-quantity');
+                if (input) {
+                    const valor = parseInt(input.value) || 1;
+                    input.value = valor + 1;
+                }
+            });
+        }
+        
+        if (botaoMenos) {
+            botaoMenos.addEventListener('click', function() {
+                const input = document.getElementById('product-quantity');
+                if (input) {
+                    const valor = parseInt(input.value) || 2;
+                    if (valor > 1) {
+                        input.value = valor - 1;
+                    }
+                }
+            });
+        }
+        
+        // 4. Configurar o formulário para capturar o submit
+        const formulario = document.getElementById('add-to-cart-form');
+        if (formulario) {
+            formulario.addEventListener('submit', function(e) {
                 e.preventDefault();
-                console.log("Formulário de quantidade submetido");
+                console.log("Formulário submetido");
                 confirmarQuantidade();
                 return false;
             });
         }
-        
-        // Configurar o modal de quantidade quando for aberto
-        const modalQuantidade = document.getElementById('modalQuantidade');
-        if (modalQuantidade) {
-            modalQuantidade.addEventListener('shown.bs.modal', function() {
-                console.log("Modal de quantidade aberto");
-                
-                // Configurar o input de quantidade
-                const quantityInput = document.getElementById('product-quantity');
-                if (quantityInput) {
-                    quantityInput.focus();
-                    quantityInput.select();
-                    
-                    // Adicionar evento de Enter no input
-                    quantityInput.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            console.log("Enter pressionado no input de quantidade");
-                            confirmarQuantidade();
-                        }
-                    });
+    }
+    
+    // Adicionar listener para quando o modal for aberto
+    const modalQuantidade = document.getElementById('modalQuantidade');
+    if (modalQuantidade) {
+        modalQuantidade.addEventListener('shown.bs.modal', function() {
+            console.log("Modal de quantidade aberto - configurando eventos");
+            
+            // Configurar os eventos do modal
+            configurarEventosModal();
+            
+            // Focar no input de quantidade
+            setTimeout(() => {
+                const input = document.getElementById('product-quantity');
+                if (input) {
+                    input.focus();
+                    input.select();
                 }
-            });
-        }
-    };
+            }, 300);
+        });
+    }
     
-    // Executar configuração do modal
-    configurarModal();
-    
-    // Executar novamente a configuração após um pequeno atraso para garantir que todos os elementos estejam carregados
-    setTimeout(configurarModal, 500);
+    // Configurar eventos do modal na inicialização
+    configurarEventosModal();
     
     // Mensagem inicial no console
     console.log("PDV.js carregado - Atalhos: F1=Produto, F2=Pagamento, F3=Desconto, F4=Finalizar");
