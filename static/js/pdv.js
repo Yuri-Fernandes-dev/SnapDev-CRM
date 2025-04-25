@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById("codigo_produto")?.focus();
             document.getElementById("codigo_produto")?.select();
             etapa = 1;
+            
         }
 
         // ENTER: ação de acordo com etapa
