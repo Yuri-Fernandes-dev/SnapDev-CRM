@@ -28,7 +28,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 abrirModalQuantidade(); // exibe modal
                 etapa = 3;
             } else if (etapa === 3) {
-                confirmarQuantidade(); // confirma e adiciona produto
+                adicionarAoCarrinho(); // confirma e adiciona produto
                 etapa = 0;
             }
         }
@@ -254,8 +254,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    function confirmarQuantidade() {
-        console.log("Confirmando quantidade");
+    // Nova função para adicionar produto ao carrinho
+    function adicionarAoCarrinho() {
+        console.log("Adicionando produto ao carrinho");
         
         // Verificar se o modal está aberto
         const modal = document.getElementById('modalQuantidade');
@@ -264,15 +265,22 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
         
-        // Obter o valor da quantidade
+        // 1. Obter dados do produto e quantidade
+        const addButton = document.getElementById('add-to-cart');
         const quantityInput = document.getElementById('product-quantity');
-        if (!quantityInput) {
-            console.error("Erro: Input de quantidade não encontrado");
+        
+        if (!addButton || !quantityInput) {
+            console.error("Erro: Botão ou input de quantidade não encontrados");
             return;
         }
         
-        // Verificar se é um valor válido
-        const quantity = parseInt(quantityInput.value);
+        const id = addButton.getAttribute('data-id');
+        const name = addButton.getAttribute('data-name');
+        const price = addButton.getAttribute('data-price');
+        const code = addButton.getAttribute('data-code');
+        const quantity = parseInt(quantityInput.value) || 1;
+        
+        // 2. Validar quantidade
         if (isNaN(quantity) || quantity <= 0) {
             console.error("Erro: Quantidade inválida:", quantity);
             Swal.fire({
@@ -286,7 +294,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
         
-        // Verificar se a quantidade é válida para o estoque disponível
+        // 3. Validar estoque
         const stockText = document.getElementById('modal-product-stock').textContent;
         const availableStock = parseInt(stockText) || 0;
         if (quantity > availableStock) {
@@ -300,76 +308,97 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
         
-        console.log("Adicionando produto ao carrinho com quantidade:", quantity);
-        
-        // Verificar se o botão tem os atributos de dados necessários
-        const addButton = document.getElementById('add-to-cart');
-        if (!addButton) {
-            console.error("Erro: Botão de adicionar ao carrinho não encontrado");
+        // 4. Verificar se tem dados necessários
+        if (!id || !name || !price) {
+            console.error("Erro: Produto sem dados completos", { id, name, price });
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro nos Dados do Produto',
+                text: 'Dados do produto incompletos. Por favor, tente novamente.',
+                confirmButtonText: 'OK'
+            });
             return;
         }
         
-        // Informações de debug para tentar encontrar o problema
-        const id = addButton.getAttribute('data-id');
-        const name = addButton.getAttribute('data-name');
-        const price = addButton.getAttribute('data-price');
+        console.log("Produto a ser adicionado:", { id, name, price, code, quantity });
         
-        console.log("Dados do produto para carrinho:", { id, name, price, quantity });
-        
-        // Se o botão não tiver os atributos de dados necessários, ocorreu algum problema na seleção do produto
-        if (!id || !name || !price) {
-            console.error("Erro: Botão sem dados de produto", addButton);
-            
-            // Tentar recuperar os dados do produto selecionado
-            const selectedProduct = document.querySelector('#products-grid tbody tr.selected');
-            if (selectedProduct) {
-                console.log("Tentando recuperar dados do produto selecionado", selectedProduct);
+        // 5. Adicionar ao carrinho
+        try {
+            // Se existir a variável cart no escopo global
+            if (typeof cart !== 'undefined') {
+                // Verificar se o produto já está no carrinho
+                const existingIndex = findProductInCart ? findProductInCart(id) : -1;
                 
-                const selectedId = selectedProduct.getAttribute('data-id');
-                const selectedName = selectedProduct.getAttribute('data-name');
-                const selectedPrice = selectedProduct.getAttribute('data-price');
-                const selectedCode = selectedProduct.getAttribute('data-code');
+                if (existingIndex >= 0) {
+                    // Aumentar a quantidade se já existe
+                    cart[existingIndex].quantity += quantity;
+                    console.log("Quantidade atualizada no carrinho:", cart[existingIndex]);
+                } else {
+                    // Adicionar novo item
+                    cart.push({
+                        id: id,
+                        name: name,
+                        price: parseFloat(price),
+                        code: code,
+                        quantity: quantity
+                    });
+                    console.log("Novo produto adicionado ao carrinho:", cart[cart.length - 1]);
+                }
                 
-                console.log("Dados recuperados:", { selectedId, selectedName, selectedPrice, selectedCode });
-                
-                // Atualizar atributos do botão com os dados do produto selecionado
-                addButton.setAttribute('data-id', selectedId);
-                addButton.setAttribute('data-name', selectedName);
-                addButton.setAttribute('data-price', selectedPrice);
-                addButton.setAttribute('data-code', selectedCode);
-                
-                // Agora podemos prosseguir com o click nativo
-                addButton.click();
-                
-                // Fechar o modal após um breve atraso
-                setTimeout(() => {
-                    const bsModal = bootstrap.Modal.getInstance(modal);
-                    if (bsModal) bsModal.hide();
-                }, 300);
+                // Atualizar o carrinho na UI se existir a função
+                if (typeof renderCartItems === 'function') {
+                    renderCartItems();
+                }
             } else {
-                console.error("Erro: Produto selecionado não encontrado para recuperação");
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro ao Adicionar Produto',
-                    text: 'Não foi possível obter os dados do produto. Por favor, tente novamente.',
-                    confirmButtonText: 'OK'
-                });
+                // Alternativa: disparar evento nativo do botão
+                console.log("Simulando clique no botão para execução do código nativo");
                 
-                // Fechar o modal para que o usuário possa tentar novamente
+                // Definir o atributo de quantidade (se necessário)
+                addButton.setAttribute('data-quantity', quantity);
+                
+                // Disparar o clique nativo no botão
+                const clickEvent = new MouseEvent('click', {
+                    view: window,
+                    bubbles: true,
+                    cancelable: true
+                });
+                addButton.dispatchEvent(clickEvent);
+            }
+            
+            // 6. Fechar o modal
+            setTimeout(() => {
                 const bsModal = bootstrap.Modal.getInstance(modal);
                 if (bsModal) bsModal.hide();
-            }
-            return;
+                console.log("Modal fechado após adicionar ao carrinho");
+            }, 300);
+            
+            // 7. Limpar a seleção e resetar o estado
+            setTimeout(() => {
+                // Limpar o campo de código do produto
+                const codigoInput = document.getElementById("codigo_produto");
+                if (codigoInput) {
+                    codigoInput.value = "";
+                    codigoInput.focus();
+                }
+                
+                // Resetar a seleção de produtos
+                const produtos = document.querySelectorAll('#products-grid tbody tr.product-item');
+                produtos.forEach(p => {
+                    p.style.display = '';
+                    p.classList.remove('selected');
+                    p.style.outline = '';
+                });
+            }, 500);
+            
+        } catch (error) {
+            console.error("Erro ao adicionar produto ao carrinho:", error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro ao Adicionar Produto',
+                text: 'Ocorreu um erro ao adicionar o produto ao carrinho.',
+                confirmButtonText: 'OK'
+            });
         }
-        
-        // Simplesmente clicar no botão nativo para acionar o comportamento original
-        addButton.click();
-        
-        // Fechar o modal após um breve atraso
-        setTimeout(() => {
-            const bsModal = bootstrap.Modal.getInstance(modal);
-            if (bsModal) bsModal.hide();
-        }, 300);
     }
     
     // Adicionar evento global para tecla ENTER quando um modal estiver aberto
@@ -381,7 +410,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (modalQuantidade && modalQuantidade.classList.contains('show')) {
                 event.preventDefault(); // Impede o comportamento padrão
                 console.log("Enter pressionado no modal de quantidade");
-                confirmarQuantidade(); // Chama a função de confirmação
+                adicionarAoCarrinho(); // Chama a função de adicionar ao carrinho
                 return;
             }
             
@@ -430,53 +459,33 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
     
-    // Função para configurar os eventos do modal
+    // Configurar eventos diretos nos elementos do modal
     function configurarEventosModal() {
-        console.log("Configurando eventos do modal de quantidade");
+        console.log("Configurando eventos diretos no modal de quantidade");
         
-        // 1. Configurar o input de quantidade para responder ao ENTER
+        // 1. Input de quantidade - evento de ENTER
         const inputQuantidade = document.getElementById('product-quantity');
         if (inputQuantidade) {
-            // Remover eventos anteriores para evitar duplicação
-            const novoInput = inputQuantidade.cloneNode(true);
-            if (inputQuantidade.parentNode) {
-                inputQuantidade.parentNode.replaceChild(novoInput, inputQuantidade);
-            }
-            
-            // Adicionar evento de ENTER
-            novoInput.addEventListener('keydown', function(e) {
+            inputQuantidade.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     console.log("Enter pressionado no input de quantidade");
-                    confirmarQuantidade();
+                    adicionarAoCarrinho();
                 }
             });
         }
         
-        // 2. Configurar o botão de adicionar ao carrinho
+        // 2. Botão Adicionar ao Carrinho
         const botaoAdicionar = document.getElementById('add-to-cart');
         if (botaoAdicionar) {
-            // Não vamos clonar o botão para preservar seus handlers nativos
-            // Apenas garantimos que ele tenha as propriedades corretas
-            
-            // Garantir que a quantidade do input seja usada
-            botaoAdicionar.addEventListener('click', function() {
-                const quantidade = parseInt(document.getElementById('product-quantity')?.value) || 1;
-                // Atualizar o atributo de quantidade se necessário
-                this.setAttribute('data-quantity', quantidade);
-                
-                // Fechar o modal após um breve atraso
-                setTimeout(() => {
-                    const modal = document.getElementById('modalQuantidade');
-                    if (modal) {
-                        const bsModal = bootstrap.Modal.getInstance(modal);
-                        if (bsModal) bsModal.hide();
-                    }
-                }, 300);
+            botaoAdicionar.addEventListener('click', function(e) {
+                // Não vamos prevenir o comportamento padrão para permitir que o sistema nativo funcione
+                console.log("Botão Adicionar ao Carrinho clicado");
+                // adicionarAoCarrinho será chamado pelo evento nativo ou pelo formulário
             });
         }
         
-        // 3. Configurar os botões de aumentar/diminuir quantidade
+        // 3. Botões + e -
         const botaoMais = document.getElementById('increase-qty');
         const botaoMenos = document.getElementById('decrease-qty');
         
@@ -502,25 +511,32 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
         
-        // 4. Configurar o formulário para capturar o submit
+        // 4. Formulário
         const formulario = document.getElementById('add-to-cart-form');
         if (formulario) {
             formulario.addEventListener('submit', function(e) {
                 e.preventDefault();
                 console.log("Formulário submetido");
-                confirmarQuantidade();
+                adicionarAoCarrinho();
                 return false;
             });
         }
     }
     
-    // Adicionar listener para quando o modal for aberto
+    // Ativar eventos quando o modal for aberto
     const modalQuantidade = document.getElementById('modalQuantidade');
     if (modalQuantidade) {
-        modalQuantidade.addEventListener('shown.bs.modal', function() {
+        // Remover event listener antigo se existir
+        const modalClone = modalQuantidade.cloneNode(true);
+        if (modalQuantidade.parentNode) {
+            modalQuantidade.parentNode.replaceChild(modalClone, modalQuantidade);
+        }
+        
+        // Adicionar novo event listener
+        modalClone.addEventListener('shown.bs.modal', function() {
             console.log("Modal de quantidade aberto - configurando eventos");
             
-            // Configurar os eventos do modal
+            // Configurar eventos do modal
             configurarEventosModal();
             
             // Focar no input de quantidade
@@ -534,7 +550,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
     
-    // Configurar eventos do modal na inicialização
+    // Configurar eventos na inicialização
     configurarEventosModal();
     
     // Mensagem inicial no console
