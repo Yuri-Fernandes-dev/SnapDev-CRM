@@ -42,6 +42,8 @@ except (ImportError, OSError):
         def write_pdf(self, *args, **kwargs):
             return None
 
+from django.views.decorators.csrf import csrf_exempt
+
 @login_required
 def sale_list(request):
     """
@@ -204,6 +206,7 @@ def product_search(request):
     
     return JsonResponse({'products': product_list})
 
+@csrf_exempt
 @login_required
 def adicionar_item(request):
     """

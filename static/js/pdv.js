@@ -1,6 +1,50 @@
 /**
  * PDV - Controle de atalhos de teclado e fluxo do PDV (Versão Corrigida)
  */
+
+// Função para obter CSRF token do cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Função para obter o CSRF token de várias fontes
+function getCSRFToken() {
+    // Verificar se existe um input hidden com o token
+    const tokenInput = document.querySelector('input[name=csrfmiddlewaretoken]');
+    if (tokenInput) {
+        console.log("CSRF token encontrado em input hidden:", tokenInput.value);
+        return tokenInput.value;
+    }
+    
+    // Verificar se existe no cookie
+    const tokenCookie = getCookie('csrftoken');
+    if (tokenCookie) {
+        console.log("CSRF token encontrado em cookie:", tokenCookie);
+        return tokenCookie;
+    }
+    
+    // Verificar se existe em meta tag
+    const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+    if (tokenMeta) {
+        console.log("CSRF token encontrado em meta tag:", tokenMeta.content);
+        return tokenMeta.content;
+    }
+    
+    console.error("CSRF token não encontrado!");
+    return null;
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     console.log("PDV.js carregado - Sistema de vendas inicializado");
 
@@ -151,10 +195,40 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!codigo) return;
         
         const produtos = Array.from(document.querySelectorAll('#products-grid tbody tr.product-item'));
-        const produtoSelecionado = produtos.find(p => {
-            return p.getAttribute('data-code') === codigo || 
-                   p.getAttribute('data-name').toLowerCase() === codigo.toLowerCase();
-        });
+        
+        // Verifica se o código é muito curto (menos de 3 caracteres)
+        const codigoCurto = codigo.length < 3;
+        
+        // Primeiro tenta buscar por correspondência exata do código
+        let produtoSelecionado = produtos.find(p => p.getAttribute('data-code') === codigo);
+        
+        // Se não encontrar correspondência exata e não for código curto, tenta busca parcial
+        if (!produtoSelecionado && !codigoCurto) {
+            produtoSelecionado = produtos.find(p => 
+                p.getAttribute('data-name').toLowerCase() === codigo.toLowerCase()
+            );
+        }
+
+        // Se ainda não encontrou e não for código curto, procura produtos que contenham o texto
+        const produtosEncontrados = [];
+        if (!produtoSelecionado && !codigoCurto) {
+            produtos.forEach(p => {
+                if (p.getAttribute('data-code').includes(codigo) || 
+                    p.getAttribute('data-name').toLowerCase().includes(codigo.toLowerCase())) {
+                    produtosEncontrados.push(p);
+                }
+            });
+
+            // Se encontrou apenas um produto parcial, usa ele
+            if (produtosEncontrados.length === 1) {
+                produtoSelecionado = produtosEncontrados[0];
+            }
+            // Se encontrou múltiplos produtos, exibe um modal de seleção
+            else if (produtosEncontrados.length > 1) {
+                exibirModalSelecaoProdutos(produtosEncontrados);
+                return;
+            }
+        }
 
         if (produtoSelecionado) {
             // Seleciona o produto
@@ -172,8 +246,82 @@ document.addEventListener("DOMContentLoaded", function () {
             // Abre modal de quantidade
             abrirModalQuantidade(produtoData);
         } else {
-            Swal.fire('Produto não encontrado', 'Digite um código ou nome válido', 'info');
+            // Mensagem quando o código é curto demais
+            if (codigoCurto) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Código muito curto',
+                    text: 'Para códigos curtos, insira o código exato do produto ou pelo menos 3 caracteres para busca.',
+                    confirmButtonText: 'OK'
+                });
+            } else {
+                Swal.fire('Produto não encontrado', 'Digite um código ou nome válido', 'info');
+            }
         }
+    }
+
+    // Nova função para exibir modal de seleção de produtos quando houver múltiplos resultados
+    function exibirModalSelecaoProdutos(produtos) {
+        // Verificar se a biblioteca SweetAlert2 está disponível
+        if (typeof Swal === 'undefined') {
+            alert('Múltiplos produtos encontrados. Por favor, digite um código mais específico.');
+            return;
+        }
+
+        // Criar HTML da lista de produtos
+        let htmlProdutos = '<div class="list-group">';
+        produtos.forEach(produto => {
+            const id = produto.getAttribute('data-id');
+            const nome = produto.getAttribute('data-name');
+            const codigo = produto.getAttribute('data-code');
+            const preco = parseFloat(produto.getAttribute('data-price')).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+            
+            htmlProdutos += `
+                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center produto-opcao" data-id="${id}">
+                    <div>
+                        <strong>${nome}</strong>
+                        <br><small class="text-muted">Código: ${codigo}</small>
+                    </div>
+                    <span class="badge bg-primary rounded-pill">${preco}</span>
+                </button>
+            `;
+        });
+        htmlProdutos += '</div>';
+
+        // Exibir o modal com a lista de produtos
+        Swal.fire({
+            title: 'Selecione um Produto',
+            html: htmlProdutos,
+            showConfirmButton: false,
+            showCancelButton: true,
+            cancelButtonText: 'Cancelar',
+            focusCancel: true,
+            didOpen: () => {
+                // Adicionar eventos de clique aos produtos listados
+                document.querySelectorAll('.produto-opcao').forEach(opcao => {
+                    opcao.addEventListener('click', () => {
+                        const produtoId = opcao.getAttribute('data-id');
+                        const produtoSelecionado = produtos.find(p => p.getAttribute('data-id') === produtoId);
+                        
+                        if (produtoSelecionado) {
+                            // Fechar o modal
+                            Swal.close();
+                            
+                            // Selecionar o produto
+                            const produtoData = {
+                                id: produtoSelecionado.getAttribute('data-id'),
+                                nome: produtoSelecionado.getAttribute('data-name'),
+                                preco: produtoSelecionado.getAttribute('data-price'),
+                                estoque: produtoSelecionado.getAttribute('data-stock')
+                            };
+                            
+                            // Abrir modal de quantidade
+                            abrirModalQuantidade(produtoData);
+                        }
+                    });
+                });
+            }
+        });
     }
 
     // Função para abrir modal de quantidade
@@ -210,28 +358,91 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
         
-        // Adiciona ao carrinho (usando sistema existente ou implementação alternativa)
+        // Verificar se a função nativa está disponível
         if (typeof addToCart === 'function') {
             // Usa função nativa do sistema
             addToCart(produtoId, quantidade);
         } else {
-            // Implementação alternativa
-            const item = {
-                id: produtoId,
-                price: parseFloat(produtoPreco),
-                quantity: quantidade,
-                // ... outros campos necessários
-            };
-            
-            // Adiciona ao array do carrinho
-            if (typeof cart !== 'undefined') {
-                cart.push(item);
+            // Implementação alternativa: enviar via AJAX diretamente
+            const csrfToken = getCSRFToken();
+            if (!csrfToken) {
+                console.error("CSRF token não encontrado!");
+                Swal.fire('Erro de Segurança', 'Token CSRF não encontrado. Recarregue a página.', 'error');
+                return;
             }
             
-            // Atualiza a UI
-            if (typeof updateCartUI === 'function') {
-                updateCartUI();
-            }
+            // Mostrar indicador de carregamento
+            Swal.fire({
+                title: 'Adicionando ao carrinho...',
+                text: 'Por favor, aguarde',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Enviar via AJAX
+            $.ajax({
+                url: '/sistema/vendas/adicionar-item/',
+                type: 'POST',
+                dataType: 'html',
+                data: {
+                    'produto_id': produtoId,
+                    'quantidade': quantidade
+                },
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                success: function(response) {
+                    console.log("Produto adicionado com sucesso!");
+                    
+                    // Atualizar carrinho
+                    $('#itens_venda').html(response);
+                    
+                    // Fechar o loading
+                    Swal.close();
+                    
+                    // Mostrar mensagem de sucesso
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000,
+                        timerProgressBar: true
+                    });
+                    
+                    Toast.fire({
+                        icon: 'success',
+                        title: 'Produto adicionado ao carrinho!'
+                    });
+                    
+                    // Adicionar ao array do carrinho
+                    if (typeof cart !== 'undefined') {
+                        const item = {
+                            id: produtoId,
+                            price: parseFloat(produtoPreco),
+                            quantity: quantidade,
+                        };
+                        cart.push(item);
+                    }
+                    
+                    // Atualizar a UI
+                    if (typeof updateCartUI === 'function') {
+                        updateCartUI();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro ao adicionar produto:", error);
+                    console.error("Status:", status);
+                    console.error("Resposta:", xhr.responseText);
+                    
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erro ao adicionar ao carrinho',
+                        text: 'Verifique o console para mais detalhes.'
+                    });
+                }
+            });
         }
 
         // Fecha o modal
@@ -295,9 +506,53 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
+// Define a função updateCartUI como polyfill para renderCartItems
+function updateCartUI() {
+    console.log("Atualizando a UI do carrinho");
+    // Verifica se a função renderCartItems existe e a chama
+    if (typeof renderCartItems === 'function') {
+        renderCartItems();
+        
+        // Se updateTotals existir, chama também
+        if (typeof updateTotals === 'function') {
+            updateTotals();
+        }
+    } else {
+        console.log("Função renderCartItems não encontrada");
+    }
+}
+
 // Compatibilidade com IDs específicos do sistema
 $(document).ready(function() {
     console.log("Configurando compatibilidade para IDs específicos do sistema...");
+    
+    // Verificar se existe input de CSRF token no DOM
+    if (!document.querySelector('input[name=csrfmiddlewaretoken]')) {
+        console.log("CSRF token input não encontrado, adicionando ao DOM");
+        // Obter token do cookie
+        const csrftoken = getCookie('csrftoken');
+        if (csrftoken) {
+            // Criar input hidden e adicionar ao body
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrfmiddlewaretoken';
+            input.value = csrftoken;
+            document.body.appendChild(input);
+            console.log("CSRF token input adicionado ao DOM:", csrftoken);
+        }
+    }
+    
+    // Configurar o AJAX para incluir o CSRF token em todas as requisições
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!this.crossDomain) {
+                const csrftoken = getCSRFToken();
+                if (csrftoken) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            }
+        }
+    });
     
     // Mapear do ID padrão do sistema para IDs específicos mencionados nos requisitos
     
@@ -321,14 +576,27 @@ $(document).ready(function() {
                     return;
                 }
                 
+                // Obter CSRF token
+                const csrfToken = getCSRFToken();
+                if (!csrfToken) {
+                    console.error("CSRF token não encontrado!");
+                    alert("Erro de segurança: Token CSRF não encontrado. Recarregue a página.");
+                    return;
+                }
+                
+                console.log("CSRF token obtido:", csrfToken);
+                
                 // Enviar AJAX
                 $.ajax({
                     url: '/sistema/vendas/adicionar-item/',
                     method: 'POST',
+                    dataType: 'html',
                     data: {
                         'produto_id': produtoId,
-                        'quantidade': quantidade,
-                        'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
+                        'quantidade': quantidade
+                    },
+                    headers: {
+                        'X-CSRFToken': csrfToken
                     },
                     success: function(data) {
                         console.log("Item adicionado com sucesso");
@@ -346,6 +614,8 @@ $(document).ready(function() {
                     },
                     error: function(xhr, status, error) {
                         console.error("Erro ao adicionar item:", error);
+                        console.error("Status:", status);
+                        console.error("Resposta:", xhr.responseText);
                         alert("Erro ao adicionar item. Verifique o console para detalhes.");
                     }
                 });
