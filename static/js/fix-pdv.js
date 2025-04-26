@@ -3,822 +3,831 @@
  * Este arquivo deve ser incluído APÓS o pdv.js original
  */
 (function() {
-    console.log("=== INICIALIZANDO FIX-PDV.JS ===");
-    console.log("Versão da correção: 2.0.1");
-    console.log("Data: " + new Date().toLocaleString());
+    console.log("Sistema PDV Inicializado - v1.0.3");
     
-    // Função para debugging
-    function debugElemento(elemento, mensagem) {
+    // Função de depuração para elementos DOM
+    function debugElemento(elemento, prefixo = "") {
         if (!elemento) {
-            console.error(`DEBUG [${mensagem}]: Elemento não encontrado`);
+            console.error(prefixo + " Elemento não encontrado");
             return;
         }
         
-        console.log(`DEBUG [${mensagem}]: Elemento encontrado`, {
+        console.log(prefixo, {
             id: elemento.id,
             tagName: elemento.tagName,
-            classes: Array.from(elemento.classList),
-            atributos: Array.from(elemento.attributes).map(attr => `${attr.name}="${attr.value}"`),
-            conteudo: elemento.textContent.trim().substring(0, 100)
+            classes: elemento.className,
+            attributes: Array.from(elemento.attributes).map(attr => `${attr.name}="${attr.value}"`).join(', '),
+            content: elemento.textContent?.trim().substring(0, 50) + (elemento.textContent?.length > 50 ? '...' : '')
         });
     }
     
-    // Log de todos os elementos principais
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log("DOM carregado - Diagnóstico de elementos importantes");
-        
-        // Log para encontrar botões de adicionar ao carrinho
-        const botoesCarrinho = document.querySelectorAll('button, .btn, [type="button"]');
-        console.log(`Encontrados ${botoesCarrinho.length} botões na página:`);
-        botoesCarrinho.forEach(btn => {
-            if (btn.id || btn.className.includes('btn') || btn.textContent.toLowerCase().includes('carrinho') || btn.textContent.toLowerCase().includes('adicionar')) {
-                debugElemento(btn, `Possível botão de carrinho`);
-            }
-        });
-        
-        // Log para encontrar modais
-        const modais = document.querySelectorAll('.modal');
-        console.log(`Encontrados ${modais.length} modais na página:`);
-        modais.forEach(modal => debugElemento(modal, 'Modal'));
-        
-        // Log para encontrar formulários
-        const forms = document.querySelectorAll('form');
-        console.log(`Encontrados ${forms.length} formulários na página:`);
-        forms.forEach(form => debugElemento(form, 'Formulário'));
-    });
-    
-    // Função para obter o CSRF token de várias fontes
+    // Função para obter token CSRF
     function getCSRFToken() {
-        // Verificar se existe um input hidden com o token
-        const tokenInput = document.querySelector('input[name=csrfmiddlewaretoken]');
-        if (tokenInput) {
-            console.log("CSRF token encontrado em input hidden:", tokenInput.value);
-            return tokenInput.value;
-        }
+        // Tenta obter do input
+        let token = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (token) return token.value;
         
-        // Verificar se existe no cookie
-        const tokenCookie = getCookie('csrftoken');
-        if (tokenCookie) {
-            console.log("CSRF token encontrado em cookie:", tokenCookie);
-            return tokenCookie;
-        }
+        // Tenta obter do cookie
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='))
+            ?.split('=')[1];
+        if (cookieValue) return cookieValue;
         
-        // Verificar se existe em meta tag
-        const tokenMeta = document.querySelector('meta[name="csrf-token"]');
-        if (tokenMeta) {
-            console.log("CSRF token encontrado em meta tag:", tokenMeta.content);
-            return tokenMeta.content;
-        }
+        // Tenta obter da meta tag
+        token = document.querySelector('meta[name="csrf-token"]');
+        if (token) return token.content;
         
-        console.error("CSRF token não encontrado!");
         return null;
     }
-
-    // Função para obter valor de cookie
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                // Verifica se o cookie começa com o nome desejado
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
+    
+    // Garantir que o token CSRF esteja presente
+    function ensureCSRFToken() {
+        let token = getCSRFToken();
+        if (!token) {
+            console.error("Token CSRF não encontrado! Criando um novo input...");
+            
+            // Tentar obter do cookie diretamente
+            const cookieValue = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('csrftoken='))
+                ?.split('=')[1];
+                
+            if (cookieValue) {
+                console.log("Token CSRF encontrado no cookie:", cookieValue.substring(0, 5) + "...");
+                
+                // Criar input com o token
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'csrfmiddlewaretoken';
+                input.value = cookieValue;
+                
+                // Verifica se há um formulário
+                const form = document.querySelector('form');
+                if (form) {
+                    form.appendChild(input);
+                    console.log("Input CSRF adicionado ao formulário existente.");
+                } else {
+                    // Adiciona ao body
+                    document.body.appendChild(input);
+                    console.log("Input CSRF adicionado ao body.");
                 }
+                
+                return cookieValue;
+            } else {
+                console.error("CSRF token não pode ser encontrado nem mesmo nos cookies!");
+                alert("Erro de segurança: Token CSRF não encontrado. A página será recarregada.");
+                window.location.reload();
+                return null;
             }
+        } else {
+            console.log("Token CSRF encontrado:", token.substring(0, 5) + "...");
+            return token;
         }
-        return cookieValue;
     }
-
-    // Função para adicionar produto ao carrinho via AJAX
+    
+    // Função para adicionar ao carrinho via AJAX
     function adicionarAoCarrinhoAjax(produtoId, quantidade) {
-        console.log(`Iniciando adição ao carrinho: Produto ID=${produtoId}, Quantidade=${quantidade}`);
+        console.log(`Adicionando produto ID ${produtoId} com quantidade ${quantidade} ao carrinho`);
         
-        // Para debugging
-        console.log("Dados do produto a adicionar:", {
-            produtoId: produtoId,
-            quantidade: quantidade
-        });
-        
-        // Verificar se produto_id é uma string ou número
-        if (!produtoId) {
-            console.error("ID do produto é inválido");
-            alert("Erro: ID do produto inválido");
+        // Validar parâmetros
+        if (!produtoId || isNaN(parseInt(produtoId))) {
+            console.error("ID de produto inválido:", produtoId);
+            alert("Erro: ID de produto inválido.");
             return;
         }
         
-        // Verificar se quantidade é um número
-        if (isNaN(parseInt(quantidade)) || parseInt(quantidade) <= 0) {
-            console.error("Quantidade inválida");
-            alert("Erro: Quantidade deve ser maior que zero");
+        if (!quantidade || isNaN(parseInt(quantidade)) || parseInt(quantidade) <= 0) {
+            console.warn("Quantidade inválida, definindo como 1:", quantidade);
+            quantidade = 1;
+        }
+        
+        // Garantir que temos o token CSRF
+        const csrfToken = ensureCSRFToken();
+        if (!csrfToken) {
+            console.error("Não foi possível obter o token CSRF para enviar a requisição");
             return;
         }
         
-        // Preparar formData para garantir consistência
+        // Preparar dados
         const formData = new FormData();
         formData.append('produto_id', produtoId);
         formData.append('quantidade', quantidade);
+        formData.append('csrfmiddlewaretoken', csrfToken);
         
-        // Mostrar loader ou indicador de carregamento
-        console.log("Enviando requisição AJAX para adicionar produto");
+        // Mostrar loading
+        const loadingMessage = document.createElement('div');
+        loadingMessage.className = 'alert alert-info text-center';
+        loadingMessage.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Adicionando produto...';
         
-        // Usar Fetch API em vez de jQuery para mais compatibilidade
+        const cartItems = document.getElementById('cart-items');
+        if (cartItems) {
+            // Mostrar loading apenas se não houver itens
+            if (cartItems.querySelector('.empty-cart') || cartItems.querySelector('#empty-cart-message')) {
+                cartItems.innerHTML = '';
+                cartItems.appendChild(loadingMessage);
+            }
+        }
+        
+        // Fazer requisição AJAX usando Fetch API
         fetch('/sistema/vendas/adicionar-item/', {
             method: 'POST',
-            body: formData
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                // Não definimos 'Content-Type' aqui porque o FormData configura automaticamente
+            },
+            body: formData,
+            credentials: 'same-origin' // Importante para enviar cookies, incluindo o CSRF
         })
         .then(response => {
-            if (!response.ok) {
-                console.error("Erro na resposta:", response.status, response.statusText);
-                throw new Error(`Erro HTTP: ${response.status}`);
+            console.log("Resposta recebida:", response.status);
+            // Verificar o tipo de conteúdo da resposta
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return response.json().then(data => {
+                    return { isJson: true, data: data };
+                });
+            } else {
+                return response.text().then(text => {
+                    return { isJson: false, text: text };
+                });
             }
-            return response.text();
         })
-        .then(html => {
-            console.log("Produto adicionado com sucesso!");
-            console.log("Buscando elementos para atualizar o carrinho");
-            
-            // DEBUG: Imprimir a resposta HTML recebida (primeiros 100 caracteres)
-            console.log("Resposta HTML recebida (truncada):", html.substring(0, 100) + "...");
-            
-            // Tentar vários seletores conhecidos para o carrinho
-            const cartSelectors = [
-                '#cart-items',
-                '#items-cart-container',
-                '#itens_venda',
-                '.cart-items-section'
-            ];
-            
-            let cartUpdated = false;
-            
-            for (const selector of cartSelectors) {
-                const element = document.querySelector(selector);
-                if (element) {
-                    console.log(`Encontrado elemento de carrinho: ${selector}`);
+        .then(result => {
+            // Fechar modal se estiver aberto
+            const modalQuantidade = document.getElementById('modalQuantidade');
+            if (modalQuantidade) {
+                // Verificar se o Bootstrap está disponível
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const bsModal = bootstrap.Modal.getInstance(modalQuantidade);
+                    if (bsModal) bsModal.hide();
+                } else if (typeof jQuery !== 'undefined' && jQuery.fn.modal) {
+                    // Fallback para jQuery
+                    jQuery(modalQuantidade).modal('hide');
+                } else {
+                    // Fallback para manipulação direta de classes
+                    modalQuantidade.classList.remove('show');
+                    modalQuantidade.style.display = 'none';
+                    document.body.classList.remove('modal-open');
                     
-                    // Se for o #cart-items, precisamos atualizar o conteúdo diretamente
-                    if (selector === '#cart-items') {
-                        // Tentar atualizar o cart global se ele existir
-                        if (typeof window.cart !== 'undefined') {
-                            try {
-                                // Atualizar carrinho global com os dados da sessão
-                                const carrinho = JSON.parse(sessionStorage.getItem('carrinho') || '[]');
-                                window.cart = carrinho;
-                                
-                                // Chamar renderCartItems se existir
-                                if (typeof window.renderCartItems === 'function') {
-                                    window.renderCartItems();
-                                    cartUpdated = true;
-                                    console.log("Carrinho atualizado via renderCartItems()");
-                                }
-                            } catch (e) {
-                                console.error("Erro ao atualizar carrinho global:", e);
-                            }
+                    // Remove backdrop if exists
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) backdrop.remove();
+                }
+            }
+            
+            // Limpar o input de quantidade
+            const quantityInput = document.getElementById('product-quantity');
+            if (quantityInput) quantityInput.value = 1;
+            
+            // Atualizar carrinho de compras
+            const cartItemsContainer = document.getElementById('cart-items') || 
+                                       document.getElementById('items-cart-container') || 
+                                       document.getElementById('itens_venda');
+            
+            if (cartItemsContainer) {
+                console.log("Atualizando container de itens do carrinho:", cartItemsContainer.id);
+                
+                // Limpar mensagem de carrinho vazio se existir
+                const emptyCartMessage = document.getElementById('empty-cart-message');
+                if (emptyCartMessage) emptyCartMessage.style.display = 'none';
+                
+                if (result.isJson) {
+                    // Processar resposta JSON
+                    const data = result.data;
+                    if (data.status === 'success') {
+                        // Atualizar HTML do carrinho
+                        if (data.html) {
+                            cartItemsContainer.innerHTML = data.html;
+                        } else if (data.items) {
+                            // Renderizar itens manualmente se não tiver HTML pronto
+                            let html = '';
+                            data.items.forEach(item => {
+                                html += `
+                                    <div class="cart-item" data-id="${item.id}">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <span class="item-quantity">${item.quantity}x</span>
+                                                <span class="item-name">${item.name}</span>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="item-price">R$ ${parseFloat(item.total).toFixed(2)}</span>
+                                                <button class="btn btn-sm text-danger remove-item" 
+                                                        onclick="removerItemCarrinho(${item.id})">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            cartItemsContainer.innerHTML = html || '<div class="text-center py-3">Nenhum item no carrinho</div>';
                         }
                         
-                        // Se não conseguir atualizar via função, substituir HTML diretamente
-                        if (!cartUpdated) {
-                            element.innerHTML = html;
-                            cartUpdated = true;
-                            console.log("Carrinho atualizado via innerHTML");
+                        // Atualizar totais
+                        if (data.subtotal) {
+                            const subtotalElement = document.getElementById('subtotal');
+                            if (subtotalElement) subtotalElement.textContent = `R$ ${parseFloat(data.subtotal).toFixed(2)}`;
+                        }
+                        
+                        if (data.total) {
+                            const totalElements = document.querySelectorAll('#total, #total-sale, #total_venda, .total-value');
+                            totalElements.forEach(el => {
+                                el.textContent = `R$ ${parseFloat(data.total).toFixed(2)}`;
+                            });
                         }
                     } else {
-                        // Para outros seletores, apenas substituir o HTML
-                        element.innerHTML = html;
-                        cartUpdated = true;
-                        console.log(`Carrinho atualizado via elemento ${selector}`);
+                        console.error("Erro ao adicionar produto:", data.message);
+                        alert("Erro: " + (data.message || "Não foi possível adicionar o produto ao carrinho."));
                     }
+                } else {
+                    // Resposta não é JSON, tratar como HTML
+                    console.log("Resposta recebida como HTML/texto");
                     
-                    break;
-                }
-            }
-            
-            // Se nenhum elemento foi encontrado, tentar injetar no elemento pai
-            if (!cartUpdated) {
-                console.warn("Nenhum elemento de carrinho conhecido foi encontrado, tentando alternativas");
-                
-                // Buscar elementos que possam conter o carrinho
-                const cartContainers = [
-                    document.querySelector('.cart-items-section'),
-                    document.querySelector('.cart-container'),
-                    document.querySelector('.card-body')
-                ];
-                
-                for (const container of cartContainers) {
-                    if (container) {
-                        // Criar um novo elemento div para o carrinho
-                        const newCartElement = document.createElement('div');
-                        newCartElement.id = 'items-cart-container';
-                        newCartElement.innerHTML = html;
+                    // Tentar atualizar o carrinho com o HTML retornado
+                    try {
+                        cartItemsContainer.innerHTML = result.text;
                         
-                        // Substituir o conteúdo ou adicionar ao final
-                        container.innerHTML = '';
-                        container.appendChild(newCartElement);
+                        // Mostrar mensagem de sucesso
+                        const successMessage = document.createElement('div');
+                        successMessage.className = 'alert alert-success position-fixed top-0 end-0 m-3';
+                        successMessage.innerHTML = '<i class="fas fa-check-circle me-2"></i>Produto adicionado ao carrinho!';
+                        successMessage.style.zIndex = '9999';
+                        document.body.appendChild(successMessage);
                         
-                        console.log("Carrinho criado e injetado em um container alternativo");
-                        cartUpdated = true;
-                        break;
+                        // Remover mensagem após 3 segundos
+                        setTimeout(() => {
+                            successMessage.remove();
+                        }, 3000);
+                    } catch (error) {
+                        console.error("Erro ao processar resposta HTML:", error);
+                        
+                        // Recarregar a página como último recurso
+                        alert("Produto adicionado, atualizando a página...");
+                        window.location.reload();
                     }
                 }
-            }
-            
-            // Último recurso - recarregar a página
-            if (!cartUpdated) {
-                console.warn("Não foi possível atualizar o carrinho na interface, recarregando a página");
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-            }
-            
-            // Fechar o modal
-            const quantModal = document.getElementById('modalQuantidade');
-            if (quantModal) {
-                const bsModal = bootstrap.Modal.getInstance(quantModal);
-                if (bsModal) bsModal.hide();
             } else {
-                const produtoModal = document.getElementById('produtoModal');
-                if (produtoModal) {
-                    const bsModal = bootstrap.Modal.getInstance(produtoModal);
-                    if (bsModal) bsModal.hide();
-                }
-            }
-            
-            // Limpar o campo de quantidade
-            const quantidadeInput = document.getElementById('quantidade_input');
-            if (quantidadeInput) {
-                quantidadeInput.value = '';
-            }
-            
-            // Atualizar o contador de itens e total se existirem
-            atualizarContadoresCarrinho();
-            
-            // Mostrar mensagem de sucesso
-            if (typeof Swal !== 'undefined') {
-                const Toast = Swal.mixin({
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 3000,
-                    timerProgressBar: true
-                });
+                console.warn("Container de itens do carrinho não encontrado");
                 
-                Toast.fire({
-                    icon: 'success',
-                    title: 'Produto adicionado ao carrinho!'
-                });
-            } else {
-                alert("Produto adicionado ao carrinho!");
+                // Recarregar a página como fallback
+                console.log("Recarregando página...");
+                window.location.reload();
             }
         })
         .catch(error => {
-            console.error("Erro ao adicionar produto:", error);
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro ao adicionar produto',
-                    text: 'Verifique o console para mais detalhes.'
-                });
-            } else {
-                alert("Erro ao adicionar produto ao carrinho. Verifique o console para detalhes.");
+            console.error("Erro na requisição:", error);
+            
+            // Fechar modal se estiver aberto
+            const modalQuantidade = document.getElementById('modalQuantidade');
+            if (modalQuantidade) {
+                try {
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                        const bsModal = bootstrap.Modal.getInstance(modalQuantidade);
+                        if (bsModal) bsModal.hide();
+                    }
+                } catch (e) {
+                    console.error("Erro ao fechar modal:", e);
+                }
+            }
+            
+            // Tentar recarregar a página em caso de erro
+            if (confirm("Erro ao adicionar produto ao carrinho. Deseja recarregar a página?")) {
+                window.location.reload();
             }
         });
     }
-
-    // Função para atualizar os contadores e totais do carrinho
-    function atualizarContadoresCarrinho() {
-        // Tentar obter os elementos de subtotal e total
-        const subtotalElement = document.getElementById('subtotal');
-        const totalElement = document.getElementById('total');
-        
-        // Se encontrar os elementos, buscar os dados do carrinho e atualizar
-        if (subtotalElement || totalElement) {
-            console.log("Atualizando contadores do carrinho");
-            
-            // Fazer uma requisição para obter os dados atualizados do carrinho
-            fetch('/sistema/vendas/pdv/')
-                .then(response => response.text())
-                .then(html => {
-                    // Criar um DOM temporário para extrair valores
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    
-                    // Atualizar subtotal
-                    if (subtotalElement) {
-                        const newSubtotal = doc.getElementById('subtotal')?.textContent;
-                        if (newSubtotal) {
-                            subtotalElement.textContent = newSubtotal;
-                            console.log("Subtotal atualizado:", newSubtotal);
-                        }
-                    }
-                    
-                    // Atualizar total
-                    if (totalElement) {
-                        const newTotal = doc.getElementById('total')?.textContent;
-                        if (newTotal) {
-                            totalElement.textContent = newTotal;
-                            console.log("Total atualizado:", newTotal);
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error("Erro ao atualizar contadores do carrinho:", error);
-                });
-        }
-    }
-
-    // Configurar botão de adicionar ao carrinho
+    
+    // Configurar botão Adicionar ao Carrinho
     function setupAddToCartButton() {
-        console.log("Configurando botão de adicionar ao carrinho");
+        console.log("Configurando botão de Adicionar ao Carrinho");
         
-        // Encontrar o botão
-        const btnAdicionar = document.getElementById('btnAdicionarAoCarrinho');
+        const addToCartButton = document.getElementById('add-to-cart') ||
+                               document.getElementById('add-to-cart-button') ||
+                               document.querySelector('.add-to-cart-button') ||
+                               document.querySelector('[data-action="add-to-cart"]');
         
-        if (btnAdicionar) {
-            console.log("Botão encontrado, configurando evento de clique");
+        if (addToCartButton) {
+            // Clonar e substituir para remover eventos anteriores
+            const newButton = addToCartButton.cloneNode(true);
+            addToCartButton.parentNode.replaceChild(newButton, addToCartButton);
             
-            // Remover qualquer listener anterior para evitar duplicação
-            const newBtn = btnAdicionar.cloneNode(true);
-            btnAdicionar.parentNode.replaceChild(newBtn, btnAdicionar);
-            
-            // Adicionar handler para o botão
-            newBtn.addEventListener('click', function(e) {
+            // Adicionar novo evento
+            newButton.addEventListener('click', function(e) {
                 e.preventDefault();
-                console.log("Botão Adicionar ao Carrinho clicado");
                 
-                // Obter dados do formulário
-                const produtoId = document.getElementById('produto_id')?.value;
-                const quantidade = document.getElementById('quantidade_input')?.value;
+                // Obter o ID do produto diretamente do atributo data-id do botão
+                const produtoId = this.getAttribute('data-id');
                 
-                console.log(`Validando dados: Produto ID=${produtoId}, Quantidade=${quantidade}`);
+                // Obter a quantidade do input
+                const quantidadeInput = document.getElementById('product-quantity');
+                const quantidade = quantidadeInput ? quantidadeInput.value : 1;
                 
-                // Validar os dados
-                if (!produtoId || produtoId <= 0) {
-                    console.error("Produto inválido");
-                    alert("Produto inválido");
+                if (!produtoId) {
+                    console.error("ID de produto não encontrado no botão!");
+                    alert("Erro: Não foi possível identificar o produto.");
                     return;
                 }
                 
-                if (!quantidade || quantidade <= 0) {
-                    console.error("Quantidade inválida");
-                    alert("Quantidade deve ser maior que zero");
-                    return;
-                }
-                
-                // Adicionar ao carrinho
+                console.log("Adicionando ao carrinho produto ID:", produtoId, "Quantidade:", quantidade);
                 adicionarAoCarrinhoAjax(produtoId, quantidade);
             });
+            
+            console.log("Evento click configurado para o botão Adicionar ao Carrinho");
         } else {
-            console.log("Botão não encontrado, procurando alternativas...");
-            
-            // Tentar encontrar botões alternativos
-            const alternativeButtons = [
-                document.getElementById('add-to-cart'),
-                document.querySelector('.btn[data-action="adicionar"]'),
-                document.querySelector('.btn-adicionar-carrinho')
-            ];
-            
-            // Procurar por qualquer botão que possa ser o correto
-            for (const btn of alternativeButtons) {
-                if (btn) {
-                    console.log("Botão alternativo encontrado:", btn);
-                    
-                    // Remover qualquer listener anterior para evitar duplicação
-                    const newBtn = btn.cloneNode(true);
-                    btn.parentNode.replaceChild(newBtn, btn);
-                    
-                    // Adicionar handler para o botão
-                    newBtn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        console.log("Botão alternativo clicado");
-                        
-                        // Tentar obter informações do dataset
-                        const produtoId = this.dataset.id || document.getElementById('produto_id')?.value;
-                        const quantidade = document.getElementById('quantidade_input')?.value || document.getElementById('product-quantity')?.value || 1;
-                        
-                        console.log(`Validando dados alternativos: Produto ID=${produtoId}, Quantidade=${quantidade}`);
-                        
-                        // Validar os dados
-                        if (!produtoId) {
-                            console.error("Produto inválido");
-                            alert("Produto inválido");
-                            return;
-                        }
-                        
-                        // Adicionar ao carrinho
-                        adicionarAoCarrinhoAjax(produtoId, quantidade);
-                    });
-                    
-                    break;
-                }
-            }
+            console.warn("Botão 'Adicionar ao Carrinho' não encontrado!");
         }
     }
-
-    // Configurar input de quantidade
-    function setupQuantityInput() {
-        console.log("Configurando input de quantidade");
-        
-        // Encontrar input de quantidade
-        const inputQuantidade = document.getElementById('quantidade_input');
-        
-        if (inputQuantidade) {
-            console.log("Input encontrado, configurando evento de keydown");
-            
-            // Remover qualquer listener anterior para evitar duplicação
-            const newInput = inputQuantidade.cloneNode(true);
-            inputQuantidade.parentNode.replaceChild(newInput, inputQuantidade);
-            
-            // Adicionar handler para o input
-            newInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    console.log("Tecla Enter pressionada no input de quantidade");
-                    e.preventDefault();
-                    
-                    // Obter botão de adicionar
-                    const btnAdicionar = document.getElementById('btnAdicionarAoCarrinho');
-                    if (btnAdicionar) {
-                        btnAdicionar.click();
-                    } else {
-                        // Tentar alternativas
-                        const alternativeButtons = [
-                            document.getElementById('add-to-cart'),
-                            document.getElementById('btnAdicionarAoCarrinho'),
-                            document.querySelector('.btn[data-action="adicionar"]'),
-                            document.querySelector('.btn-adicionar-carrinho')
-                        ];
-                        
-                        for (const btn of alternativeButtons) {
-                            if (btn) {
-                                btn.click();
-                                break;
-                            }
-                        }
-                    }
-                }
-            });
-            
-            // Garantir que o foco esteja no input quando o modal abrir
-            const modalQuantidade = document.getElementById('quantidadeModal');
-            if (modalQuantidade) {
-                modalQuantidade.addEventListener('shown.bs.modal', function() {
-                    console.log("Modal aberto - focando no input de quantidade");
-                    
-                    // Usar setTimeout para garantir que o foco funcione
-                    setTimeout(function() {
-                        newInput.focus();
-                        newInput.select();
-                    }, 100);
-                });
-            }
-        } else {
-            console.log("Input de quantidade não encontrado, procurando alternativas...");
-            
-            // Tentar encontrar inputs alternativos
-            const alternativeInputs = [
-                document.getElementById('product-quantity'),
-                document.querySelector('input[data-field="quantity"]'),
-                document.querySelector('.quantity-input')
-            ];
-            
-            // Procurar por qualquer input que possa ser o correto
-            for (const input of alternativeInputs) {
-                if (input) {
-                    console.log("Input alternativo encontrado:", input);
-                    
-                    // Remover qualquer listener anterior para evitar duplicação
-                    const newInput = input.cloneNode(true);
-                    input.parentNode.replaceChild(newInput, input);
-                    
-                    // Adicionar handler para o input
-                    newInput.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter') {
-                            console.log("Tecla Enter pressionada no input alternativo");
-                            e.preventDefault();
-                            
-                            // Tentar obter o botão adequado e clicar nele
-                            const alternativeButtons = [
-                                document.getElementById('add-to-cart'),
-                                document.getElementById('btnAdicionarAoCarrinho'),
-                                document.querySelector('.btn[data-action="adicionar"]'),
-                                document.querySelector('.btn-adicionar-carrinho')
-                            ];
-                            
-                            for (const btn of alternativeButtons) {
-                                if (btn) {
-                                    btn.click();
-                                    break;
-                                }
-                            }
-                        }
-                    });
-                    
-                    // Garantir que o foco esteja no input quando o modal abrir
-                    const modalAberto = document.querySelector('.modal.show');
-                    if (modalAberto) {
-                        console.log("Modal encontrado - focando no input alternativo");
-                        
-                        // Usar setTimeout para garantir que o foco funcione
-                        setTimeout(function() {
-                            newInput.focus();
-                            newInput.select();
-                        }, 100);
-                    }
-                    
-                    break;
-                }
-            }
-        }
-    }
-
+    
     // Configurar cliques nos produtos
     function setupProductClicks() {
         console.log("Configurando cliques nos produtos");
         
-        // Tenta encontrar os produtos usando diferentes seletores
-        const produtoItems = document.querySelectorAll('.produto-item, tr.product-item, .product-card');
+        // Registra todos os modais disponíveis para diagnóstico
+        const todosModais = document.querySelectorAll('.modal');
+        console.log(`Total de modais encontrados: ${todosModais.length}`);
+        todosModais.forEach(modal => {
+            console.log(`Modal encontrado: ID=${modal.id}, Classes=${modal.className}`);
+        });
+        
+        // Verificar se o modal de quantidade existe
+        const modalQuantidade = document.getElementById('modalQuantidade');
+        if (modalQuantidade) {
+            console.log("Modal de quantidade encontrado:", modalQuantidade.id);
+            debugElemento(modalQuantidade, "Modal de quantidade:");
+        } else {
+            console.error("Modal de quantidade NÃO encontrado! Verificar ID correto no HTML.");
+        }
+        
+        // Tenta diferentes seletores para encontrar os produtos
+        const produtoItems = document.querySelectorAll('.produto-item, tr.product-item, .product-card, [data-produto-id], [data-id]');
         
         if (produtoItems.length > 0) {
-            console.log(`Encontrados ${produtoItems.length} produtos, configurando eventos de clique`);
+            console.log(`Encontrados ${produtoItems.length} produtos na página`);
             
-            // Adicionar handler para cliques nos produtos
-            produtoItems.forEach(produto => {
-                // Remover listener antigo clonando o elemento
-                const clone = produto.cloneNode(true);
-                produto.parentNode.replaceChild(clone, produto);
+            produtoItems.forEach(item => {
+                // Clonar e substituir para remover eventos anteriores
+                const newItem = item.cloneNode(true);
+                item.parentNode.replaceChild(newItem, item);
                 
-                // Adicionar novo evento de clique
-                clone.addEventListener('click', function() {
-                    // Tentar obter dados do produto de atributos data-*
-                    const produtoId = this.getAttribute('data-id') || this.dataset.id;
-                    const nomeProduto = this.getAttribute('data-name') || this.dataset.name;
-                    const precoProduto = this.getAttribute('data-price') || this.dataset.price;
-                    const estoqueProduto = this.getAttribute('data-stock') || this.dataset.stock;
+                newItem.addEventListener('click', function(e) {
+                    // Evitar que clique em links ou botões dentro do item dispare a ação
+                    if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') {
+                        return;
+                    }
                     
-                    console.log(`Produto clicado: ID=${produtoId}, Nome=${nomeProduto}, Preço=${precoProduto}, Estoque=${estoqueProduto}`);
+                    // Extração cuidadosa do ID do produto
+                    let produtoId = null;
+                    
+                    // Tentar obter do atributo data-id primeiro (mais comum)
+                    produtoId = this.getAttribute('data-id');
+                    
+                    // Se não encontrou, tentar outros atributos comuns
+                    if (!produtoId) {
+                        produtoId = this.getAttribute('data-produto-id') || 
+                                    this.getAttribute('data-product-id') ||
+                                    this.getAttribute('id')?.replace(/[^0-9]/g, '');
+                    }
+                    
+                    // Se ainda não encontrou, procurar em elementos filhos
+                    if (!produtoId) {
+                        const idElement = this.querySelector('[data-id], [data-produto-id], [data-product-id]');
+                        if (idElement) {
+                            produtoId = idElement.getAttribute('data-id') || 
+                                        idElement.getAttribute('data-produto-id') || 
+                                        idElement.getAttribute('data-product-id');
+                        }
+                    }
+                    
+                    // Outros atributos para extração do produto
+                    const produtoNome = this.getAttribute('data-nome') || 
+                                       this.getAttribute('data-name') ||
+                                       this.querySelector('.produto-nome, .product-name')?.textContent.trim();
+                    
+                    const produtoPreco = this.getAttribute('data-preco') || 
+                                        this.getAttribute('data-price') ||
+                                        this.querySelector('.produto-preco, .product-price')?.textContent.trim();
+                    
+                    const produtoEstoque = this.getAttribute('data-estoque') || 
+                                          this.getAttribute('data-stock') ||
+                                          this.querySelector('.produto-estoque, .product-stock')?.textContent.trim();
+                    
+                    console.log("Produto clicado:", {
+                        id: produtoId,
+                        nome: produtoNome,
+                        preco: produtoPreco,
+                        estoque: produtoEstoque
+                    });
+                    
+                    if (!produtoId) {
+                        console.error("ID do produto não encontrado no elemento clicado");
+                        alert("Erro: Não foi possível identificar o produto. Por favor, tente outro produto ou recarregue a página.");
+                        return;
+                    }
                     
                     // Verificar estoque
-                    if (estoqueProduto !== undefined && parseInt(estoqueProduto) <= 0) {
+                    if (produtoEstoque !== undefined && parseInt(produtoEstoque) <= 0) {
+                        console.warn("Produto sem estoque!");
+                        
+                        // Usar SweetAlert se disponível, senão alert padrão
                         if (typeof Swal !== 'undefined') {
-                            Swal.fire('Produto sem estoque', 'Este produto não está disponível no momento.', 'warning');
+                            Swal.fire({
+                                title: 'Produto Indisponível',
+                                text: 'Este produto está sem estoque no momento.',
+                                icon: 'warning',
+                                confirmButtonText: 'OK'
+                            });
                         } else {
-                            alert("Produto sem estoque. Este produto não está disponível no momento.");
+                            alert('Produto sem estoque!');
                         }
                         return;
                     }
                     
-                    // Tenta encontrar os elementos do modal por diferentes IDs
-                    const modalQuantidade = document.getElementById('quantidadeModal') || document.getElementById('produtoModal');
-                    const produtoIdInput = document.getElementById('produto_id');
-                    const produtoNomeEl = document.getElementById('produto_nome') || document.getElementById('modal-product-name');
-                    const produtoPrecoEl = document.getElementById('preco_produto') || document.getElementById('modal-product-price');
-                    const quantidadeInput = document.getElementById('quantidade_input') || document.getElementById('product-quantity');
+                    // Verificar se o modal existe e está acessível
+                    const modalQuantidade = document.getElementById('modalQuantidade');
                     
-                    // Preencher os dados no modal se encontrados
-                    if (produtoIdInput) produtoIdInput.value = produtoId;
-                    if (produtoNomeEl) produtoNomeEl.textContent = nomeProduto;
-                    if (produtoPrecoEl) produtoPrecoEl.textContent = `R$ ${parseFloat(precoProduto).toFixed(2)}`;
-                    if (quantidadeInput) {
-                        quantidadeInput.value = "1";
-                        
-                        // Focar e selecionar o input após um delay para garantir que o modal esteja aberto
-                        setTimeout(() => {
-                            quantidadeInput.focus();
-                            quantidadeInput.select();
-                        }, 300);
-                    }
-                    
-                    // Abrir o modal se encontrado
                     if (modalQuantidade) {
-                        // Verificar se o Bootstrap 5 está disponível
-                        if (typeof bootstrap !== 'undefined') {
-                            const modal = new bootstrap.Modal(modalQuantidade);
-                            modal.show();
-                        } 
-                        // Fallback para jQuery se disponível
-                        else if (typeof $ !== 'undefined' && typeof $.fn.modal === 'function') {
-                            $(modalQuantidade).modal('show');
+                        console.log("Modal encontrado, preparando para abrir");
+                        
+                        // Encontrar elementos do modal
+                        const modalTitle = document.getElementById('modal-product-name') || 
+                                         document.querySelector('#modalQuantidade .modal-title');
+                        const addToCartBtn = document.getElementById('add-to-cart');
+                        const quantidadeInput = document.getElementById('product-quantity');
+                        
+                        // Preencher dados no modal
+                        if (modalTitle && produtoNome) {
+                            modalTitle.textContent = produtoNome;
                         }
-                        // Última opção: tentar usar classe CSS
-                        else {
-                            modalQuantidade.classList.add('show');
-                            modalQuantidade.style.display = 'block';
-                            
-                            // Adicionar backdrop
-                            const backdrop = document.createElement('div');
-                            backdrop.className = 'modal-backdrop fade show';
-                            document.body.appendChild(backdrop);
+                        
+                        // Configurar botão de adicionar ao carrinho com os dados do produto
+                        if (addToCartBtn) {
+                            addToCartBtn.setAttribute('data-id', produtoId);
+                            addToCartBtn.setAttribute('data-name', produtoNome || '');
+                            addToCartBtn.setAttribute('data-price', produtoPreco || '0');
+                            console.log("Botão add-to-cart configurado com ID:", produtoId);
+                        } else {
+                            console.error("Botão add-to-cart não encontrado no modal");
+                        }
+                        
+                        // Atualizar outros elementos do modal
+                        const modalProductPrice = document.getElementById('modal-product-price');
+                        if (modalProductPrice && produtoPreco) {
+                            // Limpar o valor para garantir formatação consistente
+                            const precoLimpo = produtoPreco.replace(/[^\d,.]/g, '').replace(',', '.');
+                            modalProductPrice.textContent = `R$ ${parseFloat(precoLimpo).toFixed(2)}`;
+                        }
+                        
+                        const modalProductStock = document.getElementById('modal-product-stock');
+                        if (modalProductStock && produtoEstoque) {
+                            modalProductStock.textContent = produtoEstoque;
+                        }
+                        
+                        if (quantidadeInput) {
+                            quantidadeInput.value = "1";
+                            // Focar no input após abrir o modal
+                            setTimeout(() => {
+                                quantidadeInput.focus();
+                                quantidadeInput.select();
+                            }, 500);
+                        }
+                        
+                        // Abrir o modal - tenta diferentes métodos
+                        try {
+                            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                                console.log("Abrindo modal via Bootstrap");
+                                const modal = new bootstrap.Modal(modalQuantidade);
+                                modal.show();
+                            } else if (typeof $ !== 'undefined' && $.fn && $.fn.modal) {
+                                console.log("Abrindo modal via jQuery");
+                                $(modalQuantidade).modal('show');
+                            } else {
+                                // Fallback para CSS
+                                console.log("Abrindo modal via CSS");
+                                modalQuantidade.style.display = 'block';
+                                modalQuantidade.classList.add('show');
+                                document.body.classList.add('modal-open');
+                                
+                                // Adicionar backdrop se não existir
+                                if (!document.querySelector('.modal-backdrop')) {
+                                    const backdrop = document.createElement('div');
+                                    backdrop.className = 'modal-backdrop show';
+                                    document.body.appendChild(backdrop);
+                                }
+                            }
+                        } catch (e) {
+                            console.error("Erro ao abrir modal:", e);
+                            // Se falhar ao abrir o modal, adiciona diretamente ao carrinho
+                            if (confirm("Não foi possível abrir o modal. Deseja adicionar o produto diretamente ao carrinho com quantidade 1?")) {
+                                adicionarAoCarrinhoAjax(produtoId, 1);
+                            }
                         }
                     } else {
-                        console.error("Erro: Modal de quantidade não encontrado!");
-                        
-                        // Se não houver modal, tentar adicionar diretamente
-                        adicionarAoCarrinhoAjax(produtoId, 1);
+                        console.error("Modal de quantidade não encontrado! Adicionando diretamente ao carrinho.");
+                        // Se não houver modal, adicionar diretamente ao carrinho
+                        if (confirm("Modal não encontrado. Deseja adicionar o produto diretamente ao carrinho com quantidade 1?")) {
+                            adicionarAoCarrinhoAjax(produtoId, 1);
+                        }
                     }
                 });
             });
+            
+            console.log("Eventos de clique configurados para todos os produtos");
         } else {
-            console.log("Nenhum produto encontrado, verificando alternativas...");
+            console.warn("Nenhum produto encontrado na página para configurar cliques!");
             
-            // Verificar elementos de produtos alternativos
-            const alternativeProdutos = document.querySelectorAll('.product, .item-produto, .produto');
-            
-            if (alternativeProdutos.length > 0) {
-                console.log(`Encontrados ${alternativeProdutos.length} produtos alternativos`);
+            // Tenta encontrar produtos com outros seletores
+            const altProdutos = document.querySelectorAll('[data-product], .item-produto, .produto');
+            if (altProdutos.length > 0) {
+                console.log(`Encontrados ${altProdutos.length} produtos com seletores alternativos`);
                 
-                alternativeProdutos.forEach(produto => {
-                    // Remover listener antigo clonando o elemento
-                    const clone = produto.cloneNode(true);
-                    produto.parentNode.replaceChild(clone, produto);
-                    
-                    // Adicionar novo evento de clique
-                    clone.addEventListener('click', function() {
-                        // Tentar extrair ID e outros dados
-                        let produtoId = this.getAttribute('data-id') || 
-                                         this.dataset.id || 
-                                         this.querySelector('[data-id]')?.dataset.id;
-                        
-                        // Se não encontrou ID, tentar extrair de um link
-                        if (!produtoId) {
-                            const link = this.querySelector('a[href*="produto"]');
-                            if (link) {
-                                const matches = link.href.match(/produto\/(\d+)/);
-                                if (matches && matches[1]) {
-                                    produtoId = matches[1];
-                                }
-                            }
-                        }
-                        
+                altProdutos.forEach(item => {
+                    // Adicionar evento de clique
+                    item.addEventListener('click', function() {
+                        const produtoId = this.getAttribute('data-id') || this.getAttribute('id')?.replace('produto-', '');
                         if (produtoId) {
-                            console.log(`Produto alternativo clicado: ID=${produtoId}`);
-                            
-                            // Tentar abrir modal ou adicionar diretamente
-                            const modalQuantidade = document.getElementById('quantidadeModal') || document.getElementById('produtoModal');
-                            
-                            if (modalQuantidade) {
-                                // Preencher dado mínimo necessário
-                                const produtoIdInput = document.getElementById('produto_id');
-                                if (produtoIdInput) produtoIdInput.value = produtoId;
-                                
-                                // Abrir modal
-                                if (typeof bootstrap !== 'undefined') {
-                                    const modal = new bootstrap.Modal(modalQuantidade);
-                                    modal.show();
-                                } else if (typeof $ !== 'undefined') {
-                                    $(modalQuantidade).modal('show');
-                                }
-                            } else {
-                                // Adicionar diretamente com quantidade padrão 1
-                                adicionarAoCarrinhoAjax(produtoId, 1);
-                            }
-                        } else {
-                            console.error("Não foi possível identificar o ID do produto");
+                            console.log("Produto alternativo clicado, ID:", produtoId);
+                            // Adicionar diretamente ao carrinho para garantir funcionalidade
+                            adicionarAoCarrinhoAjax(produtoId, 1);
                         }
                     });
                 });
-            } else {
-                console.warn("Nenhum elemento de produto encontrado na página");
             }
         }
-    }
-
-    // Garantir que o CSRF token esteja no DOM
-    function ensureCSRFToken() {
-        if (!document.querySelector('input[name=csrfmiddlewaretoken]')) {
-            console.log("CSRF token input não encontrado, adicionando ao DOM");
-            // Obter token do cookie
-            const csrftoken = getCookie('csrftoken');
-            if (csrftoken) {
-                // Criar input hidden e adicionar ao body
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'csrfmiddlewaretoken';
-                input.value = csrftoken;
-                document.body.appendChild(input);
-                console.log("CSRF token input adicionado ao DOM:", csrftoken);
-            }
-        }
-    }
-
-    // Função para buscar produtos com código curto ou texto
-    function buscarProdutos(termo) {
-        console.log(`Buscando produtos com termo: "${termo}"`);
-        
-        // Verificar se o termo é muito curto (menos de 3 caracteres)
-        const termoCurto = termo.length < 3;
-        const produtos = [];
-        
-        // Tenta encontrar os produtos usando diferentes seletores
-        const produtoItems = document.querySelectorAll('.produto-item, tr.product-item, .product-card');
-        
-        if (produtoItems.length === 0) {
-            console.warn("Nenhum produto encontrado na página.");
-            return { encontrados: [], exato: null };
-        }
-        
-        // Primeiro buscar correspondência exata
-        let produtoExato = null;
-        
-        produtoItems.forEach(produto => {
-            const codigo = (produto.getAttribute('data-code') || '').toLowerCase();
-            const nome = (produto.getAttribute('data-name') || '').toLowerCase();
-            const termoLower = termo.toLowerCase();
-            
-            // Verificar correspondência exata
-            if (codigo === termoLower || nome === termoLower) {
-                produtoExato = produto;
-                produtos.push(produto);
-            }
-        });
-        
-        // Se não encontrou nenhum produto exato e o termo não é curto,
-        // buscar produtos que contenham o termo
-        if (!produtoExato && !termoCurto) {
-            produtoItems.forEach(produto => {
-                const codigo = (produto.getAttribute('data-code') || '').toLowerCase();
-                const nome = (produto.getAttribute('data-name') || '').toLowerCase();
-                const termoLower = termo.toLowerCase();
-                
-                if ((codigo.includes(termoLower) || nome.includes(termoLower)) 
-                    && !produtos.includes(produto)) {
-                    produtos.push(produto);
-                }
-            });
-        }
-        
-        return {
-            encontrados: produtos,
-            exato: produtoExato
-        };
     }
     
-    // Função para mostrar modal de seleção de produtos
-    function mostrarModalSelecaoProdutos(produtos) {
-        console.log(`Mostrando modal de seleção para ${produtos.length} produtos encontrados`);
+    // Configurar entrada de quantidade
+    function setupQuantityInput() {
+        console.log("Configurando input de quantidade");
         
-        if (produtos.length === 0) return;
+        const quantityInput = document.getElementById('product-quantity');
+        if (quantityInput) {
+            // Clonar e substituir para remover eventos anteriores
+            const newInput = quantityInput.cloneNode(true);
+            quantityInput.parentNode.replaceChild(newInput, quantityInput);
+            
+            // Adicionar evento de tecla Enter
+            newInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    
+                    const addToCartButton = document.getElementById('add-to-cart') || 
+                                          document.getElementById('add-to-cart-button') ||
+                                          document.querySelector('.add-to-cart-button') ||
+                                          document.querySelector('[data-action="add-to-cart"]');
+                    
+                    if (addToCartButton) {
+                        console.log("Simulando clique no botão adicionar ao carrinho");
+                        addToCartButton.click();
+                    } else {
+                        console.warn("Botão 'Adicionar ao Carrinho' não encontrado para simular clique");
+                        
+                        // Tenta adicionar diretamente ao carrinho
+                        const produtoId = document.querySelector('#modalQuantidade [data-id]')?.getAttribute('data-id');
+                        if (produtoId) {
+                            adicionarAoCarrinhoAjax(produtoId, this.value);
+                        } else {
+                            console.error("Não foi possível determinar o ID do produto");
+                        }
+                    }
+                }
+            });
+            
+            // Configurar botões de incremento/decremento
+            const decreaseBtn = document.getElementById('decrease-qty');
+            const increaseBtn = document.getElementById('increase-qty');
+            
+            if (decreaseBtn) {
+                decreaseBtn.addEventListener('click', function() {
+                    const currentVal = parseInt(newInput.value) || 1;
+                    newInput.value = Math.max(1, currentVal - 1);
+                });
+            }
+            
+            if (increaseBtn) {
+                increaseBtn.addEventListener('click', function() {
+                    const currentVal = parseInt(newInput.value) || 0;
+                    newInput.value = currentVal + 1;
+                });
+            }
+            
+            console.log("Evento keydown e botões de quantidade configurados");
+        } else {
+            console.warn("Input de quantidade 'product-quantity' não encontrado!");
+        }
+    }
+    
+    // Configurar o formulário de pagamento
+    function setupPaymentForm() {
+        console.log("Configurando formulário de pagamento");
         
-        // Verificar se temos SweetAlert disponível
-        if (typeof Swal === 'undefined') {
-            // Fallback para alert básico
-            alert("Múltiplos produtos encontrados. Por favor, especifique melhor sua busca.");
+        // Elementos do formulário de pagamento
+        let paymentMethodSelect = document.getElementById('metodo_pagamento');
+        let cashPaymentSection = document.getElementById('change-container');
+        
+        // Tenta encontrar por outros seletores se não encontrar pelo ID padrão
+        if (!paymentMethodSelect) {
+            paymentMethodSelect = document.querySelector('.payment-method-select, [name="payment_method"], #payment-method');
+            console.log("Método de pagamento alternativo encontrado:", paymentMethodSelect ? "Sim" : "Não");
+        }
+        
+        if (!cashPaymentSection) {
+            cashPaymentSection = document.querySelector('.cash-payment, #payment-cash-section, #cash-payment-section');
+            console.log("Seção de pagamento em dinheiro alternativa encontrada:", cashPaymentSection ? "Sim" : "Não");
+        }
+        
+        if (paymentMethodSelect) {
+            console.log("Método de pagamento inicial:", paymentMethodSelect.value);
+            debugElemento(paymentMethodSelect, "Select de método de pagamento:");
+            
+            // Mostrar/esconder seção de pagamento em dinheiro com base no método selecionado
+            function updateCashPaymentVisibility() {
+                const selectedMethod = paymentMethodSelect.value;
+                console.log("Método de pagamento selecionado:", selectedMethod);
+                
+                if (cashPaymentSection) {
+                    if (selectedMethod === 'dinheiro' || selectedMethod === 'cash' || selectedMethod === '1') {
+                        cashPaymentSection.style.display = 'block';
+                        console.log("Mostrando seção de pagamento em dinheiro");
+                    } else {
+                        cashPaymentSection.style.display = 'none';
+                        console.log("Ocultando seção de pagamento em dinheiro");
+                    }
+                } else {
+                    console.warn("Seção de pagamento em dinheiro não encontrada");
+                }
+            }
+            
+            // Configurar evento de mudança
+            paymentMethodSelect.addEventListener('change', updateCashPaymentVisibility);
+            
+            // Chamar imediatamente para configurar o estado inicial
+            updateCashPaymentVisibility();
+            
+            // Configurar cálculo de troco
+            calcularTroco();
+        } else {
+            console.warn("Select de método de pagamento não encontrado");
+        }
+    }
+    
+    // Calcular troco com base no valor pago
+    function calcularTroco() {
+        console.log("Configurando cálculo de troco");
+        
+        const paymentInput = document.getElementById('payment-amount');
+        
+        if (!paymentInput) {
+            console.warn("Input de valor pago não encontrado");
             return;
         }
         
-        // Criar HTML para listar os produtos
-        let html = '<div class="list-group">';
+        paymentInput.addEventListener('input', function() {
+            // Obter o valor total da venda
+            const totalElement = document.getElementById('total-sale') || 
+                                document.getElementById('total_venda') ||
+                                document.getElementById('cart-total');
+            
+            if (!totalElement) {
+                console.warn("Elemento de total da venda não encontrado");
+                return;
+            }
+            
+            console.log("Total da venda (elemento):", totalElement.textContent);
+            
+            // Extrair valor numérico do total (removendo R$ e outros caracteres)
+            const totalText = totalElement.textContent.replace(/[^\d,.]/g, '').replace(',', '.');
+            const totalValue = parseFloat(totalText);
+            
+            console.log("Total da venda (valor):", totalValue);
+            
+            // Obter valor pago
+            const amountPaid = parseFloat(this.value) || 0;
+            console.log("Valor pago:", amountPaid);
+            
+            // Calcular troco
+            const change = amountPaid - totalValue;
+            console.log("Troco calculado:", change);
+            
+            // Exibir troco
+            const changeElement = document.getElementById('change-amount') || 
+                                 document.getElementById('troco') ||
+                                 document.querySelector('.change-display');
+            
+            if (changeElement) {
+                // Se o troco for negativo, mostrar quanto falta para completar o pagamento
+                if (change < 0) {
+                    changeElement.textContent = `Faltam R$ ${Math.abs(change).toFixed(2)}`;
+                    changeElement.style.color = 'red';
+                } else {
+                    changeElement.textContent = `R$ ${change.toFixed(2)}`;
+                    changeElement.style.color = 'green';
+                }
+            } else {
+                console.warn("Elemento de exibição de troco não encontrado");
+            }
+        });
         
+        console.log("Evento de cálculo de troco configurado");
+    }
+    
+    // Função para buscar produtos pelo código/nome
+    function buscarProdutos(termo) {
+        console.log("Buscando produtos com termo:", termo);
+        
+        // Obter todos os produtos da tabela
+        const produtos = Array.from(document.querySelectorAll('#products-grid tbody tr.product-item'));
+        console.log(`Total de produtos disponíveis: ${produtos.length}`);
+        
+        // Verificar se o termo de busca é curto (menos de 3 caracteres)
+        const termoCurto = termo.length < 3;
+        let resultados = [];
+        
+        // Para termos curtos, buscamos apenas correspondência exata de código
+        if (termoCurto) {
+            console.log("Termo curto, buscando apenas correspondência exata de código");
+            resultados = produtos.filter(p => p.getAttribute('data-code') === termo);
+        } else {
+            // Para termos longos, buscamos correspondência parcial em código ou nome
+            console.log("Termo longo, buscando correspondências parciais");
+            
+            // Primeiro tenta buscar por correspondência exata do código
+            const correspondenciaExata = produtos.find(p => p.getAttribute('data-code') === termo);
+            if (correspondenciaExata) {
+                resultados = [correspondenciaExata];
+            } else {
+                // Busca por nome exato (ignorando maiúsculas/minúsculas)
+                const correspondenciaNomeExato = produtos.find(p => 
+                    p.getAttribute('data-name').toLowerCase() === termo.toLowerCase()
+                );
+                
+                if (correspondenciaNomeExato) {
+                    resultados = [correspondenciaNomeExato];
+                } else {
+                    // Busca parcial em código ou nome
+                    resultados = produtos.filter(p => 
+                        p.getAttribute('data-code').includes(termo) || 
+                        p.getAttribute('data-name').toLowerCase().includes(termo.toLowerCase())
+                    );
+                }
+            }
+        }
+        
+        console.log(`Produtos encontrados: ${resultados.length}`);
+        return resultados;
+    }
+    
+    // Função para mostrar modal de seleção de produtos quando múltiplos são encontrados
+    function mostrarModalSelecaoProdutos(produtos) {
+        console.log("Mostrando modal de seleção com", produtos.length, "produtos");
+        
+        // Verificar se a biblioteca SweetAlert2 está disponível
+        if (typeof Swal === 'undefined') {
+            alert('Múltiplos produtos encontrados. Por favor, digite um código mais específico.');
+            return;
+        }
+        
+        // Criar HTML da lista de produtos
+        let htmlProdutos = '<div class="list-group">';
         produtos.forEach(produto => {
             const id = produto.getAttribute('data-id');
             const nome = produto.getAttribute('data-name');
             const codigo = produto.getAttribute('data-code');
-            const preco = produto.getAttribute('data-price');
+            const preco = parseFloat(produto.getAttribute('data-price').replace(',', '.')).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
             
-            html += `
-                <button type="button" class="list-group-item list-group-item-action produto-selecao" data-id="${id}">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>${nome}</strong>
-                            <small class="d-block text-muted">Código: ${codigo}</small>
-                        </div>
-                        <span class="badge bg-primary rounded-pill">R$ ${parseFloat(preco).toFixed(2)}</span>
+            htmlProdutos += `
+                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center produto-opcao" data-id="${id}">
+                    <div>
+                        <strong>${nome}</strong>
+                        <br><small class="text-muted">Código: ${codigo}</small>
                     </div>
+                    <span class="badge bg-primary rounded-pill">${preco}</span>
                 </button>
             `;
         });
+        htmlProdutos += '</div>';
         
-        html += '</div>';
-        
-        // Mostrar o modal com os produtos
+        // Exibir o modal com a lista de produtos
         Swal.fire({
             title: 'Selecione um Produto',
-            html: html,
-            showCancelButton: true,
+            html: htmlProdutos,
             showConfirmButton: false,
+            showCancelButton: true,
             cancelButtonText: 'Cancelar',
-            width: '600px',
+            focusCancel: true,
             didOpen: () => {
-                // Adicionar eventos de clique aos produtos
-                document.querySelectorAll('.produto-selecao').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const produtoId = this.getAttribute('data-id');
+                // Adicionar eventos de clique aos produtos listados
+                document.querySelectorAll('.produto-opcao').forEach(opcao => {
+                    opcao.addEventListener('click', () => {
+                        const produtoId = opcao.getAttribute('data-id');
                         const produtoSelecionado = produtos.find(p => p.getAttribute('data-id') === produtoId);
                         
-                        // Fechar o modal
-                        Swal.close();
-                        
-                        // Selecionar o produto
                         if (produtoSelecionado) {
-                            console.log(`Produto selecionado: ${produtoSelecionado.getAttribute('data-name')}`);
+                            // Fechar o modal
+                            Swal.close();
                             
-                            // Verificar se o produto está sem estoque
-                            const estoque = parseInt(produtoSelecionado.getAttribute('data-stock') || '0');
-                            if (estoque <= 0) {
-                                Swal.fire('Produto sem estoque', 'Este produto não está disponível no momento.', 'warning');
-                                return;
-                            }
-                            
-                            // Simular clique no produto
+                            // Selecionar o produto (dispara um clique no produto)
                             produtoSelecionado.click();
                         }
                     });
@@ -827,120 +836,73 @@
         });
     }
     
-    // Hook para interceptar a busca pelo campo código_produto
+    // Configurar campo de busca de produtos
     function setupProductSearchField() {
-        const searchInput = document.getElementById('codigo_produto');
-        if (!searchInput) {
-            console.warn("Campo de busca não encontrado");
+        console.log("Configurando campo de busca de produtos");
+        
+        const codigoProdutoInput = document.getElementById('codigo_produto');
+        if (!codigoProdutoInput) {
+            console.warn("Campo de busca de produtos não encontrado");
             return;
         }
         
-        console.log("Configurando campo de busca de produtos");
+        // Remover eventos existentes clonando o elemento
+        const newInput = codigoProdutoInput.cloneNode(true);
+        codigoProdutoInput.parentNode.replaceChild(newInput, codigoProdutoInput);
         
-        // Interceptar o evento keydown para tratar Enter
-        searchInput.addEventListener('keydown', function(e) {
+        // Adicionar evento para a tecla Enter
+        newInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                
                 const termo = this.value.trim();
-                if (!termo) return;
                 
-                console.log(`Termo de busca: "${termo}"`);
+                if (!termo) {
+                    alert("Digite um código ou nome de produto para buscar");
+                    return;
+                }
                 
-                // Verificar se o termo é muito curto
-                if (termo.length < 3) {
-                    // Para termos curtos, exigir correspondência exata
-                    const { encontrados, exato } = buscarProdutos(termo);
-                    
-                    if (exato) {
-                        // Verificar estoque do produto
-                        const estoque = parseInt(exato.getAttribute('data-stock') || '0');
-                        if (estoque <= 0) {
-                            Swal.fire('Produto sem estoque', 'Este produto não está disponível no momento.', 'warning');
-                            return;
-                        }
-                        
-                        // Simular clique no produto
-                        exato.click();
-                    } else if (encontrados.length > 1) {
-                        // Se encontrou múltiplos produtos, mostrar alerta
+                console.log("Buscando produtos com termo:", termo);
+                const produtosEncontrados = buscarProdutos(termo);
+                
+                if (produtosEncontrados.length === 0) {
+                    // Nenhum produto encontrado
+                    if (termo.length < 3) {
                         Swal.fire({
                             icon: 'info',
                             title: 'Código muito curto',
-                            text: 'Para códigos curtos, insira o código exato do produto ou pelo menos 3 caracteres para busca.',
+                            text: 'Para códigos curtos, certifique-se de digitar o código exato do produto.',
                             confirmButtonText: 'OK'
                         });
                     } else {
-                        // Nenhum produto encontrado
-                        Swal.fire('Produto não encontrado', 'Verifique o código ou digite mais caracteres para busca.', 'warning');
+                        Swal.fire('Produto não encontrado', 'Verifique o código ou nome digitado.', 'info');
                     }
+                } else if (produtosEncontrados.length === 1) {
+                    // Um único produto encontrado - simular clique nele
+                    produtosEncontrados[0].click();
                 } else {
-                    // Para termos mais longos, buscar normalmente
-                    const { encontrados, exato } = buscarProdutos(termo);
-                    
-                    if (exato) {
-                        // Verificar estoque do produto
-                        const estoque = parseInt(exato.getAttribute('data-stock') || '0');
-                        if (estoque <= 0) {
-                            Swal.fire('Produto sem estoque', 'Este produto não está disponível no momento.', 'warning');
-                            return;
-                        }
-                        
-                        // Simular clique no produto
-                        exato.click();
-                    } else if (encontrados.length === 1) {
-                        // Apenas um produto encontrado, verificar estoque
-                        const estoque = parseInt(encontrados[0].getAttribute('data-stock') || '0');
-                        if (estoque <= 0) {
-                            Swal.fire('Produto sem estoque', 'Este produto não está disponível no momento.', 'warning');
-                            return;
-                        }
-                        
-                        // Simular clique no produto
-                        encontrados[0].click();
-                    } else if (encontrados.length > 1) {
-                        // Múltiplos produtos encontrados, mostrar modal de seleção
-                        mostrarModalSelecaoProdutos(encontrados);
-                    } else {
-                        // Nenhum produto encontrado
-                        Swal.fire('Produto não encontrado', 'Verifique o código ou digite mais caracteres para busca.', 'warning');
-                    }
+                    // Múltiplos produtos encontrados - mostrar modal de seleção
+                    mostrarModalSelecaoProdutos(produtosEncontrados);
                 }
-                
-                // Limpar o campo de busca
-                this.value = '';
             }
         });
-    }
-
-    // Inicializar quando o DOM estiver carregado
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log("DOM carregado - Inicializando configurações do PDV");
         
-        // Garantir que o CSRF token esteja presente no DOM
+        console.log("Campo de busca de produtos configurado");
+    }
+    
+    // Inicialização
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM carregado, inicializando sistema PDV...");
+        
+        // Garantir token CSRF
         ensureCSRFToken();
         
-        // Configurar o AJAX para incluir o CSRF token em todas as requisições
-        if (typeof $ !== 'undefined') {
-            $.ajaxSetup({
-                beforeSend: function(xhr, settings) {
-                    if (!this.crossDomain) {
-                        const csrftoken = getCSRFToken();
-                        if (csrftoken) {
-                            xhr.setRequestHeader("X-CSRFToken", csrftoken);
-                        }
-                    }
-                }
-            });
-        }
-        
-        // Configurar os componentes
+        // Configurar componentes
         setupProductClicks();
         setupQuantityInput();
         setupAddToCartButton();
-        setupProductSearchField();
+        setupPaymentForm();
+        setupProductSearchField(); // Adicionar configuração do campo de busca
         
-        // Log para confirmar inicialização
-        console.log("PDV inicializado com sucesso!");
+        console.log("Sistema PDV inicializado com sucesso!");
     });
 })(); 
