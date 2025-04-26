@@ -1,0 +1,70 @@
+{% if carrinho %}
+<table class="table table-hover mb-0">
+    <thead>
+        <tr>
+            <th>Produto</th>
+            <th class="text-center">Qtd</th>
+            <th class="text-end">Preço</th>
+            <th class="text-end">Total</th>
+            <th class="text-center">Ações</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in carrinho %}
+        <tr class="cart-item" data-id="{{ item.produto_id }}">
+            <td>
+                <div class="fw-bold">{{ item.nome }}</div>
+                <div class="small text-muted">Código: {{ item.codigo }}</div>
+            </td>
+            <td class="text-center align-middle">
+                <span class="badge {% if item.quantidade > 1 %}bg-primary{% else %}bg-light text-dark{% endif %} py-2 px-3">
+                    {{ item.quantidade }}
+                </span>
+            </td>
+            <td class="text-end align-middle">
+                R$ {{ item.preco }}
+            </td>
+            <td class="text-end align-middle fw-bold">
+                {% with total=item.quantidade|floatformat:"0"|slugify|add:"0"|stringformat:"i"|mul:item.preco|floatformat:"2" %}
+                R$ {{ total }}
+                {% endwith %}
+            </td>
+            <td class="text-center align-middle">
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-secondary btn-decrease-qty" title="Diminuir" data-id="{{ item.produto_id }}">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-increase-qty" title="Aumentar" data-id="{{ item.produto_id }}">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-remove-item" title="Remover" data-id="{{ item.produto_id }}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light rounded">
+    <span class="fw-bold">Total de Itens: {{ carrinho|length }}</span>
+    <span class="h5 mb-0">
+        {% with total_geral=0 %}
+            {% for item in carrinho %}
+                {% with item_total=item.quantidade|floatformat:"0"|slugify|add:"0"|stringformat:"i"|mul:item.preco|floatformat:"2" %}
+                    {% with total_geral=total_geral|add:item_total %}{% endwith %}
+                {% endwith %}
+            {% endfor %}
+            Total: <span class="text-primary">R$ {{ total_geral|floatformat:"2" }}</span>
+        {% endwith %}
+    </span>
+</div>
+
+{% else %}
+<div class="text-center text-muted py-5">
+    <i class="fas fa-shopping-cart fa-3x mb-3"></i>
+    <p class="lead">Seu carrinho está vazio</p>
+    <p>Adicione produtos para realizar a venda</p>
+</div>
+{% endif %} 

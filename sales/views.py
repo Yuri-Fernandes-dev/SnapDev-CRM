@@ -6,6 +6,7 @@ from django.db.models import Q, Sum, Count, Avg, F, DecimalField, CharField, Val
 from django.db.models.functions import Concat, TruncDate, ExtractHour, ExtractWeekDay
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.template.exceptions import TemplateDoesNotExist
 from datetime import timedelta
 import json
 import numpy as np
@@ -202,6 +203,88 @@ def product_search(request):
         product_list.append(product_data)
     
     return JsonResponse({'products': product_list})
+
+@login_required
+def adicionar_item(request):
+    """
+    View para adicionar item ao carrinho via AJAX
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    
+    # Log dos dados recebidos para debug
+    logger.debug(f"Dados recebidos: {request.POST}")
+    
+    # Obter e validar produto_id
+    try:
+        produto_id = request.POST.get('produto_id')
+        if not produto_id:
+            return JsonResponse({'error': 'ID do produto não fornecido'}, status=400)
+        
+        # Verificar se o produto existe
+        produto = get_object_or_404(Product, id=produto_id, company=request.user.company)
+        
+        # Validar quantidade
+        try:
+            quantidade = int(request.POST.get('quantidade', 1))
+            if quantidade <= 0:
+                return JsonResponse({'error': 'Quantidade deve ser maior que zero'}, status=400)
+        except ValueError:
+            return JsonResponse({'error': 'Quantidade inválida'}, status=400)
+            
+        # Verificar estoque
+        if produto.stock_quantity < quantidade:
+            return JsonResponse({'error': f'Estoque insuficiente. Disponível: {produto.stock_quantity}'}, status=400)
+        
+        # Inicializar carrinho na sessão se não existir
+        if 'carrinho' not in request.session:
+            request.session['carrinho'] = []
+        
+        carrinho = request.session['carrinho']
+        
+        # Verificar se o produto já está no carrinho
+        for item in carrinho:
+            if item['produto_id'] == produto_id:
+                # Atualizar quantidade
+                item['quantidade'] += quantidade
+                break
+        else:
+            # Adicionar novo item
+            carrinho.append({
+                'produto_id': produto_id,
+                'nome': produto.name,
+                'preco': str(produto.price),  # Usar str para Decimal
+                'codigo': produto.code,
+                'quantidade': quantidade
+            })
+        
+        # Salvar carrinho atualizado na sessão
+        request.session['carrinho'] = carrinho
+        request.session.modified = True
+        
+        logger.debug(f"Carrinho após adição: {carrinho}")
+        
+        # Renderizar a tabela de itens atualizada
+        # Tentativa 1: Template padrão do app
+        try:
+            return render(request, 'sales/itens_venda.html', {'carrinho': carrinho})
+        except TemplateDoesNotExist:
+            # Tentativa 2: Template do sistema (caminho alternativo)
+            try:
+                return render(request, 'sistema/vendas/itens_venda.html', {'carrinho': carrinho})
+            except TemplateDoesNotExist:
+                # Último recurso: retornar JSON
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Item adicionado ao carrinho, mas o template não foi encontrado.'
+                })
+        
+    except Exception as e:
+        logger.error(f"Erro ao adicionar item: {str(e)}")
+        return JsonResponse({'error': f'Erro ao adicionar item: {str(e)}'}, status=500)
 
 @login_required
 def create_sale(request):

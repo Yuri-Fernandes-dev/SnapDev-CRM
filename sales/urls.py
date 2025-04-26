@@ -13,6 +13,7 @@ urlpatterns = [
     path('<int:pk>/recibo-pdf/', views.sale_pdf, name='sale_pdf'),
     path('<int:pk>/whatsapp/', views.send_whatsapp_message, name='send_whatsapp'),
     path('busca-produto/', views.product_search, name='product_search'),
+    path('adicionar-item/', views.adicionar_item, name='adicionar_item'),  # Nova URL para adicionar item ao carrinho
     path('criar/', views.create_sale, name='create_sale'),
     path('api/criar-venda/', views.create_sale, name='sale_create_api'),
     path('confirmar-venda/', views.create_sale, name='confirm_sale'),
