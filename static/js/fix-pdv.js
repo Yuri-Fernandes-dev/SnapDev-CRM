@@ -86,6 +86,106 @@
         }
     }
     
+    // Função para calcular totais do carrinho
+    function calcularTotaisCarrinho() {
+        console.log("Calculando totais do carrinho");
+        
+        try {
+            // Encontrar o contêiner dos itens do carrinho
+            const cartItemsContainer = document.getElementById('cart-items') || 
+                                      document.getElementById('items-cart-container') || 
+                                      document.getElementById('itens_venda');
+            
+            if (!cartItemsContainer) {
+                console.warn("Container de itens do carrinho não encontrado");
+                return false;
+            }
+            
+            // Encontrar todos os itens do carrinho
+            const cartItems = cartItemsContainer.querySelectorAll('.cart-item, .item-carrinho, tr.item');
+            console.log(`Encontrados ${cartItems.length} itens no carrinho`);
+            
+            if (cartItems.length === 0) {
+                // Carrinho vazio, definir totais como zero
+                atualizarTotaisInterface(0);
+                return true;
+            }
+            
+            // Calcular o subtotal somando os valores de todos os itens
+            let subtotal = 0;
+            
+            cartItems.forEach(item => {
+                // Tenta encontrar o preço total do item em diferentes possíveis elementos
+                const precoText = item.querySelector('.item-price, .preco, .subtotal, td.subtotal')?.textContent || '0';
+                
+                // Limpar o texto do preço (remover R$, vírgulas, etc.)
+                const precoLimpo = precoText.replace(/[^\d,.]/g, '').replace(',', '.');
+                const preco = parseFloat(precoLimpo) || 0;
+                
+                console.log(`Item encontrado com preço: ${preco}`);
+                subtotal += preco;
+            });
+            
+            console.log(`Subtotal calculado: R$${subtotal.toFixed(2)}`);
+            
+            // Verificar desconto
+            const descontoInput = document.getElementById('desconto');
+            let desconto = 0;
+            
+            if (descontoInput) {
+                desconto = parseFloat(descontoInput.value) || 0;
+            }
+            
+            console.log(`Desconto aplicado: R$${desconto.toFixed(2)}`);
+            
+            // Calcular total final
+            const total = Math.max(0, subtotal - desconto);
+            console.log(`Total final calculado: R$${total.toFixed(2)}`);
+            
+            // Atualizar a interface
+            atualizarTotaisInterface(subtotal, desconto, total);
+            
+            return true;
+        } catch (e) {
+            console.error("Erro ao calcular totais do carrinho:", e);
+            return false;
+        }
+    }
+    
+    // Função para atualizar os totais na interface
+    function atualizarTotaisInterface(subtotal, desconto = 0, total = null) {
+        // Se total não for fornecido, assume que é igual ao subtotal menos desconto
+        if (total === null) {
+            total = Math.max(0, subtotal - desconto);
+        }
+        
+        // Formatar valores para exibição
+        const subtotalFormatado = `R$ ${subtotal.toFixed(2)}`;
+        const totalFormatado = `R$ ${total.toFixed(2)}`;
+        
+        // Atualizar o subtotal
+        const subtotalElement = document.getElementById('subtotal');
+        if (subtotalElement) {
+            subtotalElement.textContent = subtotalFormatado;
+        }
+        
+        // Atualizar o total em todos os possíveis elementos
+        const totalElements = document.querySelectorAll('#total, #total-sale, #total_venda, .total-value');
+        totalElements.forEach(el => {
+            el.textContent = totalFormatado;
+        });
+        
+        console.log(`Interface atualizada: Subtotal=${subtotalFormatado}, Total=${totalFormatado}`);
+        
+        // Verificar se o cálculo de troco deve ser atualizado
+        const paymentInput = document.getElementById('payment-amount');
+        if (paymentInput && paymentInput.value) {
+            // Simular um evento de input para recalcular o troco
+            const event = new Event('input', { bubbles: true });
+            paymentInput.dispatchEvent(event);
+        }
+    }
+    
     // Função para adicionar ao carrinho via AJAX
     function adicionarAoCarrinhoAjax(produtoId, quantidade) {
         console.log(`Adicionando produto ID ${produtoId} com quantidade ${quantidade} ao carrinho`);
@@ -225,17 +325,14 @@
                             cartItemsContainer.innerHTML = html || '<div class="text-center py-3">Nenhum item no carrinho</div>';
                         }
                         
-                        // Atualizar totais
+                        // Atualizar totais diretamente com os valores da resposta
                         if (data.subtotal) {
-                            const subtotalElement = document.getElementById('subtotal');
-                            if (subtotalElement) subtotalElement.textContent = `R$ ${parseFloat(data.subtotal).toFixed(2)}`;
-                        }
-                        
-                        if (data.total) {
-                            const totalElements = document.querySelectorAll('#total, #total-sale, #total_venda, .total-value');
-                            totalElements.forEach(el => {
-                                el.textContent = `R$ ${parseFloat(data.total).toFixed(2)}`;
-                            });
+                            const subtotal = parseFloat(data.subtotal);
+                            const total = parseFloat(data.total || data.subtotal);
+                            atualizarTotaisInterface(subtotal, 0, total);
+                        } else {
+                            // Se não houver valores na resposta, calcular
+                            calcularTotaisCarrinho();
                         }
                     } else {
                         console.error("Erro ao adicionar produto:", data.message);
@@ -248,6 +345,9 @@
                     // Tentar atualizar o carrinho com o HTML retornado
                     try {
                         cartItemsContainer.innerHTML = result.text;
+                        
+                        // Calcular totais após atualizar o HTML
+                        setTimeout(calcularTotaisCarrinho, 100);
                         
                         // Mostrar mensagem de sucesso
                         const successMessage = document.createElement('div');
@@ -299,39 +399,116 @@
         });
     }
     
+    // Função para verificar se o modal existe e criá-lo caso não exista
+    function garantirModalQuantidade() {
+        console.log("Verificando se o modal de quantidade existe...");
+        
+        let modalQuantidade = document.getElementById('modalQuantidade');
+        
+        if (!modalQuantidade) {
+            console.warn("Modal de quantidade não encontrado no DOM! Tentando criar...");
+            
+            // Criar o modal de quantidade dinamicamente
+            const modalHTML = `
+                <div class="modal fade" id="modalQuantidade" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="modal-product-name">Nome do Produto</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <form id="add-to-cart-form">
+                                <div class="modal-body">
+                                    <p class="mb-3">Preço: <span class="fw-bold" id="modal-product-price">R$ 0,00</span></p>
+                                    <p class="mb-3">Estoque disponível: <span class="fw-bold" id="modal-product-stock">0</span></p>
+                                    
+                                    <div class="mb-3">
+                                        <label for="product-quantity" class="form-label">Quantidade</label>
+                                        <div class="input-group">
+                                            <button type="button" class="btn btn-outline-secondary" id="decrease-qty">-</button>
+                                            <input type="number" id="product-quantity" class="form-control text-center" value="1" min="1">
+                                            <button type="button" class="btn btn-outline-secondary" id="increase-qty">+</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary" id="add-to-cart" data-id="">Adicionar ao Carrinho</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Adicionar ao body
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHTML;
+            document.body.appendChild(modalContainer.firstElementChild);
+            
+            // Obter referência para o modal recém-criado
+            modalQuantidade = document.getElementById('modalQuantidade');
+            
+            if (modalQuantidade) {
+                console.log("Modal de quantidade criado com sucesso!");
+            } else {
+                console.error("Falha ao criar o modal de quantidade!");
+            }
+        } else {
+            console.log("Modal de quantidade encontrado:", modalQuantidade.id);
+        }
+        
+        return modalQuantidade;
+    }
+    
     // Configurar botão Adicionar ao Carrinho
     function setupAddToCartButton() {
         console.log("Configurando botão de Adicionar ao Carrinho");
         
+        // Encontrar o botão com diferentes seletores possíveis
         const addToCartButton = document.getElementById('add-to-cart') ||
                                document.getElementById('add-to-cart-button') ||
                                document.querySelector('.add-to-cart-button') ||
                                document.querySelector('[data-action="add-to-cart"]');
         
         if (addToCartButton) {
-            // Clonar e substituir para remover eventos anteriores
+            console.log("Botão de adicionar ao carrinho encontrado:", addToCartButton.id || addToCartButton.className);
+            
+            // Remover TODOS os eventos de clique anteriores clonando o elemento
             const newButton = addToCartButton.cloneNode(true);
             addToCartButton.parentNode.replaceChild(newButton, addToCartButton);
             
-            // Adicionar novo evento
+            // Adicionar novo evento de clique
             newButton.addEventListener('click', function(e) {
                 e.preventDefault();
+                e.stopPropagation(); // Impedir propagação do evento
+                
+                // Desabilitar o botão temporariamente para evitar cliques múltiplos
+                this.disabled = true;
                 
                 // Obter o ID do produto diretamente do atributo data-id do botão
                 const produtoId = this.getAttribute('data-id');
                 
                 // Obter a quantidade do input
                 const quantidadeInput = document.getElementById('product-quantity');
-                const quantidade = quantidadeInput ? quantidadeInput.value : 1;
+                const quantidade = quantidadeInput ? parseInt(quantidadeInput.value) || 1 : 1;
                 
                 if (!produtoId) {
                     console.error("ID de produto não encontrado no botão!");
                     alert("Erro: Não foi possível identificar o produto.");
+                    this.disabled = false; // Reabilitar o botão
                     return;
                 }
                 
                 console.log("Adicionando ao carrinho produto ID:", produtoId, "Quantidade:", quantidade);
+                
+                // Chamar a função para adicionar ao carrinho apenas UMA vez
                 adicionarAoCarrinhoAjax(produtoId, quantidade);
+                
+                // Reabilitar o botão após 2 segundos
+                setTimeout(() => {
+                    this.disabled = false;
+                }, 2000);
             });
             
             console.log("Evento click configurado para o botão Adicionar ao Carrinho");
@@ -344,21 +521,15 @@
     function setupProductClicks() {
         console.log("Configurando cliques nos produtos");
         
+        // Garantir que o modal existe antes de prosseguir
+        const modalQuantidade = garantirModalQuantidade();
+        
         // Registra todos os modais disponíveis para diagnóstico
         const todosModais = document.querySelectorAll('.modal');
         console.log(`Total de modais encontrados: ${todosModais.length}`);
         todosModais.forEach(modal => {
             console.log(`Modal encontrado: ID=${modal.id}, Classes=${modal.className}`);
         });
-        
-        // Verificar se o modal de quantidade existe
-        const modalQuantidade = document.getElementById('modalQuantidade');
-        if (modalQuantidade) {
-            console.log("Modal de quantidade encontrado:", modalQuantidade.id);
-            debugElemento(modalQuantidade, "Modal de quantidade:");
-        } else {
-            console.error("Modal de quantidade NÃO encontrado! Verificar ID correto no HTML.");
-        }
         
         // Tenta diferentes seletores para encontrar os produtos
         const produtoItems = document.querySelectorAll('.produto-item, tr.product-item, .product-card, [data-produto-id], [data-id]');
@@ -444,9 +615,7 @@
                         return;
                     }
                     
-                    // Verificar se o modal existe e está acessível
-                    const modalQuantidade = document.getElementById('modalQuantidade');
-                    
+                    // Usamos o modal garantido
                     if (modalQuantidade) {
                         console.log("Modal encontrado, preparando para abrir");
                         
@@ -490,7 +659,7 @@
                             setTimeout(() => {
                                 quantidadeInput.focus();
                                 quantidadeInput.select();
-                            }, 500);
+                            }, 300);
                         }
                         
                         // Abrir o modal - tenta diferentes métodos
@@ -518,15 +687,13 @@
                             }
                         } catch (e) {
                             console.error("Erro ao abrir modal:", e);
-                            // Se falhar ao abrir o modal, adiciona diretamente ao carrinho
-                            if (confirm("Não foi possível abrir o modal. Deseja adicionar o produto diretamente ao carrinho com quantidade 1?")) {
+                            if (confirm("Não foi possível abrir o modal. Deseja adicionar o produto com quantidade 1?")) {
                                 adicionarAoCarrinhoAjax(produtoId, 1);
                             }
                         }
                     } else {
-                        console.error("Modal de quantidade não encontrado! Adicionando diretamente ao carrinho.");
-                        // Se não houver modal, adicionar diretamente ao carrinho
-                        if (confirm("Modal não encontrado. Deseja adicionar o produto diretamente ao carrinho com quantidade 1?")) {
+                        console.error("Modal de quantidade não encontrado! Tentando adicionar diretamente ao carrinho.");
+                        if (confirm("Modal não encontrado. Deseja adicionar o produto com quantidade 1?")) {
                             adicionarAoCarrinhoAjax(produtoId, 1);
                         }
                     }
@@ -637,6 +804,38 @@
             console.log("Seção de pagamento em dinheiro alternativa encontrada:", cashPaymentSection ? "Sim" : "Não");
         }
         
+        // Se ainda não encontramos a seção de pagamento em dinheiro, vamos criá-la
+        if (!cashPaymentSection && paymentMethodSelect) {
+            console.log("Seção de pagamento em dinheiro não encontrada. Criando uma nova...");
+            
+            // Criar um novo contêiner para pagamento em dinheiro
+            cashPaymentSection = document.createElement('div');
+            cashPaymentSection.id = 'change-container';
+            cashPaymentSection.className = 'form-group-compact mt-2';
+            cashPaymentSection.style.display = 'none';
+            cashPaymentSection.innerHTML = `
+                <label for="payment-amount" class="form-label-sm">Valor Pago</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">R$</span>
+                    <input type="number" id="payment-amount" class="form-control" step="0.01" min="0">
+                </div>
+                <div class="mt-1">
+                    <small>Troco: <span class="change-value" id="change-amount">R$ 0,00</span></small>
+                </div>
+            `;
+            
+            // Inserir após o select de método de pagamento
+            const parentElement = paymentMethodSelect.closest('.form-group-compact') || 
+                                 paymentMethodSelect.parentNode;
+            
+            if (parentElement) {
+                parentElement.insertAdjacentElement('afterend', cashPaymentSection);
+                console.log("Seção de pagamento em dinheiro criada e inserida no DOM");
+            } else {
+                console.error("Não foi possível encontrar um elemento pai para inserir a seção de pagamento");
+            }
+        }
+        
         if (paymentMethodSelect) {
             console.log("Método de pagamento inicial:", paymentMethodSelect.value);
             debugElemento(paymentMethodSelect, "Select de método de pagamento:");
@@ -647,9 +846,25 @@
                 console.log("Método de pagamento selecionado:", selectedMethod);
                 
                 if (cashPaymentSection) {
-                    if (selectedMethod === 'dinheiro' || selectedMethod === 'cash' || selectedMethod === '1') {
+                    // Verificar diferentes possíveis valores para o método dinheiro
+                    const isDinheiro = selectedMethod === 'dinheiro' || 
+                                     selectedMethod === 'cash' || 
+                                     selectedMethod === '1' || 
+                                     selectedMethod === 1 ||
+                                     (typeof selectedMethod === 'string' && 
+                                      selectedMethod.toLowerCase().includes('dinheiro'));
+                    
+                    if (isDinheiro) {
                         cashPaymentSection.style.display = 'block';
                         console.log("Mostrando seção de pagamento em dinheiro");
+                        
+                        // Focar no campo de valor pago
+                        setTimeout(() => {
+                            const paymentAmount = document.getElementById('payment-amount');
+                            if (paymentAmount) {
+                                paymentAmount.focus();
+                            }
+                        }, 100);
                     } else {
                         cashPaymentSection.style.display = 'none';
                         console.log("Ocultando seção de pagamento em dinheiro");
@@ -658,6 +873,31 @@
                     console.warn("Seção de pagamento em dinheiro não encontrada");
                 }
             }
+            
+            // Verificar se há opções no select
+            if (paymentMethodSelect.options.length === 0) {
+                console.warn("Select de método de pagamento não tem opções. Adicionando opções padrão...");
+                
+                // Adicionar algumas opções padrão
+                const options = [
+                    { value: '1', text: 'Dinheiro' },
+                    { value: '2', text: 'Cartão de Crédito' },
+                    { value: '3', text: 'Cartão de Débito' },
+                    { value: '4', text: 'PIX' }
+                ];
+                
+                options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.value;
+                    option.text = opt.text;
+                    paymentMethodSelect.appendChild(option);
+                });
+            }
+            
+            // Remover eventos existentes clonando o elemento
+            const newSelect = paymentMethodSelect.cloneNode(true);
+            paymentMethodSelect.parentNode.replaceChild(newSelect, paymentMethodSelect);
+            paymentMethodSelect = newSelect;
             
             // Configurar evento de mudança
             paymentMethodSelect.addEventListener('change', updateCashPaymentVisibility);
@@ -676,6 +916,7 @@
     function calcularTroco() {
         console.log("Configurando cálculo de troco");
         
+        // Procurar pelo campo de valor pago
         const paymentInput = document.getElementById('payment-amount');
         
         if (!paymentInput) {
@@ -683,11 +924,17 @@
             return;
         }
         
-        paymentInput.addEventListener('input', function() {
+        // Remover eventos existentes clonando o elemento
+        const newInput = paymentInput.cloneNode(true);
+        paymentInput.parentNode.replaceChild(newInput, paymentInput);
+        
+        // Adicionar evento de input para calcular o troco em tempo real
+        newInput.addEventListener('input', function() {
             // Obter o valor total da venda
-            const totalElement = document.getElementById('total-sale') || 
-                                document.getElementById('total_venda') ||
-                                document.getElementById('cart-total');
+            const totalElement = document.getElementById('total') || 
+                               document.getElementById('total-sale') || 
+                               document.getElementById('total_venda') || 
+                               document.querySelector('.total-value');
             
             if (!totalElement) {
                 console.warn("Elemento de total da venda não encontrado");
@@ -713,7 +960,7 @@
             // Exibir troco
             const changeElement = document.getElementById('change-amount') || 
                                  document.getElementById('troco') ||
-                                 document.querySelector('.change-display');
+                                 document.querySelector('.change-display, .change-value');
             
             if (changeElement) {
                 // Se o troco for negativo, mostrar quanto falta para completar o pagamento
@@ -893,16 +1140,79 @@
     document.addEventListener('DOMContentLoaded', function() {
         console.log("DOM carregado, inicializando sistema PDV...");
         
-        // Garantir token CSRF
-        ensureCSRFToken();
-        
-        // Configurar componentes
-        setupProductClicks();
-        setupQuantityInput();
-        setupAddToCartButton();
-        setupPaymentForm();
-        setupProductSearchField(); // Adicionar configuração do campo de busca
-        
-        console.log("Sistema PDV inicializado com sucesso!");
+        try {
+            // Garantir token CSRF
+            ensureCSRFToken();
+            
+            // Primeiro garantimos que o modal existe
+            garantirModalQuantidade();
+            
+            // Configurar componentes na ordem correta
+            setupProductClicks();
+            setupQuantityInput();
+            setupAddToCartButton();
+            setupPaymentForm();
+            setupProductSearchField();
+            
+            // Calcular totais do carrinho iniciais
+            setTimeout(calcularTotaisCarrinho, 500);
+            
+            console.log("Sistema PDV inicializado com sucesso!");
+        } catch (error) {
+            console.error("Erro ao inicializar o sistema PDV:", error);
+            alert("Ocorreu um erro ao inicializar o sistema. Verifique o console para mais detalhes.");
+        }
     });
+
+    // Função para tentar consertar problemas comuns
+    function corrigirProblemasComuns() {
+        console.log("Verificando e corrigindo problemas comuns...");
+        
+        // 1. Verificar se o modal de quantidade existe
+        garantirModalQuantidade();
+        
+        // 2. Verificar se o campo de pagamento em dinheiro está funcionando
+        const paymentMethodSelect = document.getElementById('metodo_pagamento');
+        if (paymentMethodSelect) {
+            const event = new Event('change');
+            paymentMethodSelect.dispatchEvent(event);
+        }
+        
+        // 3. Recalcular totais do carrinho
+        calcularTotaisCarrinho();
+        
+        console.log("Verificação e correção concluídas");
+    }
+
+    // Adicionar função de diagnóstico para uso no console
+    window.diagnosticoPDV = function() {
+        console.log("=== DIAGNÓSTICO DO SISTEMA PDV ===");
+        
+        const elementos = {
+            "Modal de Quantidade": document.getElementById('modalQuantidade'),
+            "Botão Adicionar ao Carrinho": document.getElementById('add-to-cart'),
+            "Input de Quantidade": document.getElementById('product-quantity'),
+            "Container do Carrinho": document.getElementById('cart-items') || document.getElementById('itens_venda'),
+            "Select de Método de Pagamento": document.getElementById('metodo_pagamento'),
+            "Campo de Valor Pago": document.getElementById('payment-amount'),
+            "Campo de Troco": document.getElementById('change-amount'),
+            "Subtotal": document.getElementById('subtotal'),
+            "Total": document.getElementById('total') || document.querySelector('.total-value')
+        };
+        
+        for (const [nome, elemento] of Object.entries(elementos)) {
+            console.log(`${nome}: ${elemento ? 'Encontrado' : 'NÃO ENCONTRADO'}`);
+            if (elemento) {
+                debugElemento(elemento, nome);
+            }
+        }
+        
+        console.log("=== CORREÇÃO AUTOMÁTICA DE PROBLEMAS ===");
+        corrigirProblemasComuns();
+        
+        return "Diagnóstico concluído. Verifique o console para mais detalhes.";
+    };
+
+    // Executar correção automática de problemas após 3 segundos
+    setTimeout(corrigirProblemasComuns, 3000);
 })(); 
